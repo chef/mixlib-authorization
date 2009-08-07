@@ -53,7 +53,7 @@ module Mixlib
         Merb.logger.debug "In auth_helper, database_from_orgname, orgname: #{orgname}"
         dbname = orgname_to_dbname(orgname)
         CouchRest.new(Merb::Config[:couchdb_uri]).database!(dbname)
-        CouchRest::Database.new(CouchRest::Server.new,dbname)
+        CouchRest::Database.new(CouchRest::Server.new(Merb::Config[:couchdb_uri]),dbname)
       end
 
       def user_to_actor(user_id)

@@ -26,7 +26,7 @@ module Mixlib
           key = OpenSSL::PKey::RSA.new(response["keypair"])
           [cert.public_key, key]
         rescue
-          raise StandardError, "Failed to generate cert: #{$!}"
+          raise AuthorizationException, "Failed to generate cert: #{$!}"
         end
       end
 
@@ -39,18 +39,18 @@ module Mixlib
           # Guid for the user's credentials
           resp["Location"].sub!("/GUIDS/", "")
         else
-          raise StandardError, "Failed to create object GUID"
+          raise AuthorizationException, "Failed to create object GUID"
         end
       end
 
       def orgname_to_dbname(orgname)
         dbname = "chef_#{orgname}"
-        Merb.logger.debug "In auth_helper, orgname_to_dbname, orgname: #{orgname}, dbname: #{dbname}"
+        Mixlib::Authorization::Log.debug "In auth_helper, orgname_to_dbname, orgname: #{orgname}, dbname: #{dbname}"
         dbname
       end
 
       def database_from_orgname(orgname)
-        Merb.logger.debug "In auth_helper, database_from_orgname, orgname: #{orgname}"
+        Mixlib::Authorization::Log.debug "In auth_helper, database_from_orgname, orgname: #{orgname}"
         dbname = orgname_to_dbname(orgname)
         CouchRest.new(Merb::Config[:couchdb_uri]).database!(dbname)
         CouchRest::Database.new(CouchRest::Server.new(Merb::Config[:couchdb_uri]),dbname)
@@ -59,40 +59,40 @@ module Mixlib
       def user_to_actor(user_id)
         raise ArgumentError, "must supply user_id" unless user_id
         actor = AuthJoin.by_user_object_id(:key=>user_id).first
-        Merb.logger.debug("actor: #{actor.inspect}")
+        Mixlib::Authorization::Log.debug("actor: #{actor.inspect}")
         actor
       end
 
       def actor_to_user(actor, org_database)
         raise ArgumentError, "must supply actor" unless actor
-        Merb.logger.debug("actor to user: actor: #{actor}")
+        Mixlib::Authorization::Log.debug("actor to user: actor: #{actor}")
         user_object_id = AuthJoin.by_auth_object_id(:key=>actor).first.user_object_id
         user = begin
                  User.get(user_object_id)
                rescue RestClient::ResourceNotFound
                  Client.on(org_database).get(user_object_id)
                end
-        Merb.logger.debug("user: #{user.inspect}")
+        Mixlib::Authorization::Log.debug("user: #{user.inspect}")
         user
       end
 
       def auth_group_to_user_group(group_id, org_database)
         raise ArgumentError, "must supply group id" unless group_id
-        Merb.logger.debug("auth group to user group: #{group_id}, database: #{org_database.inspect}")
+        Mixlib::Authorization::Log.debug("auth group to user group: #{group_id}, database: #{org_database.inspect}")
         auth_join = AuthJoin.by_auth_object_id(:key=>group_id).first
         user_group = Group.on(org_database).get(auth_join.user_object_id).groupname
-        Merb.logger.debug("user group: #{user_group}")
+        Mixlib::Authorization::Log.debug("user group: #{user_group}")
         user_group
       end
 
       def user_group_to_auth_group(group_id, org_database)
         raise ArgumentError, "must supply group id" unless group_id
-        Merb.logger.debug("user group to auth group: #{group_id}, database: #{org_database.inspect}")        
+        Mixlib::Authorization::Log.debug("user group to auth group: #{group_id}, database: #{org_database.inspect}")        
         group_obj = Group.on(org_database).by_groupname(:key=>group_id).first
         auth_join = AuthJoin.by_user_object_id(:key=>group_obj["_id"]).first
-        Merb.logger.debug("auth_join: #{auth_join.inspect}")
+        Mixlib::Authorization::Log.debug("auth_join: #{auth_join.inspect}")
         auth_group = auth_join.auth_object_id
-        Merb.logger.debug("auth group: #{auth_group}")
+        Mixlib::Authorization::Log.debug("auth group: #{auth_group}")
         auth_group
       end
       
@@ -128,9 +128,9 @@ module Mixlib
       
       def check_rights(params)
         raise ArgumentError, "bad arg to check_rights" unless params.respond_to?(:has_key?)
-        Merb.logger.debug("check rights params: #{params.inspect}")
+        Mixlib::Authorization::Log.debug("check rights params: #{params.inspect}")
         object = params[:object]
-        Merb.logger.debug("check rights object: #{object.inspect}")      
+        Mixlib::Authorization::Log.debug("check rights object: #{object.inspect}")      
         actor = params[:actor]
         ace = params[:ace].to_s
         object.is_authorized?(actor,ace)

@@ -29,7 +29,7 @@ module Mixlib
       def save
         url = [base_url,resource].join("/")
         requester_id = join_data["requester_id"]
-        Merb.logger.debug "IN SAVE: join_data #{join_data.inspect}"
+        Mixlib::Authorization::Log.debug "IN SAVE: join_data #{join_data.inspect}"
         rest = Opscode::REST.new
         headers = {:accept=>"application/json", :content_type=>'application/json'}
         headers[:x_ops_requesting_actor_id] = requester_id if requester_id
@@ -40,18 +40,18 @@ module Mixlib
           :headers=>headers,
           :payload=>join_data.to_json
         }
-        Merb.logger.debug "IN SAVE: url: #{url.inspect}, with payload: #{options[:payload]}"
+        Mixlib::Authorization::Log.debug "IN SAVE: url: #{url.inspect}, with payload: #{options[:payload]}"
         resp = rest.request(:post,url,options)
-        Merb.logger.debug "IN SAVE: response: #{resp.inspect}"
+        Mixlib::Authorization::Log.debug "IN SAVE: response: #{resp.inspect}"
         @identity = resp
       end
       
       def fetch
-        Merb.logger.debug "IN FETCH: #{self.inspect}"
+        Mixlib::Authorization::Log.debug "IN FETCH: #{self.inspect}"
         object_id = join_data["object_id"]
         url = [base_url,resource,object_id].join("/")
         requester_id = join_data["requester_id"]        
-        Merb.logger.debug "IN FETCH: #{url.inspect}"
+        Mixlib::Authorization::Log.debug "IN FETCH: #{url.inspect}"
         
         rest = Opscode::REST.new
         headers = {:accept=>"application/json", :content_type=>'application/json'}
@@ -64,20 +64,20 @@ module Mixlib
         }
 
         resp = rest.request(:get,url,options)
-        Merb.logger.debug "IN FETCH: response #{resp.inspect}"        
+        Mixlib::Authorization::Log.debug "IN FETCH: response #{resp.inspect}"        
         @identity = resp.merge({ "id"=>object_id })
       end
 
       def update
-        Merb.logger.debug "IN UPDATE: #{self.inspect}"        
+        Mixlib::Authorization::Log.debug "IN UPDATE: #{self.inspect}"        
       end
       
       def fetch_acl
-        Merb.logger.debug "IN FETCH ACL: #{self.inspect}"
+        Mixlib::Authorization::Log.debug "IN FETCH ACL: #{self.inspect}"
         object_id = join_data["object_id"]        
         url = [base_url,resource,object_id,"acl"].join("/")
         requester_id = join_data["requester_id"]
-        Merb.logger.debug "IN FETCH ACL: #{url}"        
+        Mixlib::Authorization::Log.debug "IN FETCH ACL: #{url}"        
         
         rest = Opscode::REST.new
         headers = {:accept=>"application/json", :content_type=>'application/json'}
@@ -94,11 +94,11 @@ module Mixlib
       end
 
       def is_authorized?(actor, ace)
-        Merb.logger.debug "IN IS_AUTHORIZED: #{self.inspect}, with actor: #{actor} and ace: #{ace}"
+        Mixlib::Authorization::Log.debug "IN IS_AUTHORIZED: #{self.inspect}, with actor: #{actor} and ace: #{ace}"
         object_id = join_data["object_id"]        
         url = [base_url,resource,object_id,"acl",ace,"actors",actor].join("/")
         requester_id = join_data["requester_id"]
-        Merb.logger.debug "IN IS_AUTHORIZED: #{url}"        
+        Mixlib::Authorization::Log.debug "IN IS_AUTHORIZED: #{url}"        
         
         rest = Opscode::REST.new
         headers = {:accept=>"application/json", :content_type=>'application/json'}
@@ -118,7 +118,7 @@ module Mixlib
       end
       
       def update_acl(acl_data)
-        Merb.logger.debug "IN UPDATE ACL: #{self.inspect}, acl_data: #{acl_data.inspect}"
+        Mixlib::Authorization::Log.debug "IN UPDATE ACL: #{self.inspect}, acl_data: #{acl_data.inspect}"
         
         # For each ace, update actors and groups
         begin
@@ -140,30 +140,30 @@ module Mixlib
             ["actors", "groups"].each do |actor_type|
               current_actor_type_data = current_ace[actor_type]
               if ace_data.has_key?(actor_type)
-                Merb.logger.debug("Current: #{current_actor_type_data.inspect}, Future: #{ace_data[actor_type].inspect}")
+                Mixlib::Authorization::Log.debug("Current: #{current_actor_type_data.inspect}, Future: #{ace_data[actor_type].inspect}")
                 
                 to_delete = current_actor_type_data - ace_data[actor_type]
                 to_put    = ace_data[actor_type] - current_actor_type_data
                 url_actor_type = [base_url,resource, object_id,"acl",ace_name,actor_type].join("/")
 
-                Merb.logger.debug("to_delete: #{to_delete.inspect}, to_put: #{to_put.inspect}")
+                Mixlib::Authorization::Log.debug("to_delete: #{to_delete.inspect}, to_put: #{to_put.inspect}")
                 
                 to_delete.each do |entity|
                   url_update_actor = [url_actor_type, entity].join("/")                  
-                  Merb.logger.debug "IN UPDATE ACL: #{url_update_actor}, updating ace #{ace_name} by removing #{entity}"
+                  Mixlib::Authorization::Log.debug "IN UPDATE ACL: #{url_update_actor}, updating ace #{ace_name} by removing #{entity}"
                   resp = rest.request(:delete,url_update_actor,options)                      
                 end
                 
                 to_put.each do |entity|
                   url_update_actor = [url_actor_type, entity].join("/")                  
-                  Merb.logger.debug "IN UPDATE ACL: #{url_update_actor}, updating ace #{ace_name} by adding #{entity}"
+                  Mixlib::Authorization::Log.debug "IN UPDATE ACL: #{url_update_actor}, updating ace #{ace_name} by adding #{entity}"
                   resp = rest.request(:put,url_update_actor,options)                      
                 end            
               end            
             end
           end
         rescue StandardError => se
-          Merb.logger.debug "Failed to update acl: #{se.message} " + se.backtrace.join(",\n")
+          Mixlib::Authorization::Log.debug "Failed to update acl: #{se.message} " + se.backtrace.join(",\n")
           raise
         end
       end

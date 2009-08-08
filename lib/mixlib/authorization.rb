@@ -6,6 +6,10 @@ module Mixlib
     class Log
       extend  Mixlib::Log      
     end
+    
+    class AuthorizationException < StandardError
+    end
+    
   end
 end
 

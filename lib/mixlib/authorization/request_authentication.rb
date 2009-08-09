@@ -1,3 +1,11 @@
+#
+# Author:: Christopher Brown <cb@opscode.com>
+#
+# Copyright 2009, Opscode, Inc.
+#
+# All rights reserved - do not redistribute
+#
+
 require 'mixlib/authentication/signatureverification'
 require 'mixlib/authorization/models'
 

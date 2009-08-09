@@ -7,12 +7,12 @@
 # All rights reserved - do not redistribute
 #
 
+require 'openssl'
+require 'opscode/rest'
+
 module Mixlib
   module Authorization
     module AuthHelper
-      require 'rubygems'
-      require 'openssl'
-      require 'opscode/rest'
       
       def gen_cert(guid)
         begin

@@ -39,7 +39,7 @@ module Mixlib
                    params[:requesting_actor_id] = actor.auth_object_id
                    user_key = OpenSSL::PKey::RSA.new(user.public_key)
                    Mixlib::Authorization::Log.debug "authenticating:\n #{user.inspect}\n"
-                   AuthenticateEvery::authenticator.authenticate_user_request(request, user_key)
+                   authenticator.authenticate_user_request(request, user_key)
                  rescue StandardError => se
                    Mixlib::Authorization::Log.debug "authenticate every failed: #{se}, #{se.backtrace}"
                    nil

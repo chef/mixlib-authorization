@@ -5,12 +5,15 @@
 #
 # All rights reserved - do not redistribute
 #
+require 'mixlib/authorization/auth_helper'
 
 module Mixlib
   module Authorization
     class AuthJoin < CouchRest::ExtendedDocument
       include CouchRest::Validation
       include Mixlib::Authorization::AuthHelper
+      
+      use_database Mixlib::Authorization::Config.default_database
       
       unique_id :gen_guid
       

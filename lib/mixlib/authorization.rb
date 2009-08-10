@@ -1,10 +1,9 @@
+require 'extlib'
 require 'couchrest'
 require 'mixlib/log'
 
 module Mixlib
   module Authorization
-    
-    PRIVKEY = nil
     
     class Log
       extend  Mixlib::Log      
@@ -13,11 +12,10 @@ module Mixlib
     class AuthorizationException < StandardError
     end
     
+    class Config
+      cattr_accessor :default_database
+      cattr_accessor :privkey      
+    end
   end
 end
-
-require 'mixlib/authorization/join_helper'
-require 'mixlib/authorization/auth_helper'
-require 'mixlib/authorization/auth_join'
-require 'mixlib/authorization/request_authentication'
 

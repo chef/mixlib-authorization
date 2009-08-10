@@ -15,13 +15,8 @@ module Mixlib
         include Mixlib::Authorization::AuthHelper
         include Mixlib::Authorization::JoinHelper
         
-        ###
-        # When the GUID service is ready, this is where we will be able to
-        # get a unique ID.
-        ###
-        
         unique_id :gen_guid
-        use_database Mixlib::Authorization::Models::Config.default_database
+        use_database Mixlib::Authorization::Config.default_database
         
         view_by :name
         view_by :full_name

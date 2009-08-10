@@ -16,7 +16,7 @@ module Mixlib
         include Mixlib::Authorization::JoinHelper
         
         unique_id :gen_guid
-        use_database Mixlib::Authorization::Models::Config.default_database        
+        use_database Mixlib::Authorization::Config.default_database
         
         view_by :first_name
         view_by :last_name

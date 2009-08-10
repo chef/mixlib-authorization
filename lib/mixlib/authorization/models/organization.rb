@@ -21,7 +21,7 @@ module Mixlib
         ###
         
         unique_id :gen_guid
-        use_database Mixlib::Authorization::Models::DEFAULT_DATABASE
+        use_database Mixlib::Authorization::Models::Config.default_database
         
         view_by :name
         view_by :full_name

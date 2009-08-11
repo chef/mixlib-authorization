@@ -52,11 +52,10 @@ module Mixlib
       def guid_from_orgname(orgname)
         Mixlib::Authorization::Log.debug "In auth_helper, guid_from_orgname, orgname: #{orgname}"
         begin
-          organization = Mixlib::Authorization::Models::Organization.find(orgname)
-        rescue
-          organization = {"guid" => nil}
+          Mixlib::Authorization::Models::Organization.find(orgname)["guid"]
+        rescue StandardError
+          nil
         end 
-        organization["guid"]
       end 
 
       def user_to_actor(user_id)

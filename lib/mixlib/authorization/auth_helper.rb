@@ -59,7 +59,7 @@ module Mixlib
       def user_to_actor(user_id)
         raise ArgumentError, "must supply user_id" unless user_id
         actor = AuthJoin.by_user_object_id(:key=>user_id).first
-        Mixlib::Authorization::Log.debug("actor: #{actor.inspect}")
+        Mixlib::Authorization::Log.debug("in user to actor: user: #{user_id}, actor:#{actor.inspect}")
         actor
       end
 

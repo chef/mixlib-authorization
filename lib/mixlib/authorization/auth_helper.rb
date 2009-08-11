@@ -44,7 +44,8 @@ module Mixlib
       end
 
       def orgname_to_dbname(orgname)
-        dbname = "chef_#{orgname}"
+        guid = guid_from_orgname(orgname).downcase
+        dbname = "chef_#{guid}"
         Mixlib::Authorization::Log.debug "In auth_helper, orgname_to_dbname, orgname: #{orgname}, dbname: #{dbname}"
         dbname
       end
@@ -55,6 +56,12 @@ module Mixlib
         CouchRest.new(Merb::Config[:couchdb_uri]).database!(dbname)
         CouchRest::Database.new(CouchRest::Server.new(Merb::Config[:couchdb_uri]),dbname)
       end
+      
+      def guid_from_orgname(orgname)
+        Mixlib::Authorization::Log.debug "In auth_helper, guid_from_orgname, orgname: #{orgname}"
+        organization = Mixlib::Authorization::Models::Organization.find(orgname)
+        organization["guid"]
+      end 
 
       def user_to_actor(user_id)
         raise ArgumentError, "must supply user_id" unless user_id

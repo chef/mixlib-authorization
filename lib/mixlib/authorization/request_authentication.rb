@@ -23,7 +23,8 @@ module Mixlib
           auth = begin
                    headers = request.env.inject({ }) { |memo, kv| memo[$2.downcase.to_sym] = kv[1] if kv[0] =~ /^(HTTP_)(.*)/; memo }
                    username = headers[:x_ops_userid].chomp
-                   orgname = params[:organization_id]
+                   #BUGBUG - next line seems odd.  Can't we ensure that it's *always* :organization_id? [cb]
+                   orgname = params[:organization_id] || params[:id]
                    Mixlib::Authorization::Log.debug "Authenticating username #{username}, orgname #{orgname}"
                    
                    user = begin

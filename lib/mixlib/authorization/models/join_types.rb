@@ -26,7 +26,7 @@ module Mixlib
               requester_id = join_data["requester_id"]
               rest = Opscode::REST.new
               headers = {:accept=>"application/json", :content_type=>'application/json'}
-              headers[:x_ops_requesting_actor_id] = requester_id if requester_id
+              headers["X-Ops-Requesting-Actor-Id"] = requester_id if requester_id
               
               options = { :authenticate=> true,
                 :user_secret=>OpenSSL::PKey::RSA.new(Mixlib::Authorization::Config.privkey),
@@ -45,7 +45,7 @@ module Mixlib
               requester_id = join_data["requester_id"]
               rest = Opscode::REST.new
               headers = {:accept=>"application/json", :content_type=>'application/json'}
-              headers[:x_ops_requesting_actor_id] = requester_id if requester_id
+              headers["X-Ops-Requesting-Actor-Id"] = requester_id if requester_id
               
               options = { :authenticate=> true,
                 :user_secret=>OpenSSL::PKey::RSA.new(Mixlib::Authorization::Config.privkey),
@@ -63,7 +63,7 @@ module Mixlib
               requester_id = join_data["requester_id"]
               rest = Opscode::REST.new
               headers = {:accept=>"application/json", :content_type=>'application/json'}
-              headers[:x_ops_requesting_actor_id] = requester_id if requester_id
+              headers["X-Ops-Requesting-Actor-Id"] = requester_id if requester_id
               
               options = { :authenticate=> true,
                 :user_secret=>OpenSSL::PKey::RSA.new(Mixlib::Authorization::Config.privkey),
@@ -81,7 +81,7 @@ module Mixlib
               requester_id = join_data["requester_id"]
               rest = Opscode::REST.new
               headers = {:accept=>"application/json", :content_type=>'application/json'}
-              headers[:x_ops_requesting_actor_id] = requester_id if requester_id
+              headers["X-Ops-Requesting-Actor-Id"] = requester_id if requester_id
               
               options = { :authenticate=> true,
                 :user_secret=>OpenSSL::PKey::RSA.new(Mixlib::Authorization::Config.privkey),

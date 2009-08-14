@@ -15,7 +15,6 @@ module Mixlib
         include Mixlib::Authorization::AuthHelper
         include Mixlib::Authorization::JoinHelper
         
-        unique_id :gen_guid
         use_database Mixlib::Authorization::Config.default_database
         
         view_by :first_name
@@ -32,11 +31,10 @@ module Mixlib
         property :email
         property :username
         property :public_key
-        property :cert_guid
         
         validates_with_method :username, :unique_username?
 
-        validates_present :first_name, :last_name, :display_name, :username, :email, :public_key, :cert_guid
+        validates_present :first_name, :last_name, :display_name, :username, :email, :public_key
 
         validates_format :username, :with => /^[a-z0-9\-_]+$/
         validates_format :email, :as => :email_address
@@ -70,8 +68,7 @@ module Mixlib
         def for_json
           self.properties.inject({ }) do |result, prop|
             pname = prop.name.to_sym
-            #BUGBUG - I hate stripping properties like this.  We should do it differently [cb]
-            result[pname] = self.send(pname) unless pname == :cert_guid
+            result[pname] = self.send(pname)
             result
           end
         end

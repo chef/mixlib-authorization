@@ -14,8 +14,6 @@ module Mixlib
         include Mixlib::Authorization::AuthHelper
         include Mixlib::Authorization::JoinHelper
 
-        unique_id :gen_guid
-        
         view_by :groupname
 
         property :groupname

@@ -14,17 +14,14 @@ module Mixlib
         include Mixlib::Authorization::AuthHelper
         include Mixlib::Authorization::JoinHelper
         
-        unique_id :gen_guid
-        
         view_by :clientname
 
         property :clientname
         property :public_key
-        property :cert_guid
         
         validates_with_method :clientname
 
-        validates_present :clientname, :public_key, :cert_guid
+        validates_present :clientname, :public_key
 
         validates_format :clientname, :with => /^([a-zA-Z0-9\-_\.])*$/
         #    /^(([:alpha]{1}([:alnum]-){1,62})\.)+([:alpha]{1}([:alnum]-){1,62})$/
@@ -59,7 +56,7 @@ module Mixlib
           self.properties.inject({ }) do |result, prop|
             pname = prop.name.to_sym
             #BUGBUG - I hate stripping properties like this.  We should do it differently [cb]
-            result[pname] = self.send(pname) unless pname == :cert_guid or pname == :public_key or pname == :cert_guid
+            result[pname] = self.send(pname) unless pname == :public_key
             result
           end
         end

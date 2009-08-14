@@ -1,5 +1,6 @@
 require 'extlib'
 require 'couchrest'
+require 'mixlib/config'
 require 'mixlib/log'
 
 module Mixlib
@@ -13,8 +14,13 @@ module Mixlib
     end
     
     class Config
-      cattr_accessor :default_database
-      cattr_accessor :privkey      
+      extend Mixlib::Config
+
+      default_database nil
+      private_key nil
+      authorization_service_uri nil
+      certificate_service_uri nil
+      couchdb_uri nil
     end
   end
 end

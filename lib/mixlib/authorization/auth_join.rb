@@ -15,8 +15,6 @@ module Mixlib
       
       use_database Mixlib::Authorization::Config.default_database
       
-      unique_id :gen_guid
-      
       view_by :user_object_id
       view_by :auth_object_id
       

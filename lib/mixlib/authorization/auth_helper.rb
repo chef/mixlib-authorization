@@ -16,7 +16,7 @@ module Mixlib
       
       def gen_cert(guid, rid=nil)
         begin
-          rest = Opscode::REST::Resource.new(Merb::Config[:certificateservice_uri])
+          rest = Opscode::REST::Resource.new(Mixlib::Authorization::Config.certificate_service_uri)
           #common name is in the format of: "URI:http://opscode.com/GUIDS/...."
           common_name = "URI:http://opscode.com/GUIDS/#{guid.to_s}"
           response = JSON.parse((rid == nil ? rest.post({:common_name => common_name}) : rest.post({:common_name => common_name}, rid) ))
@@ -27,19 +27,6 @@ module Mixlib
           [cert.public_key, key]
         rescue
           raise AuthorizationException, "Failed to generate cert: #{$!}"
-        end
-      end
-
-      def gen_guid(value=nil, initheader=nil)
-        http = Net::HTTP.new(Merb::Config[:guidservice_host], Merb::Config[:guidservice_port])
-        value ||= "This GUID brought to you by #{self.class}"
-        resp = http.send_request('POST', '/GUIDS', value.to_s, initheader)
-        case resp
-        when Net::HTTPSuccess, Net::HTTPRedirection
-          # Guid for the user's credentials
-          resp["Location"].sub!("/GUIDS/", "")
-        else
-          raise AuthorizationException, "Failed to create object GUID"
         end
       end
 
@@ -56,9 +43,10 @@ module Mixlib
         if dbname == nil
           nil
         else 
-          CouchRest.new(Merb::Config[:couchdb_uri]).database!(dbname)
-          CouchRest::Database.new(CouchRest::Server.new(Merb::Config[:couchdb_uri]),dbname)
-        end 
+          uri = Mixlib::Authorization::Config.couchdb_uri
+          CouchRest.new(uri).database!(dbname)
+          CouchRest::Database.new(CouchRest::Server.new(uri),dbname)
+        end
       end
       
       def guid_from_orgname(orgname)
@@ -205,8 +193,6 @@ module Mixlib
             "groups"=>transform_group_ids(acl_data[ace]["groups"], org_database, direction)}
         end
       end
-      
- 
       
       def for_json
         @aces

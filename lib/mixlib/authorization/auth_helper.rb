@@ -39,6 +39,7 @@ module Mixlib
 
       def database_from_orgname(orgname)
         Mixlib::Authorization::Log.debug "In auth_helper, database_from_orgname, orgname: #{orgname}"
+        raise ArgumentError, "Must supply orgname" if orgname.nil? or orgname.empty?
         dbname = orgname_to_dbname(orgname)
         if dbname == nil
           nil

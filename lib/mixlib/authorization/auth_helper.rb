@@ -44,8 +44,8 @@ module Mixlib
       end
 
       def orgname_to_dbname(orgname)
-        guid = guid_from_orgname(orgname).downcase
-        dbname = "chef_#{guid}"
+        guid = guid_from_orgname(orgname)
+        dbname = (guid == nil ? nil : "chef_#{guid.downcase}")
         Mixlib::Authorization::Log.debug "In auth_helper, orgname_to_dbname, orgname: #{orgname}, dbname: #{dbname}"
         dbname
       end
@@ -53,13 +53,21 @@ module Mixlib
       def database_from_orgname(orgname)
         Mixlib::Authorization::Log.debug "In auth_helper, database_from_orgname, orgname: #{orgname}"
         dbname = orgname_to_dbname(orgname)
-        CouchRest.new(Merb::Config[:couchdb_uri]).database!(dbname)
-        CouchRest::Database.new(CouchRest::Server.new(Merb::Config[:couchdb_uri]),dbname)
+        if dbname == nil
+          nil
+        else 
+          CouchRest.new(Merb::Config[:couchdb_uri]).database!(dbname)
+          CouchRest::Database.new(CouchRest::Server.new(Merb::Config[:couchdb_uri]),dbname)
+        end 
       end
       
       def guid_from_orgname(orgname)
         Mixlib::Authorization::Log.debug "In auth_helper, guid_from_orgname, orgname: #{orgname}"
-        organization = Mixlib::Authorization::Models::Organization.find(orgname)
+        begin
+          organization = Mixlib::Authorization::Models::Organization.find(orgname)
+        rescue
+          organization = {"guid" => nil}
+        end 
         organization["guid"]
       end 
 

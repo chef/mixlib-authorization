@@ -14,12 +14,12 @@ module Mixlib
   module Authorization
     module AuthHelper
       
-      def gen_cert(guid)
+      def gen_cert(guid, rid=nil)
         begin
           rest = Opscode::REST::Resource.new(Merb::Config[:certificateservice_uri])
           #common name is in the format of: "URI:http://opscode.com/GUIDS/...."
           common_name = "URI:http://opscode.com/GUIDS/#{guid.to_s}"
-          response = JSON.parse(rest.post({:common_name => common_name}))
+          response = JSON.parse((rid == nil ? rest.post({:common_name => common_name}) : rest.post({:common_name => common_name}, rid) ))
           #certificate
           cert = OpenSSL::X509::Certificate.new(response["cert"])
           #private key
@@ -30,10 +30,10 @@ module Mixlib
         end
       end
 
-      def gen_guid(value=nil)
+      def gen_guid(value=nil, initheader=nil)
         http = Net::HTTP.new(Merb::Config[:guidservice_host], Merb::Config[:guidservice_port])
         value ||= "This GUID brought to you by #{self.class}"
-        resp = http.request_post('/GUIDS', value.to_s)
+        resp = http.send_request('POST', '/GUIDS', value.to_s, initheader)
         case resp
         when Net::HTTPSuccess, Net::HTTPRedirection
           # Guid for the user's credentials

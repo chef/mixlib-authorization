@@ -17,7 +17,6 @@ module Mixlib
         view_by :groupname
 
         property :groupname
-        property :requester_id
 
         validates_present :groupname
 
@@ -44,9 +43,11 @@ module Mixlib
             "actors" => transform_actor_ids(actors_and_groups_auth["actors"], database, :to_user),
             "groups" => transform_group_ids(actors_and_groups_auth["groups"], database, :to_user)}
           Mixlib::Authorization::Log.debug("join_data: #{actors_and_groups.inspect}")
-          properties.inject({ }) do |result, prop|
-            { :groupname => groupname }.merge(actors_and_groups)
-          end
+          self.properties.inject({ }) { |result, prop|
+            pname = prop.name.to_sym
+            result[pname] = self.send(pname)
+            result
+          }.merge(actors_and_groups)
         end
       end  
 

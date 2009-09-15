@@ -14,17 +14,17 @@ module Mixlib
         include Mixlib::Authorization::AuthHelper
         include Mixlib::Authorization::JoinHelper
 
-        view_by :containername
+        view_by :name
         view_by :containerpath
         
-        property :containername
+        property :name
         property :containerpath  
         
         property :requester_id
 
-        validates_present :containername, :containerpath
+        validates_present :name, :containerpath
 
-        validates_format :containername, :with => /^[a-z0-9\-_]+$/
+        validates_format :name, :with => /^[a-z0-9\-_]+$/
         validates_format :containerpath, :with => /^[a-z0-9\-_\/]+$/
         
         auto_validate!
@@ -34,7 +34,7 @@ module Mixlib
 
         join_type Mixlib::Authorization::Models::JoinTypes::Container
 
-        join_properties :containername, :containerpath, :requester_id
+        join_properties :name, :containerpath, :requester_id
 
         def self.find(name)
           Container.by_name(:key => name).first or raise ArgumentError

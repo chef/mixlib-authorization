@@ -22,21 +22,21 @@ module Mixlib
         view_by :middle_name
         view_by :display_name
         view_by :email 
-        view_by :username
+        view_by :name
 
         property :first_name
         property :last_name
         property :middle_name
         property :display_name
         property :email
-        property :username
+        property :name
         property :public_key
         
-        validates_with_method :username, :unique_username?
+        validates_with_method :name, :unique_username?
 
-        validates_present :first_name, :last_name, :display_name, :username, :email, :public_key
+        validates_present :first_name, :last_name, :display_name, :name, :email, :public_key
 
-        validates_format :username, :with => /^[a-z0-9\-_]+$/
+        validates_format :name, :with => /^[a-z0-9\-_]+$/
         validates_format :email, :as => :email_address
         
         auto_validate!
@@ -50,19 +50,19 @@ module Mixlib
 
         def unique_username?
           begin
-            r = User.by_username(:key => self["username"], :include_docs => false)
+            r = User.by_name(:key => self["name"], :include_docs => false)
             how_many = r["rows"].length
             # If we don't have an object with this name, then we are the first, and it's cool.
             # If we do have *one*, and we have an id, we assume we are safe to save ourself again.
             return true if (how_many == 0) || (how_many == 1 && self.has_key?('_id'))
           rescue StandardError => se
-            Mixlib::Authorization::Log.error "Failed to determine if username '#{self['username']}' is unique"
+            Mixlib::Authorization::Log.error "Failed to determine if username '#{self['name']}' is unique"
           end
-          [ false, "The name #{self["username"]} is not unique!" ]      
+          [ false, "The name #{self["name"]} is not unique!" ]      
         end
         
-        def self.find(username)
-          User.by_username(:key => username).first or raise ArgumentError
+        def self.find(name)
+          User.by_name(:key => name).first or raise ArgumentError
         end
         
         def for_json

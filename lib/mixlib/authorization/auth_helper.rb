@@ -176,6 +176,27 @@ module Mixlib
       end      
     end
     
+    class Ace
+      include Mixlib::Authorization::AuthHelper
+      
+      attr_reader :org_database
+      attr_reader :direction
+      attr_reader :ace
+      
+      def initialize(orgname, ace_data, acl_direction=:to_user)
+        @org_database = (orgname.nil? ? nil : database_from_orgname(orgname))
+        @direction = acl_direction
+        @ace = { "actors" => transform_actor_ids(ace_data["actors"], org_database, direction),
+                 "groups"=>transform_group_ids(ace_data["groups"], org_database, direction)}
+      end
+      
+      def for_json
+        @ace
+      end
+      
+    end
+    
+    
     class Acl
       include Mixlib::Authorization::AuthHelper
       
@@ -199,5 +220,9 @@ module Mixlib
       end
       
     end
+    
+    
+    
+    
   end
 end

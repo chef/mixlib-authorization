@@ -115,50 +115,49 @@ module Mixlib
           end
         end
         
-        def update_acl(acl_data)
-          Mixlib::Authorization::Log.debug "IN UPDATE ACL: #{self.inspect}, acl_data: #{acl_data.inspect}"
+        #e.g. ace_name: 'delete', ace_data: {"actors"=>["signing_caller"], "groups"=>[]}
+        def update_acl(ace_name, ace_data)
+          Mixlib::Authorization::Log.debug "IN UPDATE ACL: #{self.inspect}, ace_data: #{ace_data.inspect}"
           
-          # For each ace, update actors and groups
+          # update actors and groups
           begin
-            acl_data.each do |ace_name, ace_data|
+            object_id = join_data["object_id"]
+            
+            headers = {:accept=>"application/json", :content_type=>'application/json', "X-Ops-Requesting-Actor-Id" => join_data["requester_id"]}
+            options = { :authenticate=> true,
+              :user_secret=>OpenSSL::PKey::RSA.new(Mixlib::Authorization::Config.private_key),
+              :user_id=>'front-end service',
+              :headers=>headers,
+            }
+            
+            rest = Opscode::REST.new
+            url_get_ace = [base_url,resource, object_id,"acl",ace_name].join("/")
+            current_ace = rest.request(:get, url_get_ace, options)
+            
+            ["actors", "groups"].each do |actor_type|
+              current_actor_type_data = current_ace[actor_type]
               
-              object_id = join_data["object_id"]
-              
-              headers = {:accept=>"application/json", :content_type=>'application/json', "X-Ops-Requesting-Actor-Id" => join_data["requester_id"]}
-              options = { :authenticate=> true,
-                :user_secret=>OpenSSL::PKey::RSA.new(Mixlib::Authorization::Config.private_key),
-                :user_id=>'front-end service',
-                :headers=>headers,
-              }
-              
-              rest = Opscode::REST.new
-              url_get_ace = [base_url,resource, object_id,"acl",ace_name].join("/")
-              current_ace = rest.request(:get, url_get_ace, options)
-              
-              ["actors", "groups"].each do |actor_type|
-                current_actor_type_data = current_ace[actor_type]
-                if ace_data.has_key?(actor_type)
-                  Mixlib::Authorization::Log.debug("Current: #{current_actor_type_data.inspect}, Future: #{ace_data[actor_type].inspect}")
-                  
-                  to_delete = current_actor_type_data - ace_data[actor_type]
-                  to_put    = ace_data[actor_type] - current_actor_type_data
-                  url_actor_type = [base_url,resource, object_id,"acl",ace_name,actor_type].join("/")
+              if ace_data.has_key?(actor_type)
+                Mixlib::Authorization::Log.debug("Current: #{current_actor_type_data.inspect}, Future: #{ace_data[actor_type].inspect}")
+                
+                to_delete = current_actor_type_data - ace_data[actor_type]
+                to_put    = ace_data[actor_type] - current_actor_type_data
+                url_actor_type = [base_url,resource, object_id,"acl",ace_name,actor_type].join("/")
 
-                  Mixlib::Authorization::Log.debug("to_delete: #{to_delete.inspect}, to_put: #{to_put.inspect}")
-                  
-                  to_delete.each do |entity|
-                    url_update_actor = [url_actor_type, entity].join("/")                  
-                    Mixlib::Authorization::Log.debug "IN UPDATE ACL: #{url_update_actor}, updating ace #{ace_name} by removing #{entity}"
-                    resp = rest.request(:delete,url_update_actor,options)                      
-                  end
-                  
-                  to_put.each do |entity|
-                    url_update_actor = [url_actor_type, entity].join("/")                  
-                    Mixlib::Authorization::Log.debug "IN UPDATE ACL: #{url_update_actor}, updating ace #{ace_name} by adding #{entity}"
-                    resp = rest.request(:put,url_update_actor,options)                      
-                  end            
+                Mixlib::Authorization::Log.debug("to_delete: #{to_delete.inspect}, to_put: #{to_put.inspect}")
+                
+                to_delete.each do |entity|
+                  url_update_actor = [url_actor_type, entity].join("/")                  
+                  Mixlib::Authorization::Log.debug "IN UPDATE ACL: #{url_update_actor}, updating ace #{ace_name} by removing #{entity}"
+                  resp = rest.request(:delete,url_update_actor,options)                      
+                end
+                
+                to_put.each do |entity|
+                  url_update_actor = [url_actor_type, entity].join("/")                  
+                  Mixlib::Authorization::Log.debug "IN UPDATE ACL: #{url_update_actor}, updating ace #{ace_name} by adding #{entity}"
+                  resp = rest.request(:put,url_update_actor,options)                      
                 end            
-              end
+              end            
             end
           rescue StandardError => se
             Mixlib::Authorization::Log.debug "Failed to update acl: #{se.message} " + se.backtrace.join(",\n")

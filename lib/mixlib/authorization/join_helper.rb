@@ -60,12 +60,12 @@ module Mixlib
         join_object.destroy
       end
 
-      def update_join_acl(acl_data)
+      def update_join_acl(ace_type, ace_data)
         Mixlib::Authorization::Log.debug "IN UPDATE JOIN ACL: #{join_data.inspect}"      
         join_object = AuthJoin.by_user_object_id(:key=>self.id).first or raise ArgumentError
         auth_join_object = self.class.instance_variable_get("@join_type").new(Mixlib::Authorization::Config.authorization_service_uri, { "object_id"=>join_object[:auth_object_id]}.merge(join_data))
         Mixlib::Authorization::Log.debug "IN UPDATE JOIN ACL: #{auth_join_object.inspect}"      
-        auth_join_object.update_acl(acl_data)
+        auth_join_object.update_acl(ace_type, ace_data)
       end
 
       def is_authorized?(actor,ace)

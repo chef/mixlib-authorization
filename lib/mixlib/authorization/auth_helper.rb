@@ -118,7 +118,7 @@ module Mixlib
           memo << auth_join.auth_object_id
         end
 
-        actor_ids += client_ids
+        actor_ids.concat(client_ids)
         
         group_ids = groupnames.inject([]) do |memo, groupname|
           group = Mixlib::Authorization::Models::Group.on(database).by_name(:key=>groupname).first

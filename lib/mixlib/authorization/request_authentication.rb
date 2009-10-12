@@ -35,7 +35,7 @@ module Mixlib
                             if orgname
                               cr = database_from_orgname(orgname)
                               Mixlib::Authorization::Log.debug "checking for client #{username}"
-                              Mixlib::Authorization::Models::Client.on(cr).by_name(:key=>username).first
+                              Mixlib::Authorization::Models::Client.on(cr).by_clientname(:key=>username).first
                             end
                           end
 

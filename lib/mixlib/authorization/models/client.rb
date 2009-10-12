@@ -14,16 +14,16 @@ module Mixlib
         include Mixlib::Authorization::AuthHelper
         include Mixlib::Authorization::JoinHelper
         
-        view_by :name
+        view_by :clientname
 
-        property :name
+        property :clientname
         property :public_key
         
-        validates_with_method :name
+        validates_with_method :clientname
 
-        validates_present :name, :public_key
+        validates_present :clientname, :public_key
 
-        validates_format :name, :with => /^([a-zA-Z0-9\-_\.])*$/
+        validates_format :clientname, :with => /^([a-zA-Z0-9\-_\.])*$/
         #    /^(([:alpha]{1}([:alnum]-){1,62})\.)+([:alpha]{1}([:alnum]-){1,62})$/
         
         auto_validate!
@@ -33,11 +33,11 @@ module Mixlib
 
         join_type Mixlib::Authorization::Models::JoinTypes::Actor
 
-        join_properties :name, :requester_id
+        join_properties :clientname, :requester_id
 
         def unique_clientname?
           begin
-            r = Client.by_name(:key => self["name"], :include_docs => false)
+            r = Client.by_clientname(:key => self["name"], :include_docs => false)
             how_many = r["rows"].length
             # If we don't have an object with this name, then we are the first, and it's cool.
             # If we do have *one*, and we have an id, we assume we are safe to save ourself again.
@@ -49,7 +49,7 @@ module Mixlib
         end
         
         def self.find(name)
-          Client.by_name(:key => name).first or raise ArgumentError
+          Client.by_clientname(:key => name).first or raise ArgumentError
         end
         
         def for_json

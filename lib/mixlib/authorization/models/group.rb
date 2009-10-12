@@ -14,13 +14,13 @@ module Mixlib
         include Mixlib::Authorization::AuthHelper
         include Mixlib::Authorization::JoinHelper
 
-        view_by :name
+        view_by :groupname
 
-        property :name
+        property :groupname
 
-        validates_present :name
+        validates_present :groupname
 
-        validates_format :name, :with => /^[a-z0-9\-_]+$/
+        validates_format :groupname, :with => /^[a-z0-9\-_]+$/
         
         auto_validate!
 
@@ -35,7 +35,7 @@ module Mixlib
 
         join_type Mixlib::Authorization::Models::JoinTypes::Group
 
-        join_properties :name, :actors, :groups, :requester_id
+        join_properties :groupname, :actors, :groups, :requester_id
         
         def for_json
           actors_and_groups_auth = fetch_join

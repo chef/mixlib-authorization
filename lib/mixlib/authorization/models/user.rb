@@ -22,21 +22,21 @@ module Mixlib
         view_by :middle_name
         view_by :display_name
         view_by :email 
-        view_by :name
+        view_by :username
 
         property :first_name
         property :last_name
         property :middle_name
         property :display_name
         property :email
-        property :name
+        property :username
         property :public_key
         
-        validates_with_method :name, :unique_username?
+        validates_with_method :username, :unique_username?
 
-        validates_present :first_name, :last_name, :display_name, :name, :email, :public_key
+        validates_present :first_name, :last_name, :display_name, :username, :email, :public_key
 
-        validates_format :name, :with => /^[a-z0-9\-_]+$/
+        validates_format :username, :with => /^[a-z0-9\-_]+$/
         validates_format :email, :as => :email_address
         
         auto_validate!
@@ -50,7 +50,7 @@ module Mixlib
 
         def unique_username?
           begin
-            r = User.by_name(:key => self["name"], :include_docs => false)
+            r = User.by_username(:key => self["name"], :include_docs => false)
             how_many = r["rows"].length
             # If we don't have an object with this name, then we are the first, and it's cool.
             # If we do have *one*, and we have an id, we assume we are safe to save ourself again.
@@ -62,7 +62,7 @@ module Mixlib
         end
         
         def self.find(name)
-          User.by_name(:key => name).first or raise ArgumentError
+          User.by_username(:key => name).first or raise ArgumentError
         end
         
         def for_json

@@ -83,7 +83,7 @@ module Mixlib
         raise ArgumentError, "must supply group id" unless group_id
         Mixlib::Authorization::Log.debug("auth group to user group: #{group_id}, database: #{org_database.inspect}")
         auth_join = AuthJoin.by_auth_object_id(:key=>group_id).first
-        user_group = Mixlib::Authorization::Models::Group.on(org_database).get(auth_join.user_object_id).name
+        user_group = Mixlib::Authorization::Models::Group.on(org_database).get(auth_join.user_object_id).groupname
         Mixlib::Authorization::Log.debug("user group: #{user_group}")
         user_group
       end
@@ -91,7 +91,7 @@ module Mixlib
       def user_group_to_auth_group(group_id, org_database)
         raise ArgumentError, "must supply group id" unless group_id
         Mixlib::Authorization::Log.debug("user group to auth group: #{group_id}, database: #{org_database.inspect}")        
-        group_obj = Mixlib::Authorization::Models::Group.on(org_database).by_name(:key=>group_id).first
+        group_obj = Mixlib::Authorization::Models::Group.on(org_database).by_groupname(:key=>group_id).first
         auth_join = AuthJoin.by_user_object_id(:key=>group_obj["_id"]).first
         Mixlib::Authorization::Log.debug("auth_join: #{auth_join.inspect}")
         auth_group = auth_join.auth_object_id
@@ -113,7 +113,7 @@ module Mixlib
         end
 
         client_ids = clientnames.inject([]) do |memo, clientname|
-          client = Mixlib::Authorization::Models::Client.on(database).by_name(:key=>clientname).first
+          client = Mixlib::Authorization::Models::Client.on(database).by_clientname(:key=>clientname).first
           auth_join = AuthJoin.by_user_object_id(:key=>client.id).first
           memo << auth_join.auth_object_id
         end
@@ -121,7 +121,7 @@ module Mixlib
         actor_ids.concat(client_ids)
         
         group_ids = groupnames.inject([]) do |memo, groupname|
-          group = Mixlib::Authorization::Models::Group.on(database).by_name(:key=>groupname).first
+          group = Mixlib::Authorization::Models::Group.on(database).by_groupname(:key=>groupname).first
           auth_join = AuthJoin.by_user_object_id(:key=>group.id).first
           memo << auth_join.auth_object_id
         end
@@ -145,12 +145,12 @@ module Mixlib
           actor = case direction
                   when  :to_user
                     user = actor_to_user(incoming_actor, org_database)
-                    user.name
+                    user.username
                   when  :to_auth
                     user = begin
                              Mixlib::Authorization::Models::User.find(incoming_actor)
                            rescue ArgumentError
-                             Mixlib::Authorization::Models::Client.on(org_database).by_name(:key=>incoming_actor).first
+                             Mixlib::Authorization::Models::Client.on(org_database).by_clientname(:key=>incoming_actor).first
                            end
                     actor = user_to_actor(user.id)
                     actor.auth_object_id

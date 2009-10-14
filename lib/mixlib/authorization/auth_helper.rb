@@ -142,24 +142,28 @@ module Mixlib
       def transform_actor_ids(incoming_actors, org_database, direction)
         outgoing_actors = []
         incoming_actors.each { |incoming_actor|
-          actor = case direction
-                  when :to_user
-                    user_or_client = actor_to_user(incoming_actor, org_database)
-                    if user_or_client.respond_to? :username
-                      user_or_client.username
-                    else
-                      user_or_client.clientname
+          actor = begin
+                    case direction
+                    when :to_user
+                      user_or_client = actor_to_user(incoming_actor, org_database)
+                      if user_or_client.respond_to? :username
+                        user_or_client.username
+                      else
+                        user_or_client.clientname
+                      end
+                    when :to_auth
+                      user = begin
+                               Mixlib::Authorization::Models::User.find(incoming_actor)
+                             rescue ArgumentError
+                               Mixlib::Authorization::Models::Client.on(org_database).by_clientname(:key=>incoming_actor).first
+                             end
+                      actor = user_to_actor(user.id)
+                      actor.auth_object_id
                     end
-                  when :to_auth
-                    user = begin
-                             Mixlib::Authorization::Models::User.find(incoming_actor)
-                           rescue ArgumentError
-                             Mixlib::Authorization::Models::Client.on(org_database).by_clientname(:key=>incoming_actor).first
-                           end
-                    actor = user_to_actor(user.id)
-                    actor.auth_object_id
+                  rescue StandardError
+                    nil
                   end
-          outgoing_actors << actor
+          outgoing_actors << actor unless actor.nil?
         }
         outgoing_actors        
       end
@@ -167,14 +171,17 @@ module Mixlib
       def transform_group_ids(incoming_groups, org_database, direction)
         outgoing_groups = []
         incoming_groups.each{ |incoming_group|
-          group = case direction
-                  when  :to_user
-                    auth_group_to_user_group(incoming_group, org_database)
-                  when  :to_auth
-                    user_group_to_auth_group(incoming_group, org_database)
+          group = begin
+                    case direction
+                    when  :to_user
+                      auth_group_to_user_group(incoming_group, org_database)
+                    when  :to_auth
+                      user_group_to_auth_group(incoming_group, org_database)
+                    end
+                  rescue StandardError
+                    nil
                   end
-
-          outgoing_groups << group
+          outgoing_groups << group unless group.nil?
         }
         outgoing_groups      
       end      

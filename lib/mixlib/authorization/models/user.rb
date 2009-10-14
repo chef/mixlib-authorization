@@ -50,7 +50,7 @@ module Mixlib
 
         def unique_username?
           begin
-            r = User.by_username(:key => self["name"], :include_docs => false)
+            r = User.by_username(:key => self[:username], :include_docs => false)
             how_many = r["rows"].length
             # If we don't have an object with this name, then we are the first, and it's cool.
             # If we do have *one*, and we have an id, we assume we are safe to save ourself again.
@@ -58,7 +58,7 @@ module Mixlib
           rescue StandardError => se
             Mixlib::Authorization::Log.error "Failed to determine if username '#{self['name']}' is unique"
           end
-          [ false, "The name #{self["name"]} is not unique!" ]      
+          [ false, "The name #{self[:username]} is not unique!" ]
         end
         
         def self.find(name)

@@ -143,10 +143,14 @@ module Mixlib
         outgoing_actors = []
         incoming_actors.each { |incoming_actor|
           actor = case direction
-                  when  :to_user
-                    user = actor_to_user(incoming_actor, org_database)
-                    user.username
-                  when  :to_auth
+                  when :to_user
+                    user_or_client = actor_to_user(incoming_actor, org_database)
+                    if user_or_client.respond_to? :username
+                      user_or_client.username
+                    else
+                      user_or_client.clientname
+                    end
+                  when :to_auth
                     user = begin
                              Mixlib::Authorization::Models::User.find(incoming_actor)
                            rescue ArgumentError

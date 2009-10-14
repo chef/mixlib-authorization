@@ -37,15 +37,15 @@ module Mixlib
 
         def unique_clientname?
           begin
-            r = Client.by_clientname(:key => self["name"], :include_docs => false)
+            r = Client.by_clientname(:key => self["clientname"], :include_docs => false)
             how_many = r["rows"].length
             # If we don't have an object with this name, then we are the first, and it's cool.
             # If we do have *one*, and we have an id, we assume we are safe to save ourself again.
             return true if (how_many == 0) || (how_many == 1 && self.has_key?('_id'))
           rescue StandardError => se
-            Mixlib::Authorization::Log.error "Failed to determine if username '#{self['name']}' is unique"
+            Mixlib::Authorization::Log.error "Failed to determine if username '#{self['clientname']}' is unique"
           end
-          [ false, "The name #{self["name"]} is not unique!" ]      
+          [ false, "The name #{self["clientname"]} is not unique!" ]
         end
         
         def self.find(name)

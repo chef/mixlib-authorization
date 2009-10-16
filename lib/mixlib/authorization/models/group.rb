@@ -27,7 +27,6 @@ module Mixlib
         save_callback :after, :transform_and_create
         destroy_callback :before, :delete_join
 
-
         def transform_and_create
           self["actors"], self["groups"] = transform_names_to_auth_ids(database,self["actor_and_group_names"])
           create_join

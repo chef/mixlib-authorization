@@ -109,13 +109,15 @@ module Mixlib
         actor_ids = actornames.uniq.inject([]) do |memo, actorname|
           user = Mixlib::Authorization::Models::User.find(actorname)
           auth_join = AuthJoin.by_user_object_id(:key=>user.id).first
-          memo << auth_join.auth_object_id
+          memo << auth_join.auth_object_id if auth_join
+          memo
         end
 
         client_ids = clientnames.uniq.inject([]) do |memo, clientname|
           client = Mixlib::Authorization::Models::Client.on(database).by_clientname(:key=>clientname).first
           auth_join = AuthJoin.by_user_object_id(:key=>client.id).first
-          memo << auth_join.auth_object_id
+          memo << auth_join.auth_object_id if auth_join
+          memo
         end
 
         actor_ids.concat(client_ids)
@@ -123,7 +125,8 @@ module Mixlib
         group_ids = groupnames.uniq.inject([]) do |memo, groupname|
           group = Mixlib::Authorization::Models::Group.on(database).by_groupname(:key=>groupname).first
           auth_join = AuthJoin.by_user_object_id(:key=>group.id).first
-          memo << auth_join.auth_object_id
+          memo << auth_join.auth_object_id if auth_join
+          memo
         end
 
         [actor_ids, group_ids]

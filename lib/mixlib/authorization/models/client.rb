@@ -18,6 +18,7 @@ module Mixlib
 
         property :clientname
         property :public_key
+        property :orgname
         
         validates_with_method :clientname
 

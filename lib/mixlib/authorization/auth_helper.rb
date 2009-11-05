@@ -69,11 +69,14 @@ module Mixlib
       def actor_to_user(actor, org_database)
         raise ArgumentError, "must supply actor" unless actor
         Mixlib::Authorization::Log.debug("actor to user: actor: #{actor}")
-        user_object_id = AuthJoin.by_auth_object_id(:key=>actor).first.user_object_id
+
         user = begin
+                 user_object_id = AuthJoin.by_auth_object_id(:key=>actor).first.user_object_id                 
                  Mixlib::Authorization::Models::User.get(user_object_id)
                rescue RestClient::ResourceNotFound
                  Mixlib::Authorization::Models::Client.on(org_database).get(user_object_id)
+               rescue StandardError
+                 nil
                end
         Mixlib::Authorization::Log.debug("user: #{user.inspect}")
         user
@@ -149,10 +152,14 @@ module Mixlib
                     case direction
                     when :to_user
                       user_or_client = actor_to_user(incoming_actor, org_database)
-                      if user_or_client.respond_to? :username
-                        user_or_client.username
+                      if user_or_client
+                        if user_or_client.respond_to? :username
+                          user_or_client.username
+                        else
+                          user_or_client.clientname
+                        end
                       else
-                        user_or_client.clientname
+                        nil
                       end
                     when :to_auth
                       user = begin
@@ -160,11 +167,13 @@ module Mixlib
                              rescue ArgumentError
                                Mixlib::Authorization::Models::Client.on(org_database).by_clientname(:key=>incoming_actor).first
                              end
+                      raise StandardError unless user
                       actor = user_to_actor(user.id)
                       actor.auth_object_id
                     end
                   rescue StandardError
-                    nil
+                    Mixlib::Authorization::Log.debug "transform_actor_ids: Failed to find incoming actor: #{incoming_actor}"
+                    raise
                   end
           outgoing_actors << actor unless actor.nil?
         }
@@ -174,16 +183,14 @@ module Mixlib
       def transform_group_ids(incoming_groups, org_database, direction)
         outgoing_groups = []
         incoming_groups.each{ |incoming_group|
-          group = begin
-                    case direction
-                    when  :to_user
-                      auth_group_to_user_group(incoming_group, org_database)
-                    when  :to_auth
-                      user_group_to_auth_group(incoming_group, org_database)
-                    end
-                  rescue StandardError
-                    nil
+          group = case direction
+                  when  :to_user
+                    auth_group_to_user_group(incoming_group, org_database)
+                  when  :to_auth
+                    user_group_to_auth_group(incoming_group, org_database)
                   end
+          raise StandardError, "Failed to find group" unless group
+        
           outgoing_groups << group unless group.nil?
         }
         outgoing_groups      

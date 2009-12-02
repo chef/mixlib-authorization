@@ -1,6 +1,7 @@
 #
 # Author:: Adam Jacob <adam@opscode.com>
 # Author:: Christopher Brown <cb@opscode.com>
+# Author:: Nuo Yan <nuo@opscode.com>
 #
 # Copyright 2009, Opscode, Inc.
 #
@@ -31,10 +32,12 @@ module Mixlib
         property :email
         property :username
         property :public_key
+        property :password
+        property :salt
         
         validates_with_method :username, :unique_username?
 
-        validates_present :first_name, :last_name, :display_name, :username, :email, :public_key
+        validates_present :first_name, :last_name, :display_name, :username, :email, :public_key, :password, :salt
 
         validates_format :username, :with => /^[a-z0-9\-_]+$/
         validates_format :email, :as => :email_address
@@ -72,6 +75,7 @@ module Mixlib
             result
           end
         end
+        
         
       end
       

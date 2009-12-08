@@ -31,10 +31,11 @@ module Mixlib
         property :email
         property :username
         property :public_key
+        property :certificate
         
         validates_with_method :username, :unique_username?
 
-        validates_present :first_name, :last_name, :display_name, :username, :email, :public_key
+        validates_present :first_name, :last_name, :display_name, :username, :email
 
         validates_format :username, :with => /^[a-z0-9\-_]+$/
         validates_format :email, :as => :email_address
@@ -47,7 +48,12 @@ module Mixlib
         join_type Mixlib::Authorization::Models::JoinTypes::Actor
 
         join_properties :requester_id
-
+        
+        def public_key
+          Mixlib::Authorization::Log.debug "calling user model public key, self public_key is #{self[:public_key]}, certificate is #{self.certificate}"
+          self[:public_key] || OpenSSL::X509::Certificate.new(self.certificate).public_key
+        end
+        
         def unique_username?
           begin
             r = User.by_username(:key => self[:username], :include_docs => false)

@@ -43,6 +43,7 @@ module Mixlib
                    Mixlib::Authorization::Log.debug "Found user or client: #{user.inspect}"
                    actor = user_to_actor(user.id)
                    params[:requesting_actor_id] = actor.auth_object_id
+                   Mixlib::Authorization::Log.debug "user public key: #{user.public_key}"
                    user_key = OpenSSL::PKey::RSA.new(user.public_key)
                    Mixlib::Authorization::Log.debug "authenticating:\n #{user.inspect}\n"
                    authenticator.authenticate_user_request(request, user_key)
@@ -50,7 +51,7 @@ module Mixlib
                    Mixlib::Authorization::Log.debug "authenticate every failed: #{se}, #{se.backtrace}"
                    nil
                  end
-          raise Mixlib::Authorization::AuthorizationException, "Failed authorization" unless auth          
+          raise Mixlib::Authorization::AuthorizationException, "Failed authorization" unless auth
           auth
         end
       end      

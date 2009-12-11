@@ -36,11 +36,15 @@ module Mixlib
         property :salt
         
         validates_with_method :username, :unique_username?
-
-        validates_present :first_name, :last_name, :display_name, :username, :email, :public_key, :password, :salt
+        validates_with_method :email, :unique_email?
+        
+        
+        validates_present :first_name, :last_name, :display_name, :username, :email, :public_key #, :password, :salt
 
         validates_format :username, :with => /^[a-z0-9\-_]+$/
         validates_format :email, :as => :email_address
+        
+        #validates_length :password, :within => 6..72
         
         auto_validate!
 
@@ -62,6 +66,19 @@ module Mixlib
             Mixlib::Authorization::Log.error "Failed to determine if username '#{self['username']}' is unique"
           end
           [ false, "The name #{self[:username]} is not unique!" ]
+        end
+        
+        def unique_email?
+          begin
+            r = User.by_email(:key => self[:email], :include_docs => false)
+            how_many = r["rows"].length
+            # If we don't have an object with this name, then we are the first, and it's cool.
+            # If we do have *one*, and we have an id, we assume we are safe to save ourself again.
+            return true if (how_many == 0) || (how_many == 1 && self.has_key?('_id'))
+          rescue StandardError => se
+            Mixlib::Authorization::Log.error "Failed to determine if E-mail '#{self['email']}' is unique"
+          end
+          [ false, "The E-mail #{self[:email]} is not unique!" ]
         end
         
         def self.find(name)

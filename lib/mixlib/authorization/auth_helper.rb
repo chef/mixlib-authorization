@@ -16,17 +16,30 @@ module Mixlib
       
       def gen_cert(guid, rid=nil)
         begin
+          Mixlib::Authorization::Log.debug "auth_helper.rb: certificate_service_uri is #{Mixlib::Authorization::Config.certificate_service_uri}"
+
           rest = Opscode::REST::Resource.new(Mixlib::Authorization::Config.certificate_service_uri)
           #common name is in the format of: "URI:http://opscode.com/GUIDS/...."
-          common_name = "URI:http://opscode.com/GUIDS/#{guid.to_s}"
-          response = JSON.parse((rid == nil ? rest.post({:common_name => common_name}) : rest.post({:common_name => common_name}, rid) ))
+          common_name = "URI:http://opscode.com/GUIDS/#{guid}"
+
+          response = (rid == nil ? rest.post({:common_name => common_name}) : rest.post({:common_name => common_name}, rid) )
+          # Opscode::REST will return a hash only if the certificate service
+          # returned a document with the mime type 'application/json'. 
+          # opscode-certificate returns text/html and opscode-cert-gen
+          # returns 'application/json'
+          if response.is_a?(String)
+            response = JSON.parse(response)
+          end
+
           #certificate
           cert = OpenSSL::X509::Certificate.new(response["cert"])
           #private key
           key = OpenSSL::PKey::RSA.new(response["keypair"])
           [cert, key]
-        rescue
-          raise Mixlib::Authorization::AuthorizationException, "Failed to generate cert: #{$!}"
+        rescue Exception => se
+          se_backtrace = se.backtrace.join("\n")
+          Mixlib::Authorization::Log.warn "Exception in gen_cert: #{se}\n#{se_backtrace}"
+          raise Mixlib::Authorization::AuthorizationException, "Failed to generate cert: #{$!}", se.backtrace
         end
       end
 

@@ -46,13 +46,14 @@ module Mixlib
                    # if request_source header exists and has value 'web', the request is coming from webui or commmunity site, authenticate using the web ui public key.
                    # Otherwise auth using the user's public key.
                    user_key = headers[:request_source] == 'web' ? OpenSSL::PKey::RSA.new(web_ui_public_key) : OpenSSL::PKey::RSA.new(user.public_key)
+                   Mixlib::Authorization::Log.debug "user public key: #{user.public_key}"
                    Mixlib::Authorization::Log.debug "authenticating:\n #{user.inspect}\n"
                    authenticator.authenticate_user_request(request, user_key)
                  rescue StandardError => se
                    Mixlib::Authorization::Log.debug "authenticate every failed: #{se}, #{se.backtrace}"
                    nil
                  end
-          raise Mixlib::Authorization::AuthorizationException, "Failed authorization" unless auth          
+          raise Mixlib::Authorization::AuthorizationException, "Failed authorization" unless auth
           auth
         end
       end      

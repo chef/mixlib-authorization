@@ -17,12 +17,13 @@ module Mixlib
         view_by :clientname
 
         property :clientname
-        property :public_key
         property :orgname
+        property :public_key        
+        property :certificate
         
         validates_with_method :clientname
 
-        validates_present :clientname, :public_key
+        validates_present :clientname
 
         validates_format :clientname, :with => /^([a-zA-Z0-9\-_\.])*$/
         #    /^(([:alpha]{1}([:alnum]-){1,62})\.)+([:alpha]{1}([:alnum]-){1,62})$/
@@ -35,6 +36,11 @@ module Mixlib
         join_type Mixlib::Authorization::Models::JoinTypes::Actor
 
         join_properties :clientname, :requester_id
+
+        def public_key
+          Mixlib::Authorization::Log.debug "calling client model public key"
+          self[:public_key] || OpenSSL::X509::Certificate.new(self.certificate).public_key
+        end
 
         def unique_clientname?
           begin

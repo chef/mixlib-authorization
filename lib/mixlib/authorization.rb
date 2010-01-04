@@ -10,7 +10,7 @@ module Mixlib
       extend  Mixlib::Log      
     end
 
-    Log.level :error
+    Log.level = :error
     
     class AuthorizationException < StandardError
     end

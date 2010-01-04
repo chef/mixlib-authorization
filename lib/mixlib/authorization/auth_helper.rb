@@ -24,7 +24,7 @@ module Mixlib
           cert = OpenSSL::X509::Certificate.new(response["cert"])
           #private key
           key = OpenSSL::PKey::RSA.new(response["keypair"])
-          [cert.public_key, key]
+          [cert, key]
         rescue
           raise Mixlib::Authorization::AuthorizationException, "Failed to generate cert: #{$!}"
         end

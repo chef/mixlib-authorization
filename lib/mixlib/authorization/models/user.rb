@@ -40,6 +40,8 @@ module Mixlib
         validates_format :username, :with => /^[a-z0-9\-_]+$/
         validates_format :email, :as => :email_address
         
+        validates_length :username, :within => 1..50
+        
         auto_validate!
 
         save_callback :after, :create_join

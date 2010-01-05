@@ -41,12 +41,13 @@ module Mixlib
         validates_with_method :email, :unique_email?
         
         
-        validates_present :first_name, :last_name, :display_name, :username, :email#, :public_key #, :password, :salt
+        validates_present :first_name, :last_name, :display_name, :username, :email, :password, :salt
 
         validates_format :username, :with => /^[a-z0-9\-_]+$/
         validates_format :email, :as => :email_address
         
-        #validates_length :password, :within => 6..72
+        validates_length :password, :within => 6..50
+        validates_length :username, :within => 1..50
         
         auto_validate!
 

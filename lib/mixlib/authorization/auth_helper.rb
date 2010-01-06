@@ -27,16 +27,14 @@ module Mixlib
           # returned a document with the mime type 'application/json'. 
           # opscode-certificate returns text/html and opscode-cert-gen
           # returns 'application/json'
-          if response.is_a?(String)
-            response = JSON.parse(response)
-          end
+          response = JSON.parse(response) if response.is_a?(String)
 
           #certificate
           cert = OpenSSL::X509::Certificate.new(response["cert"])
           #private key
           key = OpenSSL::PKey::RSA.new(response["keypair"])
           [cert, key]
-        rescue Exception => se
+        rescue StandardError => se
           se_backtrace = se.backtrace.join("\n")
           Mixlib::Authorization::Log.warn "Exception in gen_cert: #{se}\n#{se_backtrace}"
           raise Mixlib::Authorization::AuthorizationException, "Failed to generate cert: #{$!}", se.backtrace
@@ -45,7 +43,7 @@ module Mixlib
 
       def orgname_to_dbname(orgname)
         guid = guid_from_orgname(orgname)
-        dbname = (guid == nil ? nil : "chef_#{guid.downcase}")
+        dbname = guid && "chef_#{guid.downcase}"
         Mixlib::Authorization::Log.debug "In auth_helper, orgname_to_dbname, orgname: #{orgname}, dbname: #{dbname}"
         dbname
       end
@@ -54,9 +52,7 @@ module Mixlib
         Mixlib::Authorization::Log.debug "In auth_helper, database_from_orgname, orgname: #{orgname}"
         raise ArgumentError, "Must supply orgname" if orgname.nil? or orgname.empty?
         dbname = orgname_to_dbname(orgname)
-        if dbname == nil
-          nil
-        else 
+        if dbname
           uri = Mixlib::Authorization::Config.couchdb_uri
           CouchRest.new(uri).database!(dbname)
           CouchRest::Database.new(CouchRest::Server.new(uri),dbname)
@@ -65,11 +61,7 @@ module Mixlib
       
       def guid_from_orgname(orgname)
         Mixlib::Authorization::Log.debug "In auth_helper, guid_from_orgname, orgname: #{orgname}"
-        begin
-          Mixlib::Authorization::Models::Organization.find(orgname)["guid"]
-        rescue StandardError
-          nil
-        end 
+        (org = Mixlib::Authorization::Models::Organization.by_name(:key => orgname).first) && org["guid"]
       end 
 
       def user_to_actor(user_id)
@@ -117,32 +109,26 @@ module Mixlib
       
       def transform_names_to_auth_ids(database, actors_by_type)
         raise ArgumentError, "Must supply actors!" unless actors_by_type
-
+        
         actornames = actors_by_type["users"] || []
         clientnames = actors_by_type["clients"] || []
         groupnames = actors_by_type["groups"] || []
         
         actor_ids = actornames.uniq.inject([]) do |memo, actorname|
-          user = Mixlib::Authorization::Models::User.find(actorname)
-          auth_join = AuthJoin.by_user_object_id(:key=>user.id).first
-          memo << auth_join.auth_object_id if auth_join
-          memo
+          user = Mixlib::Authorization::Models::User.by_username(:key => actorname).first
+          user && (auth_join = AuthJoin.by_user_object_id(:key=>user.id).first) && (memo << auth_join.auth_object_id)
         end
-
+        
         client_ids = clientnames.uniq.inject([]) do |memo, clientname|
           client = Mixlib::Authorization::Models::Client.on(database).by_clientname(:key=>clientname).first
-          auth_join = AuthJoin.by_user_object_id(:key=>client.id).first
-          memo << auth_join.auth_object_id if auth_join
-          memo
+          client && (auth_join = AuthJoin.by_user_object_id(:key=>client.id).first) && (memo << auth_join.auth_object_id)
         end
 
         actor_ids.concat(client_ids)
         
         group_ids = groupnames.uniq.inject([]) do |memo, groupname|
           group = Mixlib::Authorization::Models::Group.on(database).by_groupname(:key=>groupname).first
-          auth_join = AuthJoin.by_user_object_id(:key=>group.id).first
-          memo << auth_join.auth_object_id if auth_join
-          memo
+          group && (auth_join = AuthJoin.by_user_object_id(:key=>group.id).first) && (memo << auth_join.auth_object_id if auth_join)
         end
 
         [actor_ids, group_ids]
@@ -151,63 +137,37 @@ module Mixlib
       def check_rights(params)
         raise ArgumentError, "bad arg to check_rights" unless params.respond_to?(:has_key?)
         Mixlib::Authorization::Log.debug("check rights params: #{params.inspect}")
-        object = params[:object]
-        Mixlib::Authorization::Log.debug("check rights object: #{object.inspect}")      
-        actor = params[:actor]
-        ace = params[:ace].to_s
-        object.is_authorized?(actor,ace)
+        params[:object].is_authorized?(params[:actor],params[:ace].to_s)
+      end
+      
+      def user_or_client_by_name(ucname, org_database)
+        (Mixlib::Authorization::Models::User.by_username(:key=>ucname) || Mixlib::Authorization::Models::Client.on(org_database).by_clientname(:key=>ucname)).first
       end
       
       def transform_actor_ids(incoming_actors, org_database, direction)
-        outgoing_actors = []
-        incoming_actors.each { |incoming_actor|
-          actor = begin
-                    case direction
-                    when :to_user
-                      user_or_client = actor_to_user(incoming_actor, org_database)
-                      if user_or_client
-                        if user_or_client.respond_to? :username
-                          user_or_client.username
-                        else
-                          user_or_client.clientname
-                        end
-                      else
-                        nil
-                      end
-                    when :to_auth
-                      user = begin
-                               Mixlib::Authorization::Models::User.find(incoming_actor)
-                             rescue ArgumentError
-                               Mixlib::Authorization::Models::Client.on(org_database).by_clientname(:key=>incoming_actor).first
-                             end
-                      raise StandardError unless user
-                      actor = user_to_actor(user.id)
-                      actor.auth_object_id
-                    end
-                  rescue StandardError
-                    Mixlib::Authorization::Log.debug "transform_actor_ids: Failed to find incoming actor: #{incoming_actor}"
-                    raise
+        incoming_actors.inject([]) do |outgoing_actors, incoming_actor|
+          actor = case direction
+                  when :to_user
+                    (user_or_client = actor_to_user(incoming_actor, org_database)) && ((user_or_client.respond_to?(:username) && user_or_client.username) || user_or_client.clientname )
+                  when :to_auth
+                    (user = user_or_client_by_name(incoming_actor,org_database)) && user_to_actor(user.id).auth_object_id
                   end
-          outgoing_actors << actor unless actor.nil?
-        }
-        outgoing_actors        
+          Mixlib::Authorization::Log.debug "incoming_actor: #{incoming_actor} is not a user or client!" if actor.nil?
+          (actor.nil? ? outgoing_actors : outgoing_actors << actor)
+        end
       end
 
       def transform_group_ids(incoming_groups, org_database, direction)
-        outgoing_groups = []
-        incoming_groups.each{ |incoming_group|
+        incoming_groups.inject([]) do |outgoing_groups, incoming_group|
           group = case direction
                   when  :to_user
                     auth_group_to_user_group(incoming_group, org_database)
                   when  :to_auth
                     user_group_to_auth_group(incoming_group, org_database)
                   end
-          raise StandardError, "Failed to find group" unless group
-        
-          outgoing_groups << group unless group.nil?
-        }
-        outgoing_groups      
-      end      
+          group.nil? ? outgoing_groups : outgoing_groups << group 
+        end
+      end
     end
     
     class Ace
@@ -229,7 +189,6 @@ module Mixlib
       end
       
     end
-    
     
     class Acl
       include Mixlib::Authorization::AuthHelper
@@ -254,9 +213,5 @@ module Mixlib
       end
       
     end
-    
-    
-    
-    
   end
 end

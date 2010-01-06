@@ -88,15 +88,15 @@ module Mixlib
           }
 
           resp = rest.request(:get,url,options)
+          Mixlib::Authorization::Log.debug "FETCH ACL: #{resp.inspect}"
           @identity = resp
         end
 
         def is_authorized?(actor, ace)
-          Mixlib::Authorization::Log.debug "IN IS_AUTHORIZED: #{self.inspect}, with actor: #{actor} and ace: #{ace}"
           object_id = join_data["object_id"]        
           url = [base_url,resource,object_id,"acl",ace,"actors", actor].join("/")
           requester_id = join_data["requester_id"]
-          Mixlib::Authorization::Log.debug "IN IS_AUTHORIZED: #{url}"        
+          Mixlib::Authorization::Log.debug "IN IS_AUTHORIZED: #{self.inspect} \n\twith actor: #{actor}\n\tace: #{ace}\n\turl:#{url}"
           
           rest = Opscode::REST.new
           headers = {:accept=>"application/json", :content_type=>'application/json'}
@@ -113,6 +113,7 @@ module Mixlib
           rescue RestClient::ResourceNotFound
             false
           end
+
         end
         
         #e.g. ace_name: 'delete', ace_data: {"actors"=>["signing_caller"], "groups"=>[]}

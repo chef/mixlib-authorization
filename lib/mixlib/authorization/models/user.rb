@@ -50,7 +50,6 @@ module Mixlib
         join_properties :requester_id
         
         def public_key
-          Mixlib::Authorization::Log.debug "calling user model public key, self public_key is #{self[:public_key]}, certificate is #{self.certificate}"
           self[:public_key] || OpenSSL::X509::Certificate.new(self.certificate).public_key
         end
         

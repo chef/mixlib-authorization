@@ -74,16 +74,18 @@ module Mixlib
       def actor_to_user(actor, org_database)
         raise ArgumentError, "must supply actor" unless actor
         Mixlib::Authorization::Log.debug("actor to user: actor: #{actor}")
-
+        user_object = AuthJoin.by_auth_object_id(:key=>actor).first
+        
         user = begin
-                 user_object_id = AuthJoin.by_auth_object_id(:key=>actor).first.user_object_id                 
-                 Mixlib::Authorization::Models::User.get(user_object_id)
+                 user_object && Mixlib::Authorization::Models::User.get(user_object.user_object_id)
                rescue RestClient::ResourceNotFound
-                 Mixlib::Authorization::Models::Client.on(org_database).get(user_object_id)
-               rescue StandardError
+                 Mixlib::Authorization::Models::Client.on(org_database).get(user_object.user_object_id)
+               rescue StandardError=>se
+                 Mixlib::Authorization::Log.error "Failed to turn actor #{actor} into a user or client: #{se}"
                  nil
                end
-        Mixlib::Authorization::Log.debug("user: #{user.inspect}")
+        
+        Mixlib::Authorization::Log.debug("actor to user: user or client name #{user.nil? ? nil : user.respond_to?(:username) ? user.username : user.clientname}")
         user
       end
 
@@ -144,7 +146,9 @@ module Mixlib
       end
       
       def user_or_client_by_name(ucname, org_database)
-        (Mixlib::Authorization::Models::User.by_username(:key=>ucname) || Mixlib::Authorization::Models::Client.on(org_database).by_clientname(:key=>ucname)).first
+        user = (Mixlib::Authorization::Models::User.by_username(:key=>ucname).first || Mixlib::Authorization::Models::Client.on(org_database).by_clientname(:key=>ucname).first)
+        Mixlib::Authorization::Log.debug("user or client by name, name #{ucname}, org database, #{org_database}, user: #{user.class}, #{user.nil? ? nil : user.respond_to?(:username) ? user.username : user.clientname}")
+        user
       end
       
       def transform_actor_ids(incoming_actors, org_database, direction)

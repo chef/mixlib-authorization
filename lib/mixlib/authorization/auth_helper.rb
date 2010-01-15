@@ -159,7 +159,7 @@ module Mixlib
                   when :to_auth
                     (user = user_or_client_by_name(incoming_actor,org_database)) && user_to_actor(user.id).auth_object_id
                   end
-          Mixlib::Authorization::Log.debug "incoming_actor: #{incoming_actor} is not a user or client!" if actor.nil?
+          Mixlib::Authorization::Log.debug "incoming_actor: #{incoming_actor} is not a recognized user or client!" if actor.nil?
           (actor.nil? ? outgoing_actors : outgoing_actors << actor)
         end
       end
@@ -172,6 +172,7 @@ module Mixlib
                   when  :to_auth
                     user_group_to_auth_group(incoming_group, org_database)
                   end
+          Mixlib::Authorization::Log.debug "incoming_group: #{incoming_group} is not a recognized group!" if group.nil?          
           group.nil? ? outgoing_groups : outgoing_groups << group 
         end
       end
@@ -194,6 +195,12 @@ module Mixlib
       def for_json
         @ace
       end
+
+      def merge!(ace_in)
+        raise ArgumentError, "need to supply an Ace" if (ace_in.nil? or !ace_in.instance_of?(Mixlib::Authorization::Ace))
+        @ace["actors"].concat(ace_in["actors"])
+        @ace["groups"].concat(ace_in["groups"])        
+      end
       
     end
     
@@ -212,6 +219,13 @@ module Mixlib
         Acl::ACES.each do |ace|
           @aces[ace] = { "actors" => transform_actor_ids(acl_data[ace]["actors"], org_database, direction),
             "groups"=>transform_group_ids(acl_data[ace]["groups"], org_database, direction)}
+        end
+      end
+
+      def merge!(acl_in)
+        raise ArgumentError, "need to supply an Acl" if (acl_in.nil? or !acl_in.instance_of?(Mixlib::Authorization::Ace))
+        ACES.each do |ace_name|
+          @aces[ace_name].merge!(acl_in[ace_name])
         end
       end
       

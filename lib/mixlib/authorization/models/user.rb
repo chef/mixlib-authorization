@@ -24,6 +24,9 @@ module Mixlib
         view_by :display_name
         view_by :email 
         view_by :username
+        view_by :city
+        view_by :country
+        view_by :twitter_accuont
 
         property :first_name
         property :last_name
@@ -33,7 +36,9 @@ module Mixlib
         property :username
         property :public_key
         property :certificate
-        
+        property :city
+        property :country
+        property :twitter_account
         property :password
         property :salt
         

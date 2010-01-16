@@ -199,7 +199,8 @@ module Mixlib
       def merge!(ace_in)
         raise ArgumentError, "need to supply an Ace" if (ace_in.nil? or !ace_in.instance_of?(Mixlib::Authorization::Ace))
         @ace["actors"].concat(ace_in["actors"])
-        @ace["groups"].concat(ace_in["groups"])        
+        @ace["groups"].concat(ace_in["groups"])
+        self
       end
       
     end
@@ -227,6 +228,7 @@ module Mixlib
         ACES.each do |ace_name|
           @aces[ace_name].merge!(acl_in[ace_name])
         end
+        self
       end
       
       def for_json

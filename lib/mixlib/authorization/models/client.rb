@@ -13,6 +13,7 @@ module Mixlib
         include CouchRest::Validation
         include Mixlib::Authorization::AuthHelper
         include Mixlib::Authorization::JoinHelper
+        include Mixlib::Authorization::ContainerHelper
         
         view_by :clientname
 
@@ -29,12 +30,14 @@ module Mixlib
         #    /^(([:alpha]{1}([:alnum]-){1,62})\.)+([:alpha]{1}([:alnum]-){1,62})$/
         
         auto_validate!
+        
+        inherit_acl
 
+        create_callback :after, :save_inherited_acl
         save_callback :after, :create_join
         destroy_callback :before, :delete_join
 
         join_type Mixlib::Authorization::Models::JoinTypes::Actor
-
         join_properties :clientname, :requester_id
 
         def public_key

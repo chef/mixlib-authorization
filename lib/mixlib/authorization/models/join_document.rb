@@ -120,7 +120,7 @@ module Mixlib
         end
         
         #e.g. ace_name: 'delete', ace_data: {"actors"=>["signing_caller"], "groups"=>[]}
-        def update_acl(ace_name, ace_data)
+        def update_ace(ace_name, ace_data)
           Mixlib::Authorization::Log.debug "IN UPDATE ACL: #{self.inspect}, ace_data: #{ace_data.inspect}"
           
           # update actors and groups

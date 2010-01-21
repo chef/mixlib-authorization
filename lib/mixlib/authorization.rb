@@ -1,3 +1,11 @@
+#
+# Author:: Christopher Brown <cb@opscode.com>
+#
+# Copyright 2009, Opscode, Inc.
+#
+# All rights reserved - do not redistribute
+#
+
 require 'extlib'
 require 'couchrest'
 require 'mixlib/config'

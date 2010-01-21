@@ -36,20 +36,16 @@ module Mixlib
           [cert, key]
         rescue StandardError => se
           se_backtrace = se.backtrace.join("\n")
-          Mixlib::Authorization::Log.warn "Exception in gen_cert: #{se}\n#{se_backtrace}"
+          Mixlib::Authorization::Log.error "Exception in gen_cert: #{se}\n#{se_backtrace}"
           raise Mixlib::Authorization::AuthorizationException, "Failed to generate cert: #{$!}", se.backtrace
         end
       end
 
       def orgname_to_dbname(orgname)
-        guid = guid_from_orgname(orgname)
-        dbname = guid && "chef_#{guid.downcase}"
-        Mixlib::Authorization::Log.debug "In auth_helper, orgname_to_dbname, orgname: #{orgname}, dbname: #{dbname}"
-        dbname
+        (guid = guid_from_orgname(orgname)) && "chef_#{guid.downcase}"
       end
 
       def database_from_orgname(orgname)
-        Mixlib::Authorization::Log.debug "In auth_helper, database_from_orgname, orgname: #{orgname}"
         raise ArgumentError, "Must supply orgname" if orgname.nil? or orgname.empty?
         dbname = orgname_to_dbname(orgname)
         if dbname
@@ -60,7 +56,6 @@ module Mixlib
       end
       
       def guid_from_orgname(orgname)
-        Mixlib::Authorization::Log.debug "In auth_helper, guid_from_orgname, orgname: #{orgname}"
         (org = Mixlib::Authorization::Models::Organization.by_name(:key => orgname).first) && org["guid"]
       end 
 

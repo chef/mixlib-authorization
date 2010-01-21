@@ -33,8 +33,8 @@ module Mixlib
         
         inherit_acl
 
-        create_callback :after, :save_inherited_acl
-        save_callback :after, :create_join
+#        create_callback :after, :save_inherited_acl
+        save_callback :after, :save_inherited_acl, :create_join
         destroy_callback :before, :delete_join
 
         join_type Mixlib::Authorization::Models::JoinTypes::Actor

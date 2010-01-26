@@ -42,6 +42,7 @@ module Mixlib
                    raise Mixlib::Authorization::AuthorizationError, "Unable to find user or client" unless user
                    Mixlib::Authorization::Log.debug "Found user or client: #{user.respond_to?(:username) ? user.username : user.clientname}"
                    actor = user_to_actor(user.id)
+                   raise "Actor not found for user with id='#{user.id}'" unless actor
                    params[:requesting_actor_id] = actor.auth_object_id
                    user_key = OpenSSL::PKey::RSA.new(user.public_key)
                    authenticator.authenticate_user_request(request, user_key)

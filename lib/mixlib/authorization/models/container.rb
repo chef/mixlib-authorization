@@ -28,8 +28,8 @@ module Mixlib
         validates_format :containerpath, :with => /^[a-z0-9\-_\/]+$/
         
         auto_validate!
-
-        save_callback :after, :create_join
+        
+        create_callback :after, :create_join
         destroy_callback :before, :delete_join
 
         join_type Mixlib::Authorization::Models::JoinTypes::Container

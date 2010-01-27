@@ -1,3 +1,4 @@
+require 'mixlib/authorization/acl'
 require 'mixlib/authorization/container_helper'
 require 'mixlib/authorization/join_helper'
 require 'mixlib/authorization/auth_helper'
@@ -8,3 +9,4 @@ require 'mixlib/authorization/models/client'
 require 'mixlib/authorization/models/group'
 require 'mixlib/authorization/models/container'
 require 'mixlib/authorization/models/organization'
+

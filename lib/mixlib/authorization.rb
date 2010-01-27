@@ -20,7 +20,7 @@ module Mixlib
 
     Log.level = :error
     
-    class AuthorizationException < StandardError
+    class AuthorizationError < StandardError
     end
     
     class Config

@@ -24,7 +24,7 @@ module Mixlib
         
         validates_with_method :clientname
 
-        validates_present :clientname
+        validates_present :clientname, :orgname
 
         validates_format :clientname, :with => /^([a-zA-Z0-9\-_\.])*$/
         #    /^(([:alpha]{1}([:alnum]-){1,62})\.)+([:alpha]{1}([:alnum]-){1,62})$/
@@ -33,8 +33,8 @@ module Mixlib
         
         inherit_acl
 
-#        create_callback :after, :save_inherited_acl
-        save_callback :after, :save_inherited_acl, :create_join
+        create_callback :after, :save_inherited_acl, :create_join
+        update_callback :after, :update_join
         destroy_callback :before, :delete_join
 
         join_type Mixlib::Authorization::Models::JoinTypes::Actor

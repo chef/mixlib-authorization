@@ -39,7 +39,7 @@ module Mixlib
                             end
                           end
 
-                   raise Mixlib::Authorization::AuthorizationException, "Unable to find user or client" unless user
+                   raise Mixlib::Authorization::AuthorizationError, "Unable to find user or client" unless user
                    Mixlib::Authorization::Log.debug "Found user or client: #{user.respond_to?(:username) ? user.username : user.clientname}"
                    actor = user_to_actor(user.id)
                    params[:requesting_actor_id] = actor.auth_object_id
@@ -49,7 +49,7 @@ module Mixlib
                    Mixlib::Authorization::Log.debug "authenticate every failed: #{se}, #{se.backtrace}"
                    nil
                  end
-          raise Mixlib::Authorization::AuthorizationException, "Failed authorization" unless auth
+          raise Mixlib::Authorization::AuthorizationError, "Failed authorization" unless auth
           auth
         end
       end      

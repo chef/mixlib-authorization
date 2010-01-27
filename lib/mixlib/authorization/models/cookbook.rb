@@ -17,16 +17,23 @@ module Mixlib
         use_database Mixlib::Authorization::Config.default_database
         
         view_by :name
+        view_by :latest_revision,
+        :map =>
+          "function(doc) { emit(doc.display_name, doc) }",
+        :reduce =>
+          "function(key, values) { return values.sort(function(a,b){return b.revision-a.revision})[0] }"
         
         property :name
+        property :revision
         
-        validates_present :name
+        validates_present :name, :revision
         
         validates_with_method :name, :unique_name?
 
         auto_validate!
-
-        save_callback :after, :create_join
+        
+        create_callback :after, :save_inherited_acl, :create_join
+        update_callback :after, :update_join
         destroy_callback :before, :delete_join
         
         join_type Mixlib::Authorization::Models::JoinTypes::Object 

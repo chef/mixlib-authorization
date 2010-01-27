@@ -25,8 +25,9 @@ module Mixlib
         validates_with_method :name, :unique_name?
 
         auto_validate!
-
-        save_callback :after, :create_join
+        
+        create_callback :after, :save_inherited_acl, :create_join
+        update_callback :after, :update_join
         destroy_callback :before, :delete_join
         
         join_type Mixlib::Authorization::Models::JoinTypes::Object 

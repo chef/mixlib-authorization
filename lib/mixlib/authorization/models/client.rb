@@ -58,10 +58,6 @@ module Mixlib
           [ false, "The name #{self["clientname"]} is not unique!" ]
         end
         
-        def self.find(name)
-          Client.by_clientname(:key => name).first or raise ArgumentError
-        end
-        
         def for_json
           self.properties.inject({ }) do |result, prop|
             pname = prop.name.to_sym

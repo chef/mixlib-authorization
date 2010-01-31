@@ -121,7 +121,7 @@ module Mixlib
         
         #e.g. ace_name: 'delete', ace_data: {"actors"=>["signing_caller"], "groups"=>[]}
         def update_ace(ace_name, ace_data)
-          Mixlib::Authorization::Log.debug "IN UPDATE ACL: #{self.inspect}, ace_data: #{ace_data.inspect}"
+          Mixlib::Authorization::Log.debug "IN UPDATE ACE: #{self.inspect}, ace_data: #{ace_data.inspect}"
           
           # update actors and groups
           begin
@@ -145,12 +145,14 @@ module Mixlib
                 new_ace[actor_type] = current_ace[actor_type] - to_delete + to_put
               end                
             end
-            Mixlib::Authorization::Log.debug("IN UPDATE ACL: Current ace: #{current_ace.inspect}, Future ace: #{new_ace.inspect}")
+            Mixlib::Authorization::Log.debug("IN UPDATE ACE: Current ace: #{current_ace.inspect}, Future ace: #{new_ace.inspect}")
             target_url = [base_url,resource, object_id,"acl",ace_name].join("/")
             options[:payload] = new_ace.to_json
-            resp = rest.request(:put,target_url,options)     
+            resp = rest.request(:put,target_url,options)
+            Mixlib::Authorization::Log.debug("IN UPDATE ACE: response #{resp.inspect}")
+            resp
           rescue StandardError => se
-            Mixlib::Authorization::Log.debug "Failed to update acl: #{se.message} " + se.backtrace.join(",\n")
+            Mixlib::Authorization::Log.error "Failed to update ace: #{se.message} " + se.backtrace.join(",\n")
             raise
           end
         end

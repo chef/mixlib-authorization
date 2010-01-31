@@ -49,6 +49,12 @@ module Mixlib
       def for_json
         @aces.inject({ }) { |memo, ace_tuple| memo[ace_tuple[0]] = ace_tuple[1].for_json; memo}
       end
+
+      def merge!(macl)
+        ACES.each do |ace_name|
+          @aces[ace_name].merge!(macl.aces[ace_name])
+        end
+      end
     end
     
     class Ace
@@ -92,6 +98,12 @@ module Mixlib
 
       def for_json
         @ace
+      end
+
+      def merge!(mace)
+        ["actors", "groups"].each do |member|
+          self.ace[member].concat(mace.ace[member]).uniq!
+        end
       end
     end
 

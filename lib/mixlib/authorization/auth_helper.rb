@@ -68,7 +68,6 @@ module Mixlib
 
       def actor_to_user(actor, org_database)
         raise ArgumentError, "must supply actor" unless actor
-        Mixlib::Authorization::Log.debug("actor to user: actor: #{actor}")
         user_object = AuthJoin.by_auth_object_id(:key=>actor).first
         
         user = begin
@@ -80,7 +79,7 @@ module Mixlib
                  nil
                end
         
-        Mixlib::Authorization::Log.debug("actor to user: user or client name #{user.nil? ? nil : user.respond_to?(:username) ? user.username : user.clientname}")
+        Mixlib::Authorization::Log.debug("actor to user: actor: #{actor}, user or client name #{user.nil? ? nil : user.respond_to?(:username) ? user.username : user.clientname}")
         user
       end
 
@@ -96,7 +95,7 @@ module Mixlib
       def user_group_to_auth_group(group_id, org_database)
         raise ArgumentError, "must supply group id" unless group_id
         group_obj = Mixlib::Authorization::Models::Group.on(org_database).by_groupname(:key=>group_id).first
-        Mixlib::Authorization::Log.debug("user-side group: #{group_obj}")
+        Mixlib::Authorization::Log.debug("user-side group: #{group_obj.inspect}")
         auth_join = group_obj && AuthJoin.by_user_object_id(:key=>group_obj["_id"]).first
         Mixlib::Authorization::Log.debug("user group to auth group: #{group_id}, database: #{org_database && org_database.name},\n\tuser_group: #{group_obj.inspect}\n\tauth_join: #{auth_join.inspect}")
         raise Mixlib::Authorization::AuthorizationError, "failed to find group or auth object!" if auth_join.nil?

@@ -27,12 +27,12 @@ module Mixlib
             container = Mixlib::Authorization::Models::Container.on(org_database).by_containername(:key => parent_name).first
             Mixlib::Authorization::Log.debug "CALLING ACL MERGER: sender: #{sender.inspect}, parent_name: #{parent_name}, org_database: #{org_database}, container: #{container.inspect}"
             raise Mixlib::Authorization::AuthorizationError, "failed to find parent #{parent_name} for ACL inheritance" if container.nil?
-            cacl = container.fetch_join_acl
-            sacl = sender.fetch_join_acl
-            Mixlib::Authorization::Log.debug "container acl: #{cacl.inspect}, sender acl: #{sacl.inspect}"
+            cacl = Acl.new(container.fetch_join_acl)
+            sacl = Acl.new(sender.fetch_join_acl)
+            Mixlib::Authorization::Log.debug "CONTAINER ACL: #{cacl.to_user(org_database).inspect},\nSENDER ACL: #{sacl.to_user(org_database).inspect}"
             sacl.merge!(cacl)
-            Mixlib::Authorization::Log.debug "new sender acl: #{sacl.inspect}"            
-            sacl.each {  |ace_name,ace_data| sender.update_join_ace(ace_name, ace_data) }
+            Mixlib::Authorization::Log.debug "MERGED SENDER ACL: #{sacl.to_user(org_database).inspect}"
+            sacl.aces.each {  |ace_name,ace| sender.update_join_ace(ace_name, ace.ace) }
           }
         end
       end

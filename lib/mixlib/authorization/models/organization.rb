@@ -64,7 +64,7 @@ module Mixlib
         end
         
         def self.find(name)
-          Organization.by_name(:key => name).first or raise ArgumentError
+          Organization.by_name(:key => name).first || raise(ArgumentError, "Could not find organization named '#{name}'")
         end
         
         def for_json

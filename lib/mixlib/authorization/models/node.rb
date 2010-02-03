@@ -13,18 +13,22 @@ module Mixlib
         include CouchRest::Validation
         include Mixlib::Authorization::AuthHelper
         include Mixlib::Authorization::JoinHelper
+        include Mixlib::Authorization::ContainerHelper
         
         use_database Mixlib::Authorization::Config.default_database
         
         view_by :name
         
         property :name
+        property :orgname
         
-        validates_present :name
+        validates_present :name, :orgname
         
         validates_with_method :name, :unique_name?
 
         auto_validate!
+
+        inherit_acl
         
         create_callback :after, :save_inherited_acl, :create_join
         update_callback :after, :update_join

@@ -35,7 +35,7 @@ spec = Gem::Specification.new do |s|
   s.files = %w(LICENSE README.rdoc Rakefile NOTICE) + Dir.glob("{lib,spec,features}/**/*")
 end
 
-task :default => :test
+task :default => :spec
 
 desc "Run specs"
 Spec::Rake::SpecTask.new do |t|
@@ -60,9 +60,7 @@ task :make_spec do
 end
 
 Cucumber::Rake::Task.new(:features) do |t|
-  t.step_pattern = 'features/steps/**/*.rb'
-  supportdir = 'features/support'
-  t.cucumber_opts = "--format pretty -r #{supportdir}"
+  t.profile = "default"
 end
 
 desc "remove build files"

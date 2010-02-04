@@ -26,7 +26,9 @@ module Mixlib
         
         auto_validate!
 
-        create_callback :after, :create_join
+        inherit_acl "data"
+
+        create_callback :after, :save_inherited_acl, :create_join
         update_callback :after, :update_join
         destroy_callback :before, :delete_join
         

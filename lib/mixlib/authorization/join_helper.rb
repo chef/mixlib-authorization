@@ -27,7 +27,9 @@ module Mixlib
         Mixlib::Authorization::Log.debug "IN CREATE JOIN, auth_join_object for #{join_type} saved"
         @join_doc = AuthJoin.new({ :user_object_id=>self.id,
                                    :auth_object_id=>auth_join_object.identity["id"]})
-        @join_doc.save
+        retval = @join_doc.save
+        Mixlib::Authorization::Log.debug "IN CREATE JOIN, return value of save = '#{retval.inspect}'"
+        raise Mixlib::Authorization::AuthorizationError, "Failed to save join document for #{self.id}" unless retval
         Mixlib::Authorization::Log.debug "IN CREATE JOIN, join doc saved"
         @join_doc
       end
@@ -66,7 +68,8 @@ module Mixlib
         Mixlib::Authorization::Log.debug "IN DELETE JOIN ACL: #{join_data.inspect}"
         join_object = AuthJoin.by_user_object_id(:key=>self.id).first or raise ArgumentError, "Cannot find join for #{self.id}"
         auth_join_object = self.class.instance_variable_get("@join_type").new(Mixlib::Authorization::Config.authorization_service_uri, { "object_id"=>join_object[:auth_object_id]}.merge(join_data))
-        Mixlib::Authorization::Log.debug "IN DELETE JOIN ACL: #{auth_join_object.inspect}"
+        Mixlib::Authorization::Log.debug "IN DELETE JOIN ACL: join_object = #{join_object.inspect}"
+        Mixlib::Authorization::Log.debug "IN DELETE JOIN ACL: auth_join_object = #{auth_join_object.inspect}"
         join_object.destroy
       end
 

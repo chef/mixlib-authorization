@@ -15,8 +15,6 @@ module Mixlib
         include Mixlib::Authorization::JoinHelper
         include Mixlib::Authorization::ContainerHelper
         
-        use_database Mixlib::Authorization::Config.default_database
-        
         view_by :display_name
         view_by :latest_revision,
         :map =>

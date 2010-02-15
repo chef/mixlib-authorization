@@ -16,6 +16,9 @@ module Mixlib
         include Mixlib::Authorization::ContainerHelper
         
         view_by :display_name
+
+        # NOTE: The notion of latest_revision is going to go away but must be kept around for migration purposes.
+        #       In the new world, the revisions property is an array that represents the cookbook's revisions.
         view_by :latest_revision,
         :map =>
           "function(doc) { emit(doc.display_name, doc) }",
@@ -24,9 +27,10 @@ module Mixlib
         
         property :display_name
         property :revision
+        property :revisions
         property :orgname
         
-        validates_present :display_name, :revision, :orgname
+        validates_present :display_name, :revision, :revisions, :orgname
         
         auto_validate!
 

@@ -39,17 +39,18 @@ module Mixlib
                             end
                           end
 
-                   raise Mixlib::Authorization::AuthorizationException, "Unable to find user or client" unless user
+                   raise Mixlib::Authorization::AuthorizationError, "Unable to find user or client" unless user
                    Mixlib::Authorization::Log.debug "Found user or client: #{user.respond_to?(:username) ? user.username : user.clientname}"
                    actor = user_to_actor(user.id)
+                   raise "Actor not found for user with id='#{user.id}'" unless actor
                    params[:requesting_actor_id] = actor.auth_object_id
                    user_key = OpenSSL::PKey::RSA.new(user.public_key)
                    authenticator.authenticate_user_request(request, user_key)
                  rescue StandardError => se
-                   Mixlib::Authorization::Log.debug "authenticate every failed: #{se}, #{se.backtrace}"
+                   Mixlib::Authorization::Log.debug "authenticate every failed: #{se}, #{se.backtrace.join("\n")}"
                    nil
                  end
-          raise Mixlib::Authorization::AuthorizationException, "Failed authorization" unless auth
+          raise Mixlib::Authorization::AuthorizationError, "Failed authorization" unless auth
           auth
         end
       end      

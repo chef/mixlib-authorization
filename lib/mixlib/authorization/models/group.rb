@@ -13,7 +13,8 @@ module Mixlib
         include CouchRest::Validation
         include Mixlib::Authorization::AuthHelper
         include Mixlib::Authorization::JoinHelper
-
+        include Mixlib::Authorization::ContainerHelper
+        
         view_by :groupname
 
         property :groupname
@@ -23,15 +24,15 @@ module Mixlib
         validates_format :groupname, :with => /^[a-z0-9\-_]+$/
         
         auto_validate!
-
-        save_callback :after, :transform_and_create
+        
+        create_callback :after, :create_join, :transform_and_create
+        update_callback :after, :update_join, :transform_and_create
         destroy_callback :before, :delete_join
 
         def transform_and_create
           self["actors"], self["groups"] = transform_names_to_auth_ids(database,self["actor_and_group_names"])
-          create_join
         end
-
+        
         join_type Mixlib::Authorization::Models::JoinTypes::Group
 
         join_properties :groupname, :actors, :groups, :requester_id

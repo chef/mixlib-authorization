@@ -13,6 +13,7 @@ module Mixlib
         include CouchRest::Validation
         include Mixlib::Authorization::AuthHelper
         include Mixlib::Authorization::JoinHelper
+        include Mixlib::Authorization::ContainerHelper
         
         view_by :clientname
 
@@ -23,18 +24,20 @@ module Mixlib
         
         validates_with_method :clientname
 
-        validates_present :clientname
+        validates_present :clientname, :orgname
 
         validates_format :clientname, :with => /^([a-zA-Z0-9\-_\.])*$/
         #    /^(([:alpha]{1}([:alnum]-){1,62})\.)+([:alpha]{1}([:alnum]-){1,62})$/
         
         auto_validate!
+        
+        inherit_acl
 
-        save_callback :after, :create_join
+        create_callback :after, :save_inherited_acl, :create_join
+        update_callback :after, :update_join
         destroy_callback :before, :delete_join
 
         join_type Mixlib::Authorization::Models::JoinTypes::Actor
-
         join_properties :clientname, :requester_id
 
         def public_key
@@ -53,10 +56,6 @@ module Mixlib
             Mixlib::Authorization::Log.error "Failed to determine if username '#{self['clientname']}' is unique"
           end
           [ false, "The name #{self["clientname"]} is not unique!" ]
-        end
-        
-        def self.find(name)
-          Client.by_clientname(:key => name).first or raise ArgumentError
         end
         
         def for_json

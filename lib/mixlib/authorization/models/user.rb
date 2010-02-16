@@ -41,8 +41,9 @@ module Mixlib
         validates_format :email, :as => :email_address
         
         auto_validate!
-
-        save_callback :after, :create_join
+        
+        create_callback :after, :create_join
+        update_callback :after, :update_join
         destroy_callback :before, :delete_join
 
         join_type Mixlib::Authorization::Models::JoinTypes::Actor

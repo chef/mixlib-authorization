@@ -6,6 +6,9 @@
 # All rights reserved - do not redistribute
 #
 
+
+require 'chef/index_queue'
+
 module Mixlib
   module Authorization
     module Models
@@ -14,6 +17,7 @@ module Mixlib
         include Mixlib::Authorization::AuthHelper
         include Mixlib::Authorization::JoinHelper
         include Mixlib::Authorization::ContainerHelper
+        include Chef::IndexQueue::Indexable        
         
         view_by :clientname
 
@@ -33,9 +37,9 @@ module Mixlib
         
         inherit_acl
 
-        create_callback :after, :save_inherited_acl, :create_join
-        update_callback :after, :update_join
-        destroy_callback :before, :delete_join
+        create_callback :after, :add_index, :save_inherited_acl, :create_join
+        update_callback :after, :add_index, :update_join
+        destroy_callback :before, :delete_index, :delete_join
 
         join_type Mixlib::Authorization::Models::JoinTypes::Actor
         join_properties :clientname, :requester_id
@@ -45,6 +49,16 @@ module Mixlib
           self[:public_key] || OpenSSL::X509::Certificate.new(self.certificate).public_key
         end
 
+        def add_index
+          Mixlib::Authorization::Log.debug "indexing client #{clientname}"
+          add_to_index(:database=>self.database.name, :orgname=>self["orgname"], :id=>self["id"], :type=>self.class.to_s.split("::").last)
+        end
+        
+        def delete_index
+          Mixlib::Authorization::Log.debug "deindexing client #{clientname}"          
+          delete_from_index(:database=>self.database.name, :orgname=>self["orgname"], :id=>self["id"], :type=>self.class.to_s.split("::").last)
+        end
+        
         def unique_clientname?
           begin
             r = Client.by_clientname(:key => self["clientname"], :include_docs => false)

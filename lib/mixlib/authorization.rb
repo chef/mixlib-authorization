@@ -32,6 +32,8 @@ module Mixlib
       certificate_service_uri nil
       couchdb_uri nil
       web_ui_public_key nil
+      web_ui_private_key nil
+      web_ui_proxy_user nil
     end
   end
 end

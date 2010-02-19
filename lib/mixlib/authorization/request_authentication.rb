@@ -19,7 +19,7 @@ module Mixlib
           @authenticator ||= Mixlib::Authentication::SignatureVerification.new      
         end
 
-        def authenticate_every(request, params)
+        def authenticate_every(request, params, web_ui_public_key=nil)
           auth = begin
                    headers = request.env.inject({ }) { |memo, kv| memo[$2.downcase.gsub(/\-/,"_").to_sym] = kv[1] if kv[0] =~ /^(HTTP_)(.*)/; memo }
                    Mixlib::Authorization::Log.debug("headers in authenticate_every: #{headers.inspect}")
@@ -41,10 +41,16 @@ module Mixlib
 
                    raise Mixlib::Authorization::AuthorizationError, "Unable to find user or client" unless user
                    Mixlib::Authorization::Log.debug "Found user or client: #{user.respond_to?(:username) ? user.username : user.clientname}"
+
                    actor = user_to_actor(user.id)
                    raise "Actor not found for user with id='#{user.id}'" unless actor
                    params[:requesting_actor_id] = actor.auth_object_id
-                   user_key = OpenSSL::PKey::RSA.new(user.public_key)
+
+                   # if request_source header exists and has value 'web', the request is coming from webui or commmunity site, authenticate using the web ui public key.
+                   # Otherwise auth using the user's public key.
+                   user_key = headers[:request_source] == 'web' ? OpenSSL::PKey::RSA.new(web_ui_public_key) : OpenSSL::PKey::RSA.new(user.public_key)
+                   Mixlib::Authorization::Log.debug "user public key: #{user.public_key}"
+                   Mixlib::Authorization::Log.debug "authenticating:\n #{user.inspect}\n"
                    authenticator.authenticate_user_request(request, user_key)
                  rescue StandardError => se
                    Mixlib::Authorization::Log.debug "authenticate every failed: #{se}, #{se.backtrace.join("\n")}"

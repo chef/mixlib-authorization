@@ -31,6 +31,7 @@ module Mixlib
       authorization_service_uri nil
       certificate_service_uri nil
       couchdb_uri nil
+      web_ui_public_key nil
     end
   end
 end

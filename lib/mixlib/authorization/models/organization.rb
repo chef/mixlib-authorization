@@ -33,8 +33,9 @@ module Mixlib
         validates_format :name, :with => /^[a-z0-9-]+$/
 
         auto_validate!
-
-        save_callback :after, :create_join
+        
+        create_callback :after, :create_join
+        update_callback :after, :update_join
         destroy_callback :before, :delete_join
         
         join_type Mixlib::Authorization::Models::JoinTypes::Object 
@@ -63,7 +64,7 @@ module Mixlib
         end
         
         def self.find(name)
-          Organization.by_name(:key => name).first or raise ArgumentError
+          Organization.by_name(:key => name).first || raise(ArgumentError, "Could not find organization named '#{name}'")
         end
         
         def for_json

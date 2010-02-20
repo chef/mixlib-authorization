@@ -36,20 +36,16 @@ module Mixlib
           [cert, key]
         rescue StandardError => se
           se_backtrace = se.backtrace.join("\n")
-          Mixlib::Authorization::Log.warn "Exception in gen_cert: #{se}\n#{se_backtrace}"
-          raise Mixlib::Authorization::AuthorizationException, "Failed to generate cert: #{$!}", se.backtrace
+          Mixlib::Authorization::Log.error "Exception in gen_cert: #{se}\n#{se_backtrace}"
+          raise Mixlib::Authorization::AuthorizationError, "Failed to generate cert: #{$!}", se.backtrace
         end
       end
 
       def orgname_to_dbname(orgname)
-        guid = guid_from_orgname(orgname)
-        dbname = guid && "chef_#{guid.downcase}"
-        Mixlib::Authorization::Log.debug "In auth_helper, orgname_to_dbname, orgname: #{orgname}, dbname: #{dbname}"
-        dbname
+        (guid = guid_from_orgname(orgname)) && "chef_#{guid.downcase}"
       end
 
       def database_from_orgname(orgname)
-        Mixlib::Authorization::Log.debug "In auth_helper, database_from_orgname, orgname: #{orgname}"
         raise ArgumentError, "Must supply orgname" if orgname.nil? or orgname.empty?
         dbname = orgname_to_dbname(orgname)
         if dbname
@@ -60,7 +56,6 @@ module Mixlib
       end
       
       def guid_from_orgname(orgname)
-        Mixlib::Authorization::Log.debug "In auth_helper, guid_from_orgname, orgname: #{orgname}"
         (org = Mixlib::Authorization::Models::Organization.by_name(:key => orgname).first) && org["guid"]
       end 
 
@@ -73,7 +68,6 @@ module Mixlib
 
       def actor_to_user(actor, org_database)
         raise ArgumentError, "must supply actor" unless actor
-        Mixlib::Authorization::Log.debug("actor to user: actor: #{actor}")
         user_object = AuthJoin.by_auth_object_id(:key=>actor).first
         
         user = begin
@@ -85,13 +79,13 @@ module Mixlib
                  nil
                end
         
-        Mixlib::Authorization::Log.debug("actor to user: user or client name #{user.nil? ? nil : user.respond_to?(:username) ? user.username : user.clientname}")
+        Mixlib::Authorization::Log.debug("actor to user: actor: #{actor}, user or client name #{user.nil? ? nil : user.respond_to?(:username) ? user.username : user.clientname}")
         user
       end
 
       def auth_group_to_user_group(group_id, org_database)
         raise ArgumentError, "must supply group id" unless group_id
-        Mixlib::Authorization::Log.debug("auth group to user group: #{group_id}, database: #{org_database.inspect}")
+        Mixlib::Authorization::Log.debug("auth group to user group: #{group_id}, database: #{org_database && org_database.name}")
         auth_join = AuthJoin.by_auth_object_id(:key=>group_id).first
         user_group = Mixlib::Authorization::Models::Group.on(org_database).get(auth_join.user_object_id).groupname
         Mixlib::Authorization::Log.debug("user group: #{user_group}")
@@ -100,10 +94,11 @@ module Mixlib
 
       def user_group_to_auth_group(group_id, org_database)
         raise ArgumentError, "must supply group id" unless group_id
-        Mixlib::Authorization::Log.debug("user group to auth group: #{group_id}, database: #{org_database.inspect}")        
         group_obj = Mixlib::Authorization::Models::Group.on(org_database).by_groupname(:key=>group_id).first
-        auth_join = AuthJoin.by_user_object_id(:key=>group_obj["_id"]).first
-        Mixlib::Authorization::Log.debug("auth_join: #{auth_join.inspect}")
+        Mixlib::Authorization::Log.debug("user-side group: #{group_obj.inspect}")
+        auth_join = group_obj && AuthJoin.by_user_object_id(:key=>group_obj["_id"]).first
+        Mixlib::Authorization::Log.debug("user group to auth group: #{group_id}, database: #{org_database && org_database.name},\n\tuser_group: #{group_obj.inspect}\n\tauth_join: #{auth_join.inspect}")
+        raise Mixlib::Authorization::AuthorizationError, "failed to find group or auth object!" if auth_join.nil?
         auth_group = auth_join.auth_object_id
         Mixlib::Authorization::Log.debug("auth group: #{auth_group}")
         auth_group
@@ -159,7 +154,7 @@ module Mixlib
                   when :to_auth
                     (user = user_or_client_by_name(incoming_actor,org_database)) && user_to_actor(user.id).auth_object_id
                   end
-          Mixlib::Authorization::Log.debug "incoming_actor: #{incoming_actor} is not a user or client!" if actor.nil?
+          Mixlib::Authorization::Log.debug "incoming_actor: #{incoming_actor} is not a recognized user or client!" if actor.nil?
           (actor.nil? ? outgoing_actors : outgoing_actors << actor)
         end
       end
@@ -172,53 +167,11 @@ module Mixlib
                   when  :to_auth
                     user_group_to_auth_group(incoming_group, org_database)
                   end
+          Mixlib::Authorization::Log.debug "incoming_group: #{incoming_group} is not a recognized group!" if group.nil?          
           group.nil? ? outgoing_groups : outgoing_groups << group 
         end
       end
     end
-    
-    class Ace
-      include Mixlib::Authorization::AuthHelper
-      
-      attr_reader :org_database
-      attr_reader :direction
-      attr_reader :ace
-      
-      def initialize(orgname, ace_data, acl_direction=:to_user)
-        @org_database = (orgname.nil? ? nil : database_from_orgname(orgname))
-        @direction = acl_direction
-        @ace = { "actors" => transform_actor_ids(ace_data["actors"], org_database, direction),
-                 "groups"=>transform_group_ids(ace_data["groups"], org_database, direction)}
-      end
-      
-      def for_json
-        @ace
-      end
-      
-    end
-    
-    class Acl
-      include Mixlib::Authorization::AuthHelper
-      
-      ACES = ["create","read","update","delete","grant"] 
-      attr_reader :org_database
-      attr_reader :direction
-      attr_reader :aces
-      
-      def initialize(orgname, acl_data, acl_direction=:to_user)
-        @org_database = (orgname.nil? ? nil : database_from_orgname(orgname))
-        @aces = { }
-        @direction = acl_direction
-        Acl::ACES.each do |ace|
-          @aces[ace] = { "actors" => transform_actor_ids(acl_data[ace]["actors"], org_database, direction),
-            "groups"=>transform_group_ids(acl_data[ace]["groups"], org_database, direction)}
-        end
-      end
-      
-      def for_json
-        @aces
-      end
-      
-    end
+
   end
 end

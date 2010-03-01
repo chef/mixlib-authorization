@@ -24,13 +24,40 @@ module Mixlib
         validates_format :groupname, :with => /^[a-z0-9\-_]+$/
         
         auto_validate!
-        
-        create_callback :after, :create_join, :transform_and_create
-        update_callback :after, :update_join, :transform_and_create
+
+        create_callback :before, :trim_actors_and_groups
+        update_callback :before, :trim_actors_and_groups
+        create_callback :after, :create_join, :transform_ids
+        update_callback :after, :update_join, :transform_ids
         destroy_callback :before, :delete_join
 
-        def transform_and_create
+        def trim_actors_and_groups
+          self["actor_and_group_names"].each { |key,value| self["actor_and_group_names"][key]=value.uniq.sort }
+        end
+
+        def transform_ids
           self["actors"], self["groups"] = transform_names_to_auth_ids(database,self["actor_and_group_names"])
+        end
+
+        def add_actor(actorname, database)
+          base_url = Mixlib::Authorization::Config.authorization_service_uri
+          actor_id = transform_actor_ids([actorname], database, :to_auth).first
+          group_auth_id =  AuthJoin.by_user_object_id(:key=>self["_id"]).first.auth_object_id
+          url = [base_url,"groups",group_auth_id,"actors",actor_id].join("/")
+          Mixlib::Authorization::Log.debug("Adding actor: #{actor_id}, url: #{url.inspect}")
+
+          rest = Opscode::REST.new
+          headers = {:accept=>"application/json", :content_type=>'application/json'}
+          headers["X-Ops-Requesting-Actor-Id"] = self[:requester_id]
+
+          options = { :authenticate=> true,
+            :user_secret=>OpenSSL::PKey::RSA.new(Mixlib::Authorization::Config.private_key),
+            :user_id=>'front-end service',
+            :headers=>headers,
+          }
+          Mixlib::Authorization::Log.debug("In #{self.class.to_s} add_actors, PUT #{url}")
+          resp = rest.request(:put,url,options)
+          Mixlib::Authorization::Log.debug("response: #{resp.inspect}")
         end
         
         join_type Mixlib::Authorization::Models::JoinTypes::Group

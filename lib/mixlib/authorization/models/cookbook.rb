@@ -21,7 +21,11 @@ module Mixlib
         #       In the new world, the revisions property is an array that represents the cookbook's revisions.
         view_by :latest_revision,
         :map =>
-          "function(doc) { emit(doc.display_name, doc) }",
+          'function(doc) { 
+             if(doc["couchrest-type"] == "Mixlib::Authorization::Models::Cookbook") {
+               emit(doc.display_name, doc);
+             }
+          }',
         :reduce =>
           "function(key, values) { return values.sort(function(a,b){return b.revision-a.revision})[0] }"
         

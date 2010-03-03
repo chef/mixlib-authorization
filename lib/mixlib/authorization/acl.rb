@@ -12,7 +12,7 @@ module Mixlib
     class Acl
       include Mixlib::Authorization::AuthHelper
       
-      ACES = ["create","read","update","delete","grant"] 
+      ACES = ["create","read","update","delete","grant"]
       attr_reader :aces
       
       def initialize(aces_in=nil)
@@ -25,6 +25,10 @@ module Mixlib
                     aces_in
                   end
                 end
+      end
+      
+      def ==(other)
+        other.respond_to?(:for_json) && other.for_json == for_json
       end
 
       def add(ace_name, ace)
@@ -50,9 +54,9 @@ module Mixlib
         @aces.inject({ }) { |memo, ace_tuple| memo[ace_tuple[0]] = ace_tuple[1].for_json; memo}
       end
 
-      def merge!(macl)
+      def merge!(other_acl)
         ACES.each do |ace_name|
-          @aces[ace_name].merge!(macl.aces[ace_name])
+          @aces[ace_name].merge!(other_acl.aces[ace_name])
         end
       end
     end
@@ -64,6 +68,14 @@ module Mixlib
       
       def initialize(ace_data=nil)
         @ace = ace_data || { "actors"=>[], "groups"=>[] }
+      end
+      
+      def actors
+        ace["actors"]
+      end
+      
+      def groups
+        ace["groups"]
       end
 
       def add_actor(member)
@@ -100,10 +112,13 @@ module Mixlib
         @ace
       end
 
-      def merge!(mace)
-        ["actors", "groups"].each do |member|
-          self.ace[member].concat(mace.ace[member]).uniq!
-        end
+      def merge!(other_ace)
+        @ace["actors"].concat(other_ace.actors).uniq!
+        @ace["groups"].concat(other_ace.groups).uniq!
+      end
+      
+      def ==(other)
+        other.respond_to?(:ace) && other.ace == ace
       end
     end
 

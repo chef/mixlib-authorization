@@ -66,6 +66,7 @@ module Mixlib
           else
             raise "Actor not found for user with id='#{user.id}'"
           end
+          params[:request_from_validator] = (user_or_client.respond_to?(:validator?) && user_or_client.validator?) || false
         end
         
       end      

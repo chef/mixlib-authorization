@@ -1,7 +1,12 @@
 require File.expand_path(File.dirname(__FILE__) + '/../../spec_helper')
 
 Struct.new("MockAuthModelsUser", :id, :username, :public_key)
-Struct.new("MockAuthModelsClient", :id, :clientname, :public_key)
+Struct.new("MockAuthModelsClient", :id, :clientname, :public_key, :validator)
+class Struct::MockAuthModelsClient
+  def validator?
+    validator
+  end
+end
 Struct.new("MockAuthModelsActor", :auth_object_id)
 Struct.new("MockMerbReqest", :env)
 
@@ -91,8 +96,17 @@ describe RequestAuthentication do
       @params[:requesting_actor_id].should == "knife_client_actor_id"
     end
     
-    it "sets a flag in the params to say if the requesting client is a validator or not" do
-      pending
+    it "sets params[:request_from_validator] to false when the requesting client is not a validator" do
+      RequestAuthentication.authenticator.should_receive(:authenticate_user_request).with(@req, :knife_client_pub_key_rsaified).and_return(:a_successful_auth)
+      RequestAuthentication.authenticate_every(@req, @params)
+      @params[:request_from_validator].should be_false
+    end
+
+    it "sets params[:request_from_validator] to true when the requesting client *is* a validator" do
+      @knife_client.validator = true
+      RequestAuthentication.authenticator.should_receive(:authenticate_user_request).with(@req, :knife_client_pub_key_rsaified).and_return(:a_successful_auth)
+      RequestAuthentication.authenticate_every(@req, @params)
+      @params[:request_from_validator].should be_true
     end
   end
   

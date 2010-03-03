@@ -29,14 +29,14 @@ module Mixlib
                    orgname = params[:organization_id] || params[:id]
                    Mixlib::Authorization::Log.debug "Authenticating username #{username}, orgname #{orgname}"
                    
-                   unless user = find_requesting_entity(username, orgname)
+                   if user = find_requesting_entity(username, orgname)
+                     Mixlib::Authorization::Log.debug "Found user or client: #{user.respond_to?(:username) ? user.username : user.clientname}"
+                   else
                      raise Mixlib::Authorization::AuthorizationError, "Unable to find user or client"
                    end
-
-                   actor = user_to_actor(user.id)
-                   raise "Actor not found for user with id='#{user.id}'" unless actor
-                   params[:requesting_actor_id] = actor.auth_object_id
-
+                   
+                   append_auth_info_to_params!(user, params)
+                   
                    user_key = OpenSSL::PKey::RSA.new(user.public_key)
                    authenticator.authenticate_user_request(request, user_key)
                    rescue StandardError => se
@@ -48,7 +48,7 @@ module Mixlib
         end
         
         def find_requesting_entity(username, orgname)
-          user = begin
+          begin
             Mixlib::Authorization::Log.debug "checking for user #{username}"
             Mixlib::Authorization::Models::User.find(username)
           rescue ArgumentError
@@ -58,9 +58,14 @@ module Mixlib
               Mixlib::Authorization::Models::Client.on(cr).by_clientname(:key=>username).first
             end
           end
-                   
-          Mixlib::Authorization::Log.debug "Found user or client: #{user.respond_to?(:username) ? user.username : user.clientname}"
-          user
+        end
+        
+        def append_auth_info_to_params!(user_or_client, params)
+          if actor = user_to_actor(user_or_client.id)
+            params[:requesting_actor_id] = actor.auth_object_id
+          else
+            raise "Actor not found for user with id='#{user.id}'"
+          end
         end
         
       end      

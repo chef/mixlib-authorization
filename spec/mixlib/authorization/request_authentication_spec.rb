@@ -44,12 +44,18 @@ describe RequestAuthentication do
       RequestAuthentication.authenticator.should_receive(:authenticate_user_request).with(@req, :mc_chris_pub_key_rsaified).and_return(:a_successful_auth)
       RequestAuthentication.authenticate_every(@req, @params).should == :a_successful_auth
     end
+    
+    it "sets the requesting actor's id in the params in a successful request" do
+      RequestAuthentication.authenticator.should_receive(:authenticate_user_request).with(@req, :mc_chris_pub_key_rsaified).and_return(:a_successful_auth)
+      RequestAuthentication.authenticate_every(@req, @params)
+      @params[:requesting_actor_id].should == "mc_chris_auth_object_id"
+    end
   end
   
   describe "when authenticating a request from an api client" do
     before do
       @req.env = {"HTTP_X-OPS-USERID" => "a_knife_client"}
-      @knife_client_auth_obj = @actor_class.new("knife_client_actor_obj")
+      @knife_client_auth_obj = @actor_class.new("knife_client_actor_id")
       @knife_client = @client_class.new("knife_client_id", "knife_client_name", "knife_client_public_key")
       @params = {:organization_id => "the_pushers_union"}
       
@@ -77,6 +83,16 @@ describe RequestAuthentication do
     it "failse when the client is valid but the request signature can't be verified" do
       RequestAuthentication.authenticator.should_receive(:authenticate_user_request).with(@req, :knife_client_pub_key_rsaified).and_return(nil)
       lambda {RequestAuthentication.authenticate_every(@req, @params)}.should raise_error(AuthorizationError)
+    end
+    
+    it "sets the requesting actor's id in the params in a successful request" do
+      RequestAuthentication.authenticator.should_receive(:authenticate_user_request).with(@req, :knife_client_pub_key_rsaified).and_return(:a_successful_auth)
+      RequestAuthentication.authenticate_every(@req, @params)
+      @params[:requesting_actor_id].should == "knife_client_actor_id"
+    end
+    
+    it "sets a flag in the params to say if the requesting client is a validator or not" do
+      pending
     end
   end
   

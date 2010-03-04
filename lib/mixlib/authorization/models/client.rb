@@ -26,6 +26,7 @@ module Mixlib
         property :orgname
         property :public_key        
         property :certificate
+        property :validator
         
         validates_with_method :clientname
 
@@ -73,6 +74,15 @@ module Mixlib
           [ false, "The name #{self["clientname"]} is not unique!" ]
         end
         
+        def validator?
+          has_validator_name? || validator
+        end
+        
+        def validator
+          # defaults are borken in this sad library
+          self["validator"] || false
+        end
+        
         def for_json
           self.properties.inject({ }) do |result, prop|
             pname = prop.name.to_sym
@@ -80,6 +90,12 @@ module Mixlib
             result[pname] = self.send(pname) unless pname == :public_key
             result
           end
+        end
+        
+        private
+        
+        def has_validator_name?
+          clientname == orgname + "-validator"
         end
       end
 

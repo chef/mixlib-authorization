@@ -63,6 +63,8 @@ module Mixlib
             return true if (how_many == 0) || (how_many == 1 && self.has_key?('_id'))
           rescue StandardError => se
             Mixlib::Authorization::Log.error "Failed to determine if username '#{self['username']}' is unique"
+            Mixlib::Authorization::Log.debug(se.inspect)
+            Mixlib::Authorization::Log.debug(se.backtrace.join("\n"))
           end
           [ false, "The name #{self[:username]} is not unique!" ]
         end

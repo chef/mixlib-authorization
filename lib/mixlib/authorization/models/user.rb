@@ -65,6 +65,17 @@ module Mixlib
 
         join_properties :requester_id
         
+        # Generates a new salt (overwriting the old one, if any) and sets password
+        # to the salted digest of +unhashed_password+
+        def set_password(unhashed_password)
+          generate_salt!
+          self[:password] = encrypt_password(unhashed_password)
+        end
+        
+        def correct_password?(unhashed_password)
+          encrypt_password(unhashed_password) == self[:password]
+        end
+        
         def public_key
           self[:public_key] || OpenSSL::X509::Certificate.new(self.certificate).public_key
         end
@@ -109,7 +120,21 @@ module Mixlib
           end
         end
         
+        private
         
+        # Generates a 60 Char salt in URL-safe BASE64 and sets self[:salt] to this value
+        def generate_salt!
+          base64_salt = [OpenSSL::Random.random_bytes(48)].pack("m*").delete("\n")
+          # use URL-safe base64, just in case
+          base64_salt.gsub!('/','_')
+          base64_salt.gsub!('+','-')
+          self[:salt] = base64_salt[0..59]
+        end
+        
+        def encrypt_password(password)
+          Digest::SHA1.hexdigest("#{salt}--#{password}--")
+        end
+
       end
       
     end

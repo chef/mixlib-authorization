@@ -1,7 +1,9 @@
+require 'mixlib/authorization'
+
+require 'mixlib/authorization/auth_helper'
 require 'mixlib/authorization/acl'
 require 'mixlib/authorization/container_helper'
 require 'mixlib/authorization/join_helper'
-require 'mixlib/authorization/auth_helper'
 require 'mixlib/authorization/models/join_document'
 require 'mixlib/authorization/models/join_types'
 require 'mixlib/authorization/models/user'

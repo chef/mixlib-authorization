@@ -5,7 +5,7 @@
 #
 # All rights reserved - do not redistribute
 #
-
+require 'mixlib/authorization/auth_join'
 
 module Mixlib
   module Authorization

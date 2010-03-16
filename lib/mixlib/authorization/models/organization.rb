@@ -30,7 +30,8 @@ module Mixlib
         
         validates_with_method :name, :unique_name?
         validates_with_method :org_type, :valid_org_types?
-        validates_format :name, :with => /^[a-z0-9-]+$/
+        
+        validates_format :name, :with => /^[a-z0-9][a-z0-9_-]*$/
 
         auto_validate!
         

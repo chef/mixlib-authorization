@@ -41,7 +41,7 @@ module Mixlib
         property :twitter_account
         property :password
         property :salt
-        property :profile_image_url
+        property :image_file_name
         
         validates_with_method :username, :unique_username?
         validates_with_method :email, :unique_email?

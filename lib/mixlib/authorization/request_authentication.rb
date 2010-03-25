@@ -39,7 +39,7 @@ module Mixlib
                                       
                    # if request_source header exists and has value 'web', the request is coming from webui or commmunity site, authenticate using the web ui public key.
                    # Otherwise auth using the user's public key.
-                   user_key = headers[:request_source] == 'web' ? OpenSSL::PKey::RSA.new(web_ui_public_key) : OpenSSL::PKey::RSA.new(user.public_key)
+                   user_key = headers[:x_ops_request_source] == 'web' ? OpenSSL::PKey::RSA.new(web_ui_public_key) : OpenSSL::PKey::RSA.new(user.public_key)
                    
                    authenticator.authenticate_user_request(request, user_key)
                    rescue StandardError => se

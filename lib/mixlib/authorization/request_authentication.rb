@@ -8,6 +8,8 @@
 
 require 'mixlib/authentication/signatureverification'
 require 'mixlib/authorization/models'
+require 'pp'
+require 'stringio'
 
 module Mixlib
   module Authorization
@@ -22,8 +24,11 @@ module Mixlib
         def authenticate_every(request, params, web_ui_public_key=nil)
           auth = begin
                    headers = request.env.inject({ }) { |memo, kv| memo[$2.downcase.gsub(/\-/,"_").to_sym] = kv[1] if kv[0] =~ /^(HTTP_)(.*)/; memo }
-                   
-                   Mixlib::Authorization::Log.debug("headers in authenticate_every: #{headers.inspect}")
+                   if Mixlib::Authorization::Log.debug?
+                     debug_msg = StringIO.new
+                     PP.pp({"headers in authenticate_every" => headers, "file:line" => "#{__FILE__}:#{__LINE__}"}, debug_msg)
+                     Mixlib::Authorization::Log.debug(debug_msg.string)
+                   end
                    username = headers[:x_ops_userid].chomp
                    #BUGBUG - next line seems odd.  Can't we ensure that it's *always* :organization_id? [cb]
                    orgname = params[:organization_id] || params[:id]

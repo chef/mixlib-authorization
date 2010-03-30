@@ -20,11 +20,13 @@ module Mixlib
         view_by :name
         view_by :full_name
         view_by :org_type
+        view_by :guid
         
         property :name
         property :full_name
         property :org_type
         property :clientname
+        property :guid
         
         validates_present :name, :full_name, :org_type, :clientname
         

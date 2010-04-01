@@ -29,7 +29,7 @@ module Mixlib
           
           def remove_current_actors
             identity["actors"].each do |actor_id|
-              next if join_data["actors"].include?(actor_id)
+              next if join_data && join_data["actors"] && join_data["actors"].include?(actor_id)
               
               Mixlib::Authorization::Log.debug("Removing actor: #{actor_id}")
               url = [base_url,resource,identity["id"],"actors",actor_id].join("/")
@@ -51,7 +51,7 @@ module Mixlib
 
           def remove_current_groups
             identity["groups"].each do |group_id|
-              next if join_data["groups"].include?(group_id)
+              next if join_data && join_data["groups"] && join_data["groups"].include?(group_id)
 
               Mixlib::Authorization::Log.debug("Removing group: #{group_id}")
               url = [base_url,resource,identity["id"],"groups",group_id].join("/")
@@ -73,7 +73,7 @@ module Mixlib
           
           def add_actors
             join_data["actors"].each do |actor_id|
-              next if identity["actors"].include?(actor_id)
+              next if identity && identity["actors"] && identity["actors"].include?(actor_id)
               
               Mixlib::Authorization::Log.debug("Adding actor: #{actor_id}")
               url = [base_url,resource,identity["id"],"actors",actor_id].join("/")
@@ -95,7 +95,7 @@ module Mixlib
 
           def add_groups
             join_data["groups"].each do |group_id|
-              next if identity["actors"].include?(group_id)
+              next if identity && identity["actors"] && identity["actors"].include?(group_id)
               
               Mixlib::Authorization::Log.debug("Adding group: #{group_id}")
               url = [base_url,resource,identity["id"],"groups",group_id].join("/")

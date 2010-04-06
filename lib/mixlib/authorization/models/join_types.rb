@@ -95,7 +95,7 @@ module Mixlib
 
           def add_groups
             join_data["groups"].each do |group_id|
-              next if identity && identity["actors"] && identity["actors"].include?(group_id)
+              next if identity && identity["groups"] && identity["groups"].include?(group_id)
               
               Mixlib::Authorization::Log.debug("Adding group: #{group_id}")
               url = [base_url,resource,identity["id"],"groups",group_id].join("/")
@@ -110,7 +110,7 @@ module Mixlib
                 :headers=>headers,
               }
               Mixlib::Authorization::Log.debug("In #{self.class.to_s} add_groups, PUT #{url}")
-              resp = rest.request(:put,url,options) unless identity["groups"].include?(group_id)
+              resp = rest.request(:put,url,options)
               Mixlib::Authorization::Log.debug("response: #{resp.inspect}")
             end
           end

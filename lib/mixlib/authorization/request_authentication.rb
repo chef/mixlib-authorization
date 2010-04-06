@@ -6,6 +6,7 @@
 # All rights reserved - do not redistribute
 #
 
+require 'mixlib/authorization'
 require 'mixlib/authentication/signatureverification'
 require 'mixlib/authorization/models'
 require 'pp'
@@ -61,7 +62,10 @@ module Mixlib
             Mixlib::Authorization::Models::User.find(username)
           rescue ArgumentError
             if orgname
-              cr = database_from_orgname(orgname)
+              unless cr = database_from_orgname(orgname)
+                Log.debug "No database found for organization #{orgname}"
+                raise ArgumentError, "No database found for organization '#{orgname}'"
+              end
               Mixlib::Authorization::Log.debug "checking for client #{username}"
               Mixlib::Authorization::Models::Client.on(cr).by_clientname(:key=>username).first
             end

@@ -109,7 +109,7 @@ module Mixlib
         end
         
         def self.find(name)
-          User.by_username(:key => name).first or raise ArgumentError
+          User.by_username(:key => name).first or raise ArgumentError, "User named #{name} cannot be found in the database"
         end
         
         def for_json

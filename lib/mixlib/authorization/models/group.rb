@@ -56,7 +56,12 @@ module Mixlib
             :headers=>headers,
           }
           Mixlib::Authorization::Log.debug("In #{self.class.to_s} add_actors, PUT #{url}")
-          resp = rest.request(:put,url,options)
+          begin
+            resp = rest.request(:put,url,options)
+          rescue Exception => e
+            error_message = "Failed to add actor #{actorname} to group #{self.groupname}, #{e.inspect} #{e.backtrace.join(",")}"
+            raise Mixlib::Authorization::AuthorizationError, error_message
+          end
           Mixlib::Authorization::Log.debug("response: #{resp.inspect}")
         end
         

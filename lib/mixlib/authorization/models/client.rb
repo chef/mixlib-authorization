@@ -54,11 +54,13 @@ module Mixlib
         def add_index
           Mixlib::Authorization::Log.debug "indexing client #{clientname}"
           add_to_index(:database=>self.database.name, :id=>self["_id"], :type=>self.class.to_s.split("::").last.downcase)
+          true
         end
         
         def delete_index
           Mixlib::Authorization::Log.debug "deindexing client #{clientname}"
           delete_from_index(:database=>self.database.name, :orgname=>self["orgname"], :id=>self["_id"], :type=>self.class.to_s.split("::").last.downcase)
+          true
         end
 
         def unique_clientname?

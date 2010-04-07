@@ -27,6 +27,7 @@ module Mixlib
       extend Mixlib::Config
 
       default_database nil
+      internal_database nil
       private_key nil
       authorization_service_uri nil
       certificate_service_uri nil

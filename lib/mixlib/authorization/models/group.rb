@@ -24,10 +24,12 @@ module Mixlib
         validates_format :groupname, :with => /^[a-z0-9\-_]+$/
         
         auto_validate!
+        
+        inherit_acl
 
         create_callback :before, :trim_actors_and_groups
         update_callback :before, :trim_actors_and_groups
-        create_callback :after, :create_join, :transform_ids
+        create_callback :after, :save_inherited_acl, :create_join, :transform_ids
         update_callback :after, :update_join, :transform_ids
         destroy_callback :before, :delete_join
 

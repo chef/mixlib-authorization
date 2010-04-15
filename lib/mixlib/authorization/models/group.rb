@@ -16,10 +16,13 @@ module Mixlib
         include Mixlib::Authorization::ContainerHelper
         
         view_by :groupname
+        view_by :orgname
 
         property :groupname
+        property :orgname
 
         validates_present :groupname
+        validates_present :orgname
 
         validates_format :groupname, :with => /^[a-z0-9\-_]+$/
         

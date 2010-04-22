@@ -126,7 +126,13 @@ module Mixlib
         actor_ids.concat(client_ids)
         
         group_ids = groupnames.uniq.inject([]) do |memo, groupname|
-          group = Mixlib::Authorization::Models::Group.on(database).by_groupname(:key=>groupname).first
+          # STEPHEN: 
+          # for global groups - we need to check the global database (opscode_account)
+          # and the org's database (from orgname)
+          org_db = database_from_orgname(orgname)
+          group = 
+            Mixlib::Authorization::Models::Group.on(database).by_groupname(:key=>groupname).first ||
+            Mixlib::Authorization::Models::Group.on(org_db).by_groupname(:key=>groupname).first
           group && (auth_join = AuthJoin.by_user_object_id(:key=>group.id).first) && (memo << auth_join.auth_object_id if auth_join)
           memo
         end

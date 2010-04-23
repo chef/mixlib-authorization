@@ -41,7 +41,36 @@ module Mixlib
         end
 
         def transform_ids
-          self["actors"], self["groups"] = transform_names_to_auth_ids(database,self["actor_and_group_names"])
+          actors_by_type = self["actors_and_group_names"]
+
+          actornames = actors_by_type["users"] || []
+          clientnames = actors_by_type["clients"] || []
+          groupnames = actors_by_type["groups"] || []
+
+          # set the organization database for use with global groups
+          org_db = (orgname && database_from_orgname(orgname)) || database
+
+          actor_ids = actornames.uniq.inject([]) do |memo, actorname|
+            user = Mixlib::Authorization::Models::User.by_username(:key => actorname).first
+            user && (auth_join = AuthJoin.by_user_object_id(:key=>user.id).first) && (memo << auth_join.auth_object_id)
+            memo
+          end
+
+          client_ids = clientnames.uniq.inject([]) do |memo, clientname|
+            client = Mixlib::Authorization::Models::Client.on(org_db).by_clientname(:key=>clientname).first
+            client && (auth_join = AuthJoin.by_user_object_id(:key=>client.id).first) && (memo << auth_join.auth_object_id)
+            memo
+          end
+
+          actor_ids.concat(client_ids)
+
+          group_ids = groupnames.uniq.inject([]) do |memo, groupname|
+            group = Mixlib::Authorization::Models::Group.on(org_db).by_groupname(:key=>groupname).first
+            group && (auth_join = AuthJoin.by_user_object_id(:key=>group.id).first) && (memo << auth_join.auth_object_id if auth_join)
+            memo
+          end
+          
+          self["actors"], self["groups"] = [actor_ids, group_ids]
         end
 
         def add_actor(actorname, database)

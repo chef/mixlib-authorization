@@ -41,7 +41,7 @@ module Mixlib
         end
 
         def transform_ids
-          actors_by_type = self["actors_and_group_names"]
+          actors_by_type = self["actor_and_group_names"]
 
           actornames = actors_by_type["users"] || []
           clientnames = actors_by_type["clients"] || []

@@ -141,6 +141,11 @@ module Mixlib
           group.nil? ? outgoing_groups : outgoing_groups << group 
         end
       end
+      
+      def get_global_admins_groupname(orgname)
+        "#{orgname}_global_admins"
+      end
+      
     end
 
   end

@@ -66,11 +66,15 @@ module Mixlib
       
       def delete_join
         Mixlib::Authorization::Log.debug "IN DELETE JOIN ACL: #{join_data.inspect}"
-        join_object = AuthJoin.by_user_object_id(:key=>self.id).first or raise ArgumentError, "Cannot find join for #{self.id}"
-        auth_join_object = self.class.instance_variable_get("@join_type").new(Mixlib::Authorization::Config.authorization_service_uri, { "object_id"=>join_object[:auth_object_id]}.merge(join_data))
-        Mixlib::Authorization::Log.debug "IN DELETE JOIN ACL: join_object = #{join_object.inspect}"
-        Mixlib::Authorization::Log.debug "IN DELETE JOIN ACL: auth_join_object = #{auth_join_object.inspect}"
-        join_object.destroy
+        if join_object = AuthJoin.by_user_object_id(:key=>self.id).first
+          auth_join_object = self.class.instance_variable_get("@join_type").new(Mixlib::Authorization::Config.authorization_service_uri, { "object_id"=>join_object[:auth_object_id]}.merge(join_data))
+          Mixlib::Authorization::Log.debug "IN DELETE JOIN ACL: join_object = #{join_object.inspect}"
+          Mixlib::Authorization::Log.debug "IN DELETE JOIN ACL: auth_join_object = #{auth_join_object.inspect}"
+          join_object.destroy
+        else
+          Mixlib::Authorization::Log.debug "IN DELETE JOIN ACL: Cannot find join for #{self.id}"
+          false
+        end
       end
 
       def update_join_ace(ace_type, ace_data)

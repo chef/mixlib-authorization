@@ -1,11 +1,15 @@
 #
 # Author:: Christopher Brown <cb@opscode.com>
+# Author:: Tim Hinderliter <tim@opscode.com>
 #
-# Copyright 2009, Opscode, Inc.
+# Copyright 2009, 2010, Opscode, Inc.
 #
 # All rights reserved - do not redistribute
 #
 
+# TODO: make sure this comment is correct.
+# Models a Cookbook -- this is the container that holds other cookbook version
+# and its ACL's are checked on CookbookVersion create.
 module Mixlib
   module Authorization
     module Models
@@ -17,24 +21,10 @@ module Mixlib
         
         view_by :display_name
 
-        # NOTE: The notion of latest_revision is going to go away but must be kept around for migration purposes.
-        #       In the new world, the revisions property is an array that represents the cookbook's revisions.
-        view_by :latest_revision,
-        :map =>
-          'function(doc) { 
-             if(doc["couchrest-type"] == "Mixlib::Authorization::Models::Cookbook") {
-               emit(doc.display_name, doc);
-             }
-          }',
-        :reduce =>
-          "function(key, values) { return values.sort(function(a,b){return b.revision-a.revision})[0] }"
-        
         property :display_name
-        property :revision
-        property :revisions
         property :orgname
         
-        validates_present :display_name, :revision, :revisions, :orgname
+        validates_present :display_name, :orgname
         
         auto_validate!
 

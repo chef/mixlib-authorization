@@ -86,12 +86,14 @@ module Mixlib
         end
         
         def for_json
-          self.properties.inject({ }) do |result, prop|
+          result = self.properties.inject({ }) do |result, prop|
             pname = prop.name.to_sym
             #BUGBUG - I hate stripping properties like this.  We should do it differently [cb]
             result[pname] = self.send(pname) unless pname == :public_key
             result
           end
+          result[:name] = result[:clientname]
+          result
         end
         
         private

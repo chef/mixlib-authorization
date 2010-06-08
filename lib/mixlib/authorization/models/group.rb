@@ -84,7 +84,7 @@ module Mixlib
           headers = {:accept=>"application/json", :content_type=>'application/json'}
           headers["X-Ops-Requesting-Actor-Id"] = self[:requester_id]
 
-          options = { :authenticate=> true,
+          options = {
             :user_secret=>OpenSSL::PKey::RSA.new(Mixlib::Authorization::Config.private_key),
             :user_id=>'front-end service',
             :headers=>headers,

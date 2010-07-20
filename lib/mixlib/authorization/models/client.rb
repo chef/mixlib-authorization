@@ -32,7 +32,7 @@ module Mixlib
 
         validates_present :clientname, :orgname
 
-        validates_format :clientname, :with => /^([a-zA-Z0-9\-_\.])*$/
+        validates_format :clientname, :with => /\A([a-zA-Z0-9\-_\.])*\z/
         #    /^(([:alpha]{1}([:alnum]-){1,62})\.)+([:alpha]{1}([:alnum]-){1,62})$/
         
         auto_validate!

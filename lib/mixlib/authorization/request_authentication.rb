@@ -18,7 +18,7 @@ module Mixlib
       include Mixlib::Authorization::AuthHelper
 
       def self.authenticate_every(request, params, web_ui_public_key=nil)
-        new(request, params, web_ui_public_key=nil).authenticate
+        new(request, params, web_ui_public_key).authenticate
       end
 
       attr_reader :request

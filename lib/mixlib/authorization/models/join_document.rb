@@ -30,20 +30,14 @@ module Mixlib
           url = [base_url,resource].join("/")
           requester_id = join_data["requester_id"]
           Mixlib::Authorization::Log.debug "IN SAVE: join_data #{join_data.inspect}"
-          rest = Opscode::REST.new
-          headers = {:accept=>"application/json", :content_type=>'application/json'}
+          headers = {:accept => "application/json", :content_type => "application/json"}
           headers["X-Ops-Requesting-Actor-Id"] = requester_id if requester_id
-          
-          options = {
-            :user_secret=>OpenSSL::PKey::RSA.new(Mixlib::Authorization::Config.private_key),
-            :user_id=>'front-end service',
-            :headers=>headers,
-            :payload=>join_data.to_json
-          }
-          Mixlib::Authorization::Log.debug "IN SAVE: url: #{url.inspect}, with payload: #{options[:payload]}"
-          resp = rest.request(:post,url,options)
-          Mixlib::Authorization::Log.debug "IN SAVE: response: #{resp.inspect}"
-          @identity = resp
+          headers["X-Ops-User-Id"] = 'front-end-service'
+
+          Mixlib::Authorization::Log.debug "IN SAVE: url: #{url.inspect}, with payload: #{join_data.to_json}"
+          @identity = JSON.parse(RestClient.post(url, join_data.to_json, headers))
+          Mixlib::Authorization::Log.debug "IN SAVE: response: #{@identity.inspect}"
+          @identity
         end
         
         def fetch
@@ -53,19 +47,13 @@ module Mixlib
           requester_id = join_data["requester_id"]        
           Mixlib::Authorization::Log.debug "IN FETCH: #{url.inspect}"
           
-          rest = Opscode::REST.new
-          headers = {:accept=>"application/json", :content_type=>'application/json'}
+          headers = {:accept => "application/json", :content_type => "application/json"}
           headers["X-Ops-Requesting-Actor-Id"] = requester_id if requester_id
+          headers["X-Ops-User-Id"] = 'front-end-service'
           
-          options = {
-            :user_secret=>OpenSSL::PKey::RSA.new(Mixlib::Authorization::Config.private_key),
-            :user_id=>'front-end service',
-            :headers=>headers
-          }
-
-          resp = rest.request(:get,url,options)
-          Mixlib::Authorization::Log.debug "IN FETCH: response #{resp.inspect}"        
-          @identity = resp.merge({ "id"=>object_id })
+          @identity  = JSON.parse(RestClient.get(url,headers)).merge({ "id"=>object_id })
+          Mixlib::Authorization::Log.debug "IN FETCH: response #{@identity.inspect}" 
+          @identity
         end
 
         def update
@@ -79,19 +67,14 @@ module Mixlib
           requester_id = join_data["requester_id"]
           Mixlib::Authorization::Log.debug "IN FETCH ACL: #{url}"        
           
-          rest = Opscode::REST.new
-          headers = {:accept=>"application/json", :content_type=>'application/json'}
+          headers = {:accept => "application/json", :content_type => "application/json"}
           headers["X-Ops-Requesting-Actor-Id"] = requester_id if requester_id
+          headers["X-Ops-User-Id"] = 'front-end-service'
           
-          options = {
-            :user_secret=>OpenSSL::PKey::RSA.new(Mixlib::Authorization::Config.private_key),
-            :user_id=>'front-end service',
-            :headers=>headers
-          }
+          @identity  = JSON.parse(RestClient.get(url,headers))
 
-          resp = rest.request(:get,url,options)
-          Mixlib::Authorization::Log.debug "FETCH ACL: #{resp.inspect}"
-          @identity = resp
+          Mixlib::Authorization::Log.debug "FETCH ACL: #{@identity.inspect}"
+          @identity
         end
 
         def is_authorized?(actor, ace)
@@ -100,19 +83,13 @@ module Mixlib
           url_dbg = [base_url,resource,object_id,"acl",ace,].join("/")
           requester_id = join_data["requester_id"]
           Mixlib::Authorization::Log.debug "IN IS_AUTHORIZED: #{self.inspect} \n\twith actor: #{actor}\n\tace: #{ace}\n\turl:#{url}"
-          
-          rest = Opscode::REST.new
-          headers = {:accept=>"application/json", :content_type=>'application/json'}
+
+          headers = {:accept=>"application/json", :content_type=>"application/json"}
           headers["X-Ops-Requesting-Actor-Id"] = requester_id if requester_id
-          
-          options = {
-            :user_secret=>OpenSSL::PKey::RSA.new(Mixlib::Authorization::Config.private_key),
-            :user_id=>'front-end service',
-            :headers=>headers
-          }
+          headers["X-Ops-User-Id"] = 'front-end-service'
           
           begin
-            resp = rest.request(:get,url,options)
+            JSON.parse(RestClient.get(url,headers))
           rescue RestClient::ResourceNotFound
             false
           end
@@ -127,16 +104,10 @@ module Mixlib
           begin
             object_id = join_data["object_id"]
             
-            headers = {:accept=>"application/json", :content_type=>'application/json', "X-Ops-Requesting-Actor-Id" => join_data["requester_id"]}
-            options = {
-              :user_secret=>OpenSSL::PKey::RSA.new(Mixlib::Authorization::Config.private_key),
-              :user_id=>'front-end service',
-              :headers=>headers,
-            }
+            headers = {:accept=>:json, :content_type=>:json, "X-Ops-Requesting-Actor-Id" => join_data["requester_id"], "X-Ops-User-Id"=>'front-end-service'}
             
-            rest = Opscode::REST.new
             url_get_ace = [base_url,resource, object_id,"acl",ace_name].join("/")
-            current_ace = rest.request(:get, url_get_ace, options)
+            current_ace = JSON.parse(RestClient.get(url_get_ace, headers))
             new_ace = Hash.new
             ["actors", "groups"].each do |actor_type|
               if ace_data.has_key?(actor_type)
@@ -147,8 +118,7 @@ module Mixlib
             end
             Mixlib::Authorization::Log.debug("IN UPDATE ACE: Current ace: #{current_ace.inspect}, Future ace: #{new_ace.inspect}")
             target_url = [base_url,resource, object_id,"acl",ace_name].join("/")
-            options[:payload] = new_ace.to_json
-            resp = rest.request(:put,target_url,options)
+            resp = JSON.parse(RestClient.put(target_url,new_ace.to_json,headers))
             Mixlib::Authorization::Log.debug("IN UPDATE ACE: response #{resp.inspect}")
             resp
           rescue StandardError => se
@@ -161,17 +131,11 @@ module Mixlib
           object_id = join_data["object_id"]        
           url = [base_url,resource,object_id].join("/")
           
-          rest = Opscode::REST.new
           headers = {:accept=>"application/json", :content_type=>'application/json'}
           headers["X-Ops-Requesting-Actor-Id"] = requester_id if requester_id
+          headers["X-Ops-User-Id"] = 'front-end-service'
           
-          options = {
-            :user_secret=>OpenSSL::PKey::RSA.new(Mixlib::Authorization::Config.private_key),
-            :user_id=>'front-end service',
-            :headers=>headers
-          }
-
-          resp = rest.request(:delete,url,options)
+          resp = JSON.parse(RestClient.delete(url,options))
           
           @identity = resp
           true        

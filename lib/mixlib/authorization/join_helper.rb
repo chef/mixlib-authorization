@@ -24,7 +24,7 @@ module Mixlib
         Mixlib::Authorization::Log.debug "IN CREATE JOIN, saving #{join_type} #{self.inspect}"
         auth_join_object = join_type.new(Mixlib::Authorization::Config.authorization_service_uri,self.join_data)
         auth_join_object.save
-        Mixlib::Authorization::Log.debug "IN CREATE JOIN, auth_join_object for #{join_type} saved"
+        Mixlib::Authorization::Log.debug "IN CREATE JOIN, auth_join_object for #{join_type} saved: #{auth_join_object.identity}"
         @join_doc = AuthJoin.new({ :user_object_id=>self.id,
                                    :auth_object_id=>auth_join_object.identity["id"]})
         retval = @join_doc.save

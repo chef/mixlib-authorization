@@ -18,16 +18,19 @@ module Mixlib
         begin
           Mixlib::Authorization::Log.debug "auth_helper.rb: certificate_service_uri is #{Mixlib::Authorization::Config.certificate_service_uri}"
 
-          rest = Opscode::REST::Resource.new(Mixlib::Authorization::Config.certificate_service_uri)
+          rest = RestClient::Resource.new(Mixlib::Authorization::Config.certificate_service_uri)
+
           #common name is in the format of: "URI:http://opscode.com/GUIDS/...."
           common_name = "URI:http://opscode.com/GUIDS/#{guid}"
 
-          response = (rid == nil ? rest.post({:common_name => common_name}) : rest.post({:common_name => common_name}, rid) )
+          # response = (rid == nil ? rest.post({:common_name => common_name}) : rest.post({:common_name => common_name}, rid) )
+          # BUGBUG What about the rid? [cb]
+          response = JSON.parse(RestClient.post Mixlib::Authorization::Config.certificate_service_uri, :common_name => common_name)
+
           # Opscode::REST will return a hash only if the certificate service
           # returned a document with the mime type 'application/json'. 
           # opscode-certificate returns text/html and opscode-cert-gen
           # returns 'application/json'
-          response = JSON.parse(response) if response.is_a?(String)
 
           #certificate
           cert = OpenSSL::X509::Certificate.new(response["cert"])

@@ -8,7 +8,7 @@
 #
 
 require 'openssl'
-require 'opscode/rest'
+require 'rest-client'
 
 module Mixlib
   module Authorization
@@ -17,8 +17,6 @@ module Mixlib
       def gen_cert(guid, rid=nil)
         begin
           Mixlib::Authorization::Log.debug "auth_helper.rb: certificate_service_uri is #{Mixlib::Authorization::Config.certificate_service_uri}"
-
-          rest = RestClient::Resource.new(Mixlib::Authorization::Config.certificate_service_uri)
 
           #common name is in the format of: "URI:http://opscode.com/GUIDS/...."
           common_name = "URI:http://opscode.com/GUIDS/#{guid}"

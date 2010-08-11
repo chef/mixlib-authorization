@@ -80,23 +80,18 @@ module Mixlib
           url = [base_url,"groups",group_auth_id,"actors",actor_id].join("/")
           Mixlib::Authorization::Log.debug("Adding actor: #{actor_id}, url: #{url.inspect}")
 
-          rest = Opscode::REST.new
           headers = {:accept=>"application/json", :content_type=>'application/json'}
           headers["X-Ops-Requesting-Actor-Id"] = self[:requester_id]
+          headers["X-Ops-Userid"] = 'front-end service'
 
-          options = {
-            :user_secret=>OpenSSL::PKey::RSA.new(Mixlib::Authorization::Config.private_key),
-            :user_id=>'front-end service',
-            :headers=>headers,
-          }
           Mixlib::Authorization::Log.debug("In #{self.class.to_s} add_actors, PUT #{url}")
           begin
-            resp = rest.request(:put,url,options)
+            RestClient::Resource.new(url, :headers=>headers, 
+                                     :timeout=>1800, :open_timeout=>1800).put({}.to_json)
           rescue Exception => e
             error_message = "Failed to add actor #{actorname} to group #{self.groupname}, #{e.inspect} #{e.backtrace.join(",")}"
             raise Mixlib::Authorization::AuthorizationError, error_message
           end
-          Mixlib::Authorization::Log.debug("response: #{resp.inspect}")
         end
         
         join_type Mixlib::Authorization::Models::JoinTypes::Group

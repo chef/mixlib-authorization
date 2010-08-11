@@ -35,7 +35,8 @@ module Mixlib
           headers["X-Ops-User-Id"] = 'front-end-service'
 
           Mixlib::Authorization::Log.debug "IN SAVE: url: #{url.inspect}, with payload: #{join_data.to_json}"
-          @identity = JSON.parse(RestClient.post(url, join_data.to_json, headers))
+          rest = RestClient::Resource.new(url,:headers=>headers, :timeout=>1800, :open_timeout=>1800)
+          @identity = JSON.parse(rest.post(join_data.to_json))
           Mixlib::Authorization::Log.debug "IN SAVE: response: #{@identity.inspect}"
           @identity
         end
@@ -50,8 +51,8 @@ module Mixlib
           headers = {:accept => "application/json", :content_type => "application/json"}
           headers["X-Ops-Requesting-Actor-Id"] = requester_id if requester_id
           headers["X-Ops-User-Id"] = 'front-end-service'
-          
-          @identity  = JSON.parse(RestClient.get(url,headers)).merge({ "id"=>object_id })
+          rest = RestClient::Resource.new(url,:headers=>headers, :timeout=>1800, :open_timeout=>1800)
+          @identity  = JSON.parse(rest.get).merge({ "id"=>object_id })
           Mixlib::Authorization::Log.debug "IN FETCH: response #{@identity.inspect}" 
           @identity
         end
@@ -70,8 +71,8 @@ module Mixlib
           headers = {:accept => "application/json", :content_type => "application/json"}
           headers["X-Ops-Requesting-Actor-Id"] = requester_id if requester_id
           headers["X-Ops-User-Id"] = 'front-end-service'
-          
-          @identity  = JSON.parse(RestClient.get(url,headers))
+          rest = RestClient::Resource.new(url,:headers=>headers, :timeout=>1800, :open_timeout=>1800)
+          @identity  = JSON.parse(rest.get)
 
           Mixlib::Authorization::Log.debug "FETCH ACL: #{@identity.inspect}"
           @identity
@@ -89,7 +90,8 @@ module Mixlib
           headers["X-Ops-User-Id"] = 'front-end-service'
           
           begin
-            JSON.parse(RestClient.get(url,headers))
+            rest = RestClient::Resource.new(url,:headers=>headers, :timeout=>1800, :open_timeout=>1800)
+            JSON.parse(rest.get)
           rescue RestClient::ResourceNotFound
             false
           end
@@ -107,7 +109,8 @@ module Mixlib
             headers = {:accept=>:json, :content_type=>:json, "X-Ops-Requesting-Actor-Id" => join_data["requester_id"], "X-Ops-User-Id"=>'front-end-service'}
             
             url_get_ace = [base_url,resource, object_id,"acl",ace_name].join("/")
-            current_ace = JSON.parse(RestClient.get(url_get_ace, headers))
+            rest = RestClient::Resource.new(url_get_ace,:headers=>headers, :timeout=>1800, :open_timeout=>1800)
+            current_ace = JSON.parse(rest.get)
             new_ace = Hash.new
             ["actors", "groups"].each do |actor_type|
               if ace_data.has_key?(actor_type)
@@ -118,7 +121,8 @@ module Mixlib
             end
             Mixlib::Authorization::Log.debug("IN UPDATE ACE: Current ace: #{current_ace.inspect}, Future ace: #{new_ace.inspect}")
             target_url = [base_url,resource, object_id,"acl",ace_name].join("/")
-            resp = JSON.parse(RestClient.put(target_url,new_ace.to_json,headers))
+            rest = RestClient::Resource.new(target_url,:headers=>headers, :timeout=>1800, :open_timeout=>1800)
+            resp = JSON.parse(rest.put(new_ace.to_json))
             Mixlib::Authorization::Log.debug("IN UPDATE ACE: response #{resp.inspect}")
             resp
           rescue StandardError => se
@@ -134,8 +138,8 @@ module Mixlib
           headers = {:accept=>"application/json", :content_type=>'application/json'}
           headers["X-Ops-Requesting-Actor-Id"] = requester_id if requester_id
           headers["X-Ops-User-Id"] = 'front-end-service'
-          
-          resp = JSON.parse(RestClient.delete(url,options))
+          rest = RestClient::Resource.new(target_url,:headers=>headers, :timeout=>1800, :open_timeout=>1800)
+          resp = JSON.parse(rest.delete)
           
           @identity = resp
           true        

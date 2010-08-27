@@ -8,7 +8,7 @@
 #
 
 require 'openssl'
-require 'rest-client'
+require 'rest_client'
 
 module Mixlib
   module Authorization

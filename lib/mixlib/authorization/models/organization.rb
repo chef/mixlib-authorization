@@ -27,6 +27,7 @@ module Mixlib
         property :org_type
         property :clientname
         property :guid
+        property :chargify_subscription_id
         
         validates_present :name, :full_name, :org_type, :clientname
         

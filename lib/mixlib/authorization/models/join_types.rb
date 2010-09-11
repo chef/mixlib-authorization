@@ -11,6 +11,10 @@ module Mixlib
     module Models
       module JoinTypes
         class Group < Mixlib::Authorization::Models::JoinDocument
+          def resource
+            "groups"
+          end
+
           def save
             Mixlib::Authorization::Log.debug "SAVING GROUP #{self.inspect}"
             super
@@ -95,6 +99,10 @@ module Mixlib
         end
         
         class Actor < Mixlib::Authorization::Models::JoinDocument
+          def resource
+            "actors"
+          end
+
         end
         
         class Container < Mixlib::Authorization::Models::JoinDocument

@@ -14,7 +14,6 @@ module Mixlib
     module Models
       class JoinDocument
         attr_reader :identity
-        attr_reader :resource
         attr_reader :base_url
         attr_reader :join_data
         
@@ -22,10 +21,13 @@ module Mixlib
         
         def initialize(base_url,left_join_data)
           @join_data = left_join_data
-          @resource = self.class.name.split("::").last.downcase.pluralize
           @base_url = base_url
         end
-        
+
+        def resource
+          "objects"
+        end
+
         def save
           url = [base_url,resource].join("/")
           requester_id = join_data["requester_id"]

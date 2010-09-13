@@ -28,6 +28,8 @@ module Mixlib
         property :clientname
         property :guid
         property :chargify_subscription_id
+        property :chargify_customer_id
+        property :billing_plan
         
         validates_present :name, :full_name, :org_type, :clientname
         

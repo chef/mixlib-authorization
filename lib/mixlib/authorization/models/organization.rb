@@ -31,10 +31,9 @@ module Mixlib
         property :chargify_customer_id
         property :billing_plan
         
-        validates_present :name, :full_name, :org_type, :clientname
+        validates_present :name, :full_name, :clientname
         
         validates_with_method :name, :unique_name?
-        validates_with_method :org_type, :valid_org_types?
         
         validates_format :name, :with => /^[a-z0-9][a-z0-9_-]*$/
 
@@ -46,16 +45,6 @@ module Mixlib
         
         join_type Mixlib::Authorization::Models::JoinTypes::Object 
         join_properties :requester_id
-        
-        def valid_org_types?
-          org_types = %w{Business Non-Profit Personal}
-          
-          if org_types.include?(self[:org_type])
-            true
-          else
-            [ false, "Org type must be one of: #{org_types.join(", ")}" ]
-          end
-        end
         
         def unique_name?
           r = Organization.by_name(:key => self["name"], :include_docs => false)

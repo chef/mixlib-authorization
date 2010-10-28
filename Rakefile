@@ -21,12 +21,12 @@ end
 
 desc "install the gem locally"
 task :install => [:package] do
-  sh %{gem install pkg/#{GEM}-#{GEM_VERSION}}
+  sh %{gem install pkg/mixlib-authorization-#{MIXLIB_AUTHORIZATION_VERSION}}
 end
 
 desc "create a gemspec file"
 task :make_spec do
-  File.open("#{GEM}.gemspec", "w") do |file|
+  File.open("mixlib-authorization.gemspec", "w") do |file|
     file.puts spec.to_ruby
   end
 end

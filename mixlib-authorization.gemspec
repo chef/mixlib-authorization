@@ -1,9 +1,8 @@
-GEM = "mixlib-authorization"
-GEM_VERSION = "1.2.0"
+MIXLIB_AUTHORIZATION_VERSION = "1.2.0"
 
 Gem::Specification.new do |s|
-  s.name = GEM
-  s.version = GEM_VERSION
+  s.name = "mixlib-authorization"
+  s.version = MIXLIB_AUTHORIZATION_VERSION
   s.platform = Gem::Platform::RUBY
   s.has_rdoc = true
   s.extra_rdoc_files = ["README.rdoc", "LICENSE", 'NOTICE']
@@ -19,6 +18,5 @@ Gem::Specification.new do |s|
   s.add_dependency "mixlib-config"
   
   s.require_path = 'lib'
-  s.autorequire = GEM
   s.files = %w(LICENSE README.rdoc Rakefile NOTICE) + Dir.glob("{lib,spec,features}/**/*")
 end

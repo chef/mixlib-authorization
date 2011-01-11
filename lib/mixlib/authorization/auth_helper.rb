@@ -88,7 +88,13 @@ module Mixlib
         raise ArgumentError, "must supply group id" unless group_id
         Mixlib::Authorization::Log.debug("auth group to user group: #{group_id}, database: #{org_database && org_database.name}")
         auth_join = AuthJoin.by_auth_object_id(:key=>group_id).first
-        user_group = Mixlib::Authorization::Models::Group.on(org_database).get(auth_join.user_object_id).groupname
+        user_group = begin
+                       Mixlib::Authorization::Models::Group.on(org_database).get(auth_join.user_object_id).groupname
+                     rescue StandardError=>se
+                       Mixlib::Authorization::Log.error "Failed to turn auth group id #{group_id} into a user-side group: #{se}"
+                       nil
+                     end
+
         Mixlib::Authorization::Log.debug("user group: #{user_group}")
         user_group
       end

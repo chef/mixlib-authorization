@@ -13,13 +13,13 @@ module Mixlib
       def self.included(klass)
         klass.extend ClassMethods
       end
-      
+
       def create_join
         Mixlib::Authorization::Log.debug "IN CREATE JOIN"
         join_object = load_join_object
 
         raise Mixlib::Authorization::AuthorizationError, "join object already exists! #{join_object.inspect}" unless join_object.nil?
-        
+
         Mixlib::Authorization::Log.debug "IN CREATE JOIN, saving #{join_type} #{self.inspect}"
         auth_join_object = join_type.new(Mixlib::Authorization::Config.authorization_service_uri,self.join_data)
         auth_join_object.save
@@ -32,34 +32,34 @@ module Mixlib
         Mixlib::Authorization::Log.debug "IN CREATE JOIN, join doc saved"
         @join_doc
       end
-      
+
       def update_join
         Mixlib::Authorization::Log.debug "IN UPDATE JOIN"
-        
+
         join_object = load_join_object
         raise Mixlib::Authorization::AuthorizationError, "#{self.class.name} #{self.id} does not have an auth join object" if join_object.nil?
 
-        Mixlib::Authorization::Log.debug "IN UPDATE JOIN, updating #{join_type} #{self.inspect}"        
-        
+        Mixlib::Authorization::Log.debug "IN UPDATE JOIN, updating #{join_type} #{self.inspect}"
+
         auth_join_object = fetch_auth_join_for(join_object)
         auth_join_object.update
-        Mixlib::Authorization::Log.debug "IN UPDATE JOIN, fetched #{auth_join_object.inspect}"          
+        Mixlib::Authorization::Log.debug "IN UPDATE JOIN, fetched #{auth_join_object.inspect}"
       end
-      
+
       def fetch_join
         Mixlib::Authorization::Log.debug "IN FETCH JOIN: #{join_data.inspect}"
         auth_join_object = load_auth_join_object!
         Mixlib::Authorization::Log.debug "IN FETCH JOIN: #{auth_join_object.inspect}"
         auth_join_object.fetch
       end
-      
+
       def fetch_join_acl
-        Mixlib::Authorization::Log.debug "IN FETCH JOIN ACL: #{join_data.inspect}"      
+        Mixlib::Authorization::Log.debug "IN FETCH JOIN ACL: #{join_data.inspect}"
         auth_join_object = load_auth_join_object!
         Mixlib::Authorization::Log.debug "IN FETCH JOIN ACL: #{auth_join_object.inspect}"
         auth_join_object.fetch_acl
       end
-      
+
       def delete_join
         Mixlib::Authorization::Log.debug "IN DELETE JOIN ACL: #{join_data.inspect}"
         if join_object = load_join_object
@@ -76,12 +76,12 @@ module Mixlib
       def update_join_ace(ace_type, ace_data)
         Mixlib::Authorization::Log.debug "IN UPDATE JOIN ACE: ace type: #{ace_type}, join data: #{join_data.inspect}"
         auth_join_object = load_auth_join_object!
-        Mixlib::Authorization::Log.debug "IN UPDATE JOIN ACE: #{auth_join_object.inspect}"      
+        Mixlib::Authorization::Log.debug "IN UPDATE JOIN ACE: #{auth_join_object.inspect}"
         auth_join_object.update_ace(ace_type, ace_data)
       end
 
       def is_authorized?(actor,ace)
-        Mixlib::Authorization::Log.debug "IN IS_AUTHORIZED?: #{join_data.inspect}"      
+        Mixlib::Authorization::Log.debug "IN IS_AUTHORIZED?: #{join_data.inspect}"
         auth_join_object = load_auth_join_object!
         Mixlib::Authorization::Log.debug "IN IS_AUTHORIZED? AUTH_JOIN OBJECT: #{auth_join_object.inspect}"
         auth_join_object.is_authorized?(actor,ace)

@@ -38,7 +38,7 @@ module Mixlib
         Mixlib::Authorization::Log.debug "IN UPDATE JOIN"
         
         join_object = AuthJoin.by_user_object_id(:key=>self.id).first
-        raise Mixlib::Authorization::AuthorizationError, "must have join object!" if join_object.nil?
+        raise Mixlib::Authorization::AuthorizationError, "#{self.class.name} #{self.id} does not have an auth join object" if join_object.nil?
 
         join_type = self.class.instance_variable_get("@join_type")
         Mixlib::Authorization::Log.debug "IN UPDATE JOIN, updating #{join_type} #{self.inspect}"        
@@ -50,7 +50,7 @@ module Mixlib
       
       def fetch_join
         Mixlib::Authorization::Log.debug "IN FETCH JOIN: #{join_data.inspect}"
-        join_object = AuthJoin.by_user_object_id(:key=>self.id).first or raise ArgumentError, "Cannot find join for #{self.id}"
+        join_object = AuthJoin.by_user_object_id(:key=>self.id).first or raise ArgumentError, "Cannot find join for #{self.class.name} #{self.id}"
         auth_join_object = self.class.instance_variable_get("@join_type").new(Mixlib::Authorization::Config.authorization_service_uri, { "object_id"=>join_object[:auth_object_id]}.merge(join_data))
         Mixlib::Authorization::Log.debug "IN FETCH JOIN: #{auth_join_object.inspect}"
         auth_join_object.fetch
@@ -58,7 +58,7 @@ module Mixlib
       
       def fetch_join_acl
         Mixlib::Authorization::Log.debug "IN FETCH JOIN ACL: #{join_data.inspect}"      
-        join_object = AuthJoin.by_user_object_id(:key=>self.id).first or raise ArgumentError, "Cannot find join for #{self.id}"
+        join_object = AuthJoin.by_user_object_id(:key=>self.id).first or raise ArgumentError, "Cannot find join for #{self.class.name} #{self.id}"
         auth_join_object = self.class.instance_variable_get("@join_type").new(Mixlib::Authorization::Config.authorization_service_uri, { "object_id"=>join_object[:auth_object_id]}.merge(join_data))
         Mixlib::Authorization::Log.debug "IN FETCH JOIN ACL: #{auth_join_object.inspect}"
         auth_join_object.fetch_acl
@@ -79,7 +79,7 @@ module Mixlib
 
       def update_join_ace(ace_type, ace_data)
         Mixlib::Authorization::Log.debug "IN UPDATE JOIN ACE: ace type: #{ace_type}, join data: #{join_data.inspect}"
-        join_object = AuthJoin.by_user_object_id(:key=>self.id).first or raise ArgumentError, "Cannot find join for #{self.id}"        
+        join_object = AuthJoin.by_user_object_id(:key=>self.id).first or raise ArgumentError, "Cannot find join for #{self.class.name} #{self.id}"
         auth_join_object = self.class.instance_variable_get("@join_type").new(Mixlib::Authorization::Config.authorization_service_uri, { "object_id"=>join_object[:auth_object_id]}.merge(join_data))
         Mixlib::Authorization::Log.debug "IN UPDATE JOIN ACE: #{auth_join_object.inspect}"      
         auth_join_object.update_ace(ace_type, ace_data)
@@ -87,10 +87,14 @@ module Mixlib
 
       def is_authorized?(actor,ace)
         Mixlib::Authorization::Log.debug "IN IS_AUTHORIZED?: #{join_data.inspect}"      
-        join_object = AuthJoin.by_user_object_id(:key=>self.id).first or raise ArgumentError
+        join_object = AuthJoin.by_user_object_id(:key=>self.id).first or raise ArgumentError, "Cannot find join for #{self.class.name} #{self.id}"
         auth_join_object = self.class.instance_variable_get("@join_type").new(Mixlib::Authorization::Config.authorization_service_uri, { "object_id"=>join_object[:auth_object_id]}.merge(join_data))
         Mixlib::Authorization::Log.debug "IN IS_AUTHORIZED? AUTH_JOIN OBJECT: #{auth_join_object.inspect}"
         auth_join_object.is_authorized?(actor,ace)
+      end
+
+      def fetch_auth_join_for(join_object)
+        self.class.instance_variable_get("@join_type").new(Mixlib::Authorization::Config.authorization_service_uri, { "object_id"=>join_object[:auth_object_id]}.merge(join_data))
       end
 
       def join_data
@@ -114,6 +118,11 @@ module Mixlib
         def join_type(join_type)
           @join_type = join_type
         end
+
+        def join_type_for_class
+          @join_type
+        end
+
       end
     end
   end

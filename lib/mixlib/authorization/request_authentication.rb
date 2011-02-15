@@ -6,6 +6,7 @@
 # All rights reserved - do not redistribute
 #
 
+require 'time'
 require 'mixlib/authorization'
 require 'mixlib/authentication/signatureverification'
 require 'mixlib/authorization/models'
@@ -15,9 +16,10 @@ require 'stringio'
 module Mixlib
   module Authorization
     class RequestAuthentication
-      include Mixlib::Authorization::AuthHelper
+      include AuthHelper
 
-      def self.authenticate_every(request, params, web_ui_public_key=nil)
+      def self.authenticate_every(*args)
+        raise Exception, "this method is gone away. create an object and call #valid_request? on it."
         new(request, params, web_ui_public_key).authenticate
       end
 
@@ -25,76 +27,142 @@ module Mixlib
 
       attr_reader :params
 
-      attr_reader :web_ui_public_key
-
       attr_reader :authenticator
 
-      def initialize(request, params, web_ui_public_key=nil)
-        @request, @params, @web_ui_public_key = request, params, web_ui_public_key
-        @authenticator = Mixlib::Authentication::SignatureVerification.new      
+      attr_reader :missing_headers
+
+      def initialize(request, params)
+        @request, @params = request, params
+        create_authenticator
       end
 
       def authenticate
-        auth = validate_request
-        raise Mixlib::Authorization::AuthorizationError, "Failed authorization" unless auth
-        auth
+        raise Exception, "THIS METHOD IS DONE FOR. USE #valid_request? instead"
       end
-      
-      def find_requesting_entity(username, orgname)
-        begin
-          Mixlib::Authorization::Log.debug "checking for user #{username}"
-          Mixlib::Authorization::Models::User.find(username)
-        rescue ArgumentError
-          if orgname
-            unless cr = database_from_orgname(orgname)
-              Log.debug "No database found for organization #{orgname}"
-              raise ArgumentError, "No database found for organization '#{orgname}'"
-            end
-            Mixlib::Authorization::Log.debug "checking for client #{username}"
-            Mixlib::Authorization::Models::Client.on(cr).by_clientname(:key=>username).first
-          end
+
+      def valid_request?
+        # TODO: This takes less time for an invalid username than it does for
+        # an incorrect key. [dan]
+        required_headers_present? && requesting_entity_exists? && actor_exists? && authentic_request?
+      end
+
+      def headers
+        @authenticator.headers
+      end
+
+      def username
+        @authenticator.user_id
+      end
+
+      def orgname
+        #BUGBUG - next line seems odd.  Can't we ensure that it's *always* :organization_id? [cb]
+        @orgname ||= (params[:organization_id] || params[:id])
+      end
+
+      def required_headers_present?
+        !@missing_headers
+      end
+
+      def requesting_entity
+        @requesting_entity ||= begin
+          (find_user || find_client) or raise AuthorizationError, "Cannot find user or client #{username} in org #{orgname}"
         end
       end
-      
-      def append_auth_info_to_params!(user_or_client, params)
-        if actor = user_to_actor(user_or_client.id)
-          params[:requesting_actor_id] = actor.auth_object_id
-        else
-          raise "Actor not found for user with id='#{user.id}'"
+
+      def requesting_entity_exists?
+        !!requesting_entity
+      rescue AuthorizationError
+        false
+      end
+
+      def request_from_validator?
+        (requesting_entity.respond_to?(:validator?) && requesting_entity.validator?) || false
+      end
+
+      def request_from_webui?
+        headers[:x_ops_request_source] == 'web'
+      end
+
+      def requesting_actor_id
+        @requesting_actor_id ||= actor && actor.auth_object_id
+      end
+
+      def actor
+        @actor ||= user_to_actor(requesting_entity.id)
+      end
+
+      def actor_exists?
+        !!actor
+      end
+
+      def append_auth_info_to_params!
+        raise Exception, "this method is gone, and we shouldn't have depended on this behavior being in this class in the first place."
+      end
+
+      def user_key
+        @user_key ||= begin
+          key_text = request_from_webui? ? webui_public_key : requesting_entity.public_key
+          OpenSSL::PKey::RSA.new(key_text)
         end
-        params[:request_from_validator] = (user_or_client.respond_to?(:validator?) && user_or_client.validator?) || false
+      end
+
+      def authentic_request?
+        authenticator.authenticate_request(user_key)
+      rescue StandardError => se
+        Chef::Log.debug "Authentication failed: #{se}, #{se.backtrace.join("\n")}"
+        false
+      end
+
+      def valid_timestamp?
+        # BUG/TODO: this can only be called after #authentic_request? is called :(
+        @authenticator.valid_timestamp?
       end
 
       private
 
-      def validate_request
-        headers = request.env.inject({ }) { |memo, kv| memo[$2.downcase.gsub(/\-/,"_").to_sym] = kv[1] if kv[0] =~ /^(HTTP_)(.*)/; memo }
-        if Mixlib::Authorization::Log.debug?
-          debug_msg = StringIO.new
-          PP.pp({"headers in authenticate_every" => headers, "file:line" => "#{__FILE__}:#{__LINE__}"}, debug_msg)
-          Mixlib::Authorization::Log.debug(debug_msg.string)
-        end
-        username = headers[:x_ops_userid].chomp
-        #BUGBUG - next line seems odd.  Can't we ensure that it's *always* :organization_id? [cb]
-        orgname = params[:organization_id] || params[:id]
-        Mixlib::Authorization::Log.debug "Authenticating username #{username}, orgname #{orgname}"
+      def webui_public_key
+        Config[:web_ui_public_key]
+      end
 
-        if user = find_requesting_entity(username, orgname)
-          Mixlib::Authorization::Log.debug "Found user or client: #{user.respond_to?(:username) ? user.username : user.clientname}"
+      def find_user
+        Log.debug "checking for user #{username}"
+        Models::User.find(username)
+      rescue ArgumentError
+        Log.debug "No user found for username: #{username}"
+        nil
+      end
+
+      def find_client
+        if orgname && (db = database_from_orgname(orgname))
+          Log.debug "checking for client #{username}"
+          Models::Client.on(db).by_clientname(:key=>username).first
         else
-          raise Mixlib::Authorization::AuthorizationError, "Unable to find user or client"
+          Log.debug "No database found for organization #{orgname}"
+          nil
         end
+      rescue ArgumentError
+        Log.debug "No client found for client name: #{username} in organization: #{orgname}"
+        nil
+      end
 
-        append_auth_info_to_params!(user, params)
-                  
-        # if request_source header exists and has value 'web', the request is coming from webui or commmunity site, authenticate using the web ui public key.
-        # Otherwise auth using the user's public key.
-        user_key = headers[:x_ops_request_source] == 'web' ? OpenSSL::PKey::RSA.new(web_ui_public_key) : OpenSSL::PKey::RSA.new(user.public_key)
+      def create_authenticator
+        @authenticator = Mixlib::Authentication::SignatureVerification.new(request)
+        @missing_headers = nil
+        debug_headers
+      rescue Mixlib::Authentication::MissingAuthenticationHeader => e
+        Log.debug "Request is missing required headers for authentication"
+        Log.debug(e)
+        @authenticator = nil
+        @missing_headers = e.message
+      end
 
-        authenticator.authenticate_user_request(request, user_key)
-      rescue StandardError => se
-         Mixlib::Authorization::Log.debug "authenticate every failed: #{se}, #{se.backtrace.join("\n")}"
-         nil
+      def debug_headers
+        if Log.debug?
+          debug_msg = StringIO.new
+          PP.pp({"Raw request headers" => headers}, debug_msg)
+          Log.debug(debug_msg.string)
+        end
+        Log.debug "Authenticating username #{username}, orgname #{orgname}"
       end
 
 

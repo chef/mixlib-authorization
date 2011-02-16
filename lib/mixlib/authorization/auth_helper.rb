@@ -51,7 +51,7 @@ module Mixlib
         dbname = orgname_to_dbname(orgname)
         if dbname
           uri = Mixlib::Authorization::Config.couchdb_uri
-          CouchRest.new(uri).database!(dbname)
+          CouchRest.new(uri).database(dbname)
           CouchRest::Database.new(CouchRest::Server.new(uri),dbname)
         end
       end

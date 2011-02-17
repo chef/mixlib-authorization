@@ -55,7 +55,14 @@ module Mixlib
           CouchRest::Database.new(CouchRest::Server.new(uri),dbname)
         end
       end
-      
+
+      def database_from_org_id(org_id)
+        db_name = "chef_#{org_id.downcase}"
+        uri = Mixlib::Authorization::Config.couchdb_uri
+        CouchRest.new(uri).database(db_name)
+        CouchRest::Database.new(CouchRest::Server.new(uri),db_name)
+      end
+
       def guid_from_orgname(orgname)
         (org = Mixlib::Authorization::Models::Organization.by_name(:key => orgname).first) && org["guid"]
       end 

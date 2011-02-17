@@ -33,6 +33,7 @@ module Mixlib
 
       def initialize(request, params)
         @request, @params = request, params
+        @user = nil
         create_authenticator
       end
 
@@ -56,7 +57,7 @@ module Mixlib
 
       def orgname
         #BUGBUG - next line seems odd.  Can't we ensure that it's *always* :organization_id? [cb]
-        @orgname ||= (params[:organization_id] || params[:id])
+        @orgname ||= params[:organization_id] #|| params[:id])
       end
 
       def required_headers_present?
@@ -65,13 +66,15 @@ module Mixlib
 
       def requesting_entity
         @requesting_entity ||= begin
-          (find_user || find_client) or raise AuthorizationError, "Cannot find user or client #{username} in org #{orgname}"
+          (find_user || find_client) #or raise AuthorizationError, "Cannot find user or client #{username} in org #{orgname}"
         end
       end
 
       def requesting_entity_exists?
         !!requesting_entity
-      rescue AuthorizationError
+      rescue AuthorizationError => e
+        Log.debug "Cannot find a user or client for username/clientname #{username}"
+        Log.debug e
         false
       end
 
@@ -106,6 +109,20 @@ module Mixlib
         end
       end
 
+      def org_db
+        @org_db ||= database_from_orgname(orgname)
+      end
+
+      def org
+        @org ||= Models::Organization.by_name(:key => orgname).first
+      end
+
+      def org_id
+        @org_id ||= begin
+          org && org.id
+        end
+      end
+
       def authentic_request?
         authenticator.authenticate_request(user_key)
       rescue StandardError => se
@@ -118,7 +135,39 @@ module Mixlib
         @authenticator.valid_timestamp?
       end
 
+      # Determines if the actor for this request is associated with this organization
+      # When the requesting_entity is a Client, this is always true, b/c clients are
+      # scoped by org.
+      # When the requesting_entity is a User, this will check if we have an
+      # OrganizationUser document joining the user and org.
+      def valid_actor_for_org?
+        # BUG/TODO: relying on the side effect of requesting_entity setting
+        # @user is fugly [love, dan]
+        if requesting_entity && Models::Client === requesting_entity
+          true
+        elsif @user
+          valid_user_for_org?
+        else
+          # shouldn't get here.
+          nil
+        end
+      end
+
       private
+
+      def org_ids_for(user)
+        @org_ids ||= Models::OrganizationUser.organizations_for_user(user)
+      end
+
+      def valid_user_for_org?
+        return true unless orgname
+        if (org && org_ids_for(@user).include?(org_id))
+          true
+        else
+          Log.debug "Org IDs for user are #{org_ids_for(@user)}, expected #{org_id}"
+          false
+        end
+      end
 
       def webui_public_key
         Config[:web_ui_public_key]
@@ -126,18 +175,19 @@ module Mixlib
 
       def find_user
         Log.debug "checking for user #{username}"
-        Models::User.find(username)
+        @user = Models::User.find(username)
+        valid_user_for_org? && @user
       rescue ArgumentError
         Log.debug "No user found for username: #{username}"
         nil
       end
 
       def find_client
-        if orgname && (db = database_from_orgname(orgname))
+        if orgname && org_db
           Log.debug "checking for client #{username}"
-          Models::Client.on(db).by_clientname(:key=>username).first
+          Models::Client.on(org_db).by_clientname(:key=>username).first
         else
-          Log.debug "No database found for organization #{orgname}"
+          Log.debug "No database found for organization '#{orgname}'"
           nil
         end
       rescue ArgumentError

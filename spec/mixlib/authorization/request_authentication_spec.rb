@@ -44,7 +44,10 @@ describe RequestAuthentication do
     before do
       @req.env["HTTP_X-OPS-USERID"] = "MCChris"
       @mc_chris_auth_object = @actor_class.new("mc_chris_auth_object_id")
-      @mc_chris = @user_class.new("mc_chris_user_id", "MC Chris' Username", "mc_chris_public_key")
+      @mc_chris = Mixlib::Authorization::Models::User.new
+      @mc_chris.username = "MC Chris' Username"
+      @mc_chris.public_key = "mc_chris_public_key"
+      @mc_chris.stub!(:id).and_return("mc_chris_user_id")
       @params = {}
 
       @request_auth =  Mixlib::Authorization::RequestAuthentication.new(@req, @params)
@@ -55,27 +58,52 @@ describe RequestAuthentication do
       OpenSSL::PKey::RSA.stub!(:new).with("mc_chris_public_key").and_return(:mc_chris_pub_key_rsaified)
     end
 
-    it "fails if the user is not valid, i.e. can't be found in the database" do
-      Mixlib::Authorization::Models::User.stub!(:find).with("MCChris").and_raise(ArgumentError)
-      @request_auth.should_not be_a_valid_request
+    describe "when the user is associated with the org" do
+      before do
+        Mixlib::Authorization::Models::OrganizationUser.stub!(:organizations_for_user).and_return(['org-guid-for-mc-chris-org'])
+        @request_auth.stub!(:guid_from_orgname).and_return('org-guid-for-mc-chris-org')
+      end
+
+      it "fails if the user is not valid, i.e. can't be found in the database" do
+        Mixlib::Authorization::Models::User.stub!(:find).with("MCChris").and_raise(ArgumentError)
+        @request_auth.should_not be_a_valid_request
+      end
+
+      it "fails if the user is valid but authenticator returns a falsey value for :authenticate_user_request" do
+        @request_auth.authenticator.should_receive(:authenticate_request).with(:mc_chris_pub_key_rsaified).and_return(nil)
+        @request_auth.should_not be_a_valid_request
+      end
+
+      it "succeeds when the user is valid and the request signature can be verified with the user's public key" do
+        @request_auth.authenticator.should_receive(:authenticate_request).with(:mc_chris_pub_key_rsaified).and_return(:a_successful_auth)
+        @request_auth.should be_a_valid_request
+      end
+
+      it "sets the requesting actor's id in the params in a successful request" do
+        pending "users of this class should not be depending on this shit"
+        @request_auth.authenticator.should_receive(:authenticate_request).with(:mc_chris_pub_key_rsaified).and_return(:a_successful_auth)
+        @request_auth.should be_a_valid_request
+        @params[:requesting_actor_id].should == "mc_chris_auth_object_id"
+      end
+
+      it "checks that the user is assoicated with the organization in the request" do
+        @request_auth.should be_a_valid_actor_for_org
+      end
+
     end
 
-    it "fails if the user is valid but authenticator returns a falsey value for :authenticate_user_request" do
-      @request_auth.authenticator.should_receive(:authenticate_request).with(:mc_chris_pub_key_rsaified).and_return(nil)
-      @request_auth.should_not be_a_valid_request
+    describe "and the user is not associated with the organization" do
+      before do
+        Mixlib::Authorization::Models::OrganizationUser.stub!(:organizations_for_user).and_return(['not-the-mc-chris-org'])
+        @request_auth.stub!(:guid_from_orgname).and_return('org-guid-for-mc-chris-org')
+      end
+
+      it "says that the user is not associated with the org" do
+        @request_auth.should_not be_a_valid_actor_for_org
+      end
+
     end
 
-    it "succeeds when the user is valid and the request signature can be verified with the user's public key" do
-      @request_auth.authenticator.should_receive(:authenticate_request).with(:mc_chris_pub_key_rsaified).and_return(:a_successful_auth)
-      @request_auth.should be_a_valid_request
-    end
-
-    it "sets the requesting actor's id in the params in a successful request" do
-      pending "users of this class should not be depending on this shit"
-      @request_auth.authenticator.should_receive(:authenticate_request).with(:mc_chris_pub_key_rsaified).and_return(:a_successful_auth)
-      @request_auth.should be_a_valid_request
-      @params[:requesting_actor_id].should == "mc_chris_auth_object_id"
-    end
   end
 
   describe "when authenticating a request from an api client" do
@@ -128,13 +156,6 @@ describe RequestAuthentication do
       @request_auth.should_not be_a_valid_request
     end
 
-    it "sets the requesting actor's id in the params in a successful request" do
-      pending "users of this class should not be depending on this shit"
-      @request_auth.authenticator.should_receive(:authenticate_request).with(:knife_client_pub_key_rsaified).and_return(:a_successful_auth)
-      @request_auth.authenticate
-      @params[:requesting_actor_id].should == "knife_client_actor_id"
-    end
-
     it "determines that the request is not from a validator when the requesting entity is not a validator" do
       @request_auth.request_from_validator?.should be_false
     end
@@ -142,21 +163,6 @@ describe RequestAuthentication do
     it "determines that the request is from a validator when the requesting entity is a validator" do
       @knife_client.validator = true
       @request_auth.request_from_validator?.should be_true
-    end
-
-    it "sets params[:request_from_validator] to false when the requesting client is not a validator" do
-      pending "users of this class should not be depending on this shit"
-      @request_auth.authenticator.should_receive(:authenticate_request).with(:knife_client_pub_key_rsaified).and_return(:a_successful_auth)
-      @request_auth.authenticate
-      @params[:request_from_validator].should be_false
-    end
-
-    it "sets params[:request_from_validator] to true when the requesting client *is* a validator" do
-      pending "users of this class should not be depending on this shit"
-      @knife_client.validator = true
-      @request_auth.authenticator.should_receive(:authenticate_request).with(:knife_client_pub_key_rsaified).and_return(:a_successful_auth)
-      @request_auth.authenticate
-      @params[:request_from_validator].should be_true
     end
 
     it "determines the request is not from the webui " do
@@ -189,7 +195,10 @@ describe RequestAuthentication do
       @req.env['HTTP_X-OPS-REQUEST-SOURCE'] = 'web'
       @req.env["HTTP_X-OPS-USERID"] = "MCChris"
       @mc_chris_auth_object = @actor_class.new("mc_chris_auth_object_id")
-      @mc_chris = @user_class.new("mc_chris_user_id", "MC Chris' Username", "mc_chris_public_key")
+      @mc_chris = Mixlib::Authorization::Models::User.new
+      @mc_chris.username = "MC Chris' Username"
+      @mc_chris.public_key = "mc_chris_public_key"
+      @mc_chris.stub!(:id).and_return("mc_chris_user_id")
       @params = {}
 
       Mixlib::Authorization::Config[:web_ui_public_key] = "webui_public_key"
@@ -198,6 +207,9 @@ describe RequestAuthentication do
 
       Mixlib::Authorization::Models::User.stub!(:find).with("MCChris").and_return(@mc_chris)
       @request_auth.stub!(:user_to_actor).with("mc_chris_user_id").and_return(@mc_chris_auth_object)
+
+      Mixlib::Authorization::Models::OrganizationUser.stub!(:organizations_for_user).and_return(['org-guid-for-mc-chris-org'])
+      @request_auth.stub!(:guid_from_orgname).and_return('org-guid-for-mc-chris-org')
 
       OpenSSL::PKey::RSA.stub!(:new).with("webui_public_key").and_return(:webui_public_key_rsaified)
     end

@@ -14,8 +14,51 @@ module Mixlib
   module Authorization
     module AuthHelper
 
-      ORG_GUIDS_BY_NAME = {}
-      
+      class OrgGuidMap
+        def initialize
+          @cached_map = {}
+          @caching = false
+        end
+
+        def enable_caching
+          @caching = true
+        end
+
+        def disable_caching
+          @caching = false
+        end
+
+        def guid_for_org(orgname)
+          @caching ? lookup_with_caching(orgname) : lookup_without_caching(orgname)
+        end
+
+        private
+
+        def lookup_with_caching(orgname)
+          if guid = @cached_map[orgname]
+            guid
+          else
+            @cached_map[orgname] = lookup_without_caching(orgname)
+          end
+        end
+
+        def lookup_without_caching(orgname)
+          org = Mixlib::Authorization::Models::Organization.by_name(:key => orgname).first
+          org && org["guid"]
+        end
+
+      end
+
+      ORG_GUIDS_BY_NAME = OrgGuidMap.new
+
+      def self.enable_org_guid_cache
+        ORG_GUIDS_BY_NAME.enable_caching
+      end
+
+      def self.disable_org_guid_cache
+        ORG_GUIDS_BY_NAME.disable_caching
+      end
+
       def gen_cert(guid, rid=nil)
         begin
           Mixlib::Authorization::Log.debug "auth_helper.rb: certificate_service_uri is #{Mixlib::Authorization::Config.certificate_service_uri}"
@@ -59,20 +102,7 @@ module Mixlib
       end
       
       def guid_from_orgname(orgname)
-        if guid = ORG_GUIDS_BY_NAME[orgname]
-          guid
-        else
-          org = Mixlib::Authorization::Models::Organization.by_name(:key => orgname).first
-          if org.nil?
-            nil
-          elsif org.name =~ /[a-z]{20}/
-            Log.debug "Not caching guid for unassigned org #{org.name}"
-            org["guid"]
-          else
-            Log.debug "Caching guid for org #{org.name}"
-            ORG_GUIDS_BY_NAME[orgname] = org["guid"]
-          end
-        end
+        ORG_GUIDS_BY_NAME.guid_for_org(orgname)
       end 
 
       def user_to_actor(user_id)

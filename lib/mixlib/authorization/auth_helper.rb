@@ -13,6 +13,8 @@ require 'rest_client'
 module Mixlib
   module Authorization
     module AuthHelper
+
+      ORG_GUIDS_BY_NAME = {}
       
       def gen_cert(guid, rid=nil)
         begin
@@ -57,7 +59,20 @@ module Mixlib
       end
       
       def guid_from_orgname(orgname)
-        (org = Mixlib::Authorization::Models::Organization.by_name(:key => orgname).first) && org["guid"]
+        if guid = ORG_GUIDS_BY_NAME[orgname]
+          guid
+        else
+          org = Mixlib::Authorization::Models::Organization.by_name(:key => orgname).first
+          if org.nil?
+            nil
+          elsif org.name =~ /[a-z]{20}/
+            Log.debug "Not caching guid for unassigned org #{org.name}"
+            org["guid"]
+          else
+            Log.debug "Caching guid for org #{org.name}"
+            ORG_GUIDS_BY_NAME[orgname] = org["guid"]
+          end
+        end
       end 
 
       def user_to_actor(user_id)

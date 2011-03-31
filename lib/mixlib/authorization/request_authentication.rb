@@ -31,6 +31,8 @@ module Mixlib
 
       attr_reader :missing_headers
 
+      attr_reader :actor_type
+
       def initialize(request, params)
         @request, @params = request, params
         create_authenticator
@@ -126,7 +128,9 @@ module Mixlib
 
       def find_user
         Log.debug "checking for user #{username}"
-        Models::User.find(username)
+        user = Models::User.find(username)
+        @actor_type = :user
+        user
       rescue ArgumentError
         Log.debug "No user found for username: #{username}"
         nil
@@ -135,7 +139,9 @@ module Mixlib
       def find_client
         if orgname && (db = database_from_orgname(orgname))
           Log.debug "checking for client #{username}"
-          Models::Client.on(db).by_clientname(:key=>username).first
+          client = Models::Client.on(db).by_clientname(:key=>username).first
+          @actor_type = :client
+          client
         else
           Log.debug "No database found for organization #{orgname}"
           nil

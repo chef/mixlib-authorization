@@ -96,7 +96,8 @@ module Mixlib
         
         join_type Mixlib::Authorization::Models::JoinTypes::Group
 
-        join_properties :groupname, :actors, :groups, :requester_id
+        # these map to keys in the JSON posted to authz
+        join_properties :groupname, :actors, :groups, :requester_id, :orgname
         
         def for_json
           actors_and_groups_auth = fetch_join

@@ -47,6 +47,7 @@ module Mixlib
             end
 
             # In the case that no exception occurred, this doubld checks the acl is inherited correctly.
+            # If it returns false, .save would return false as well.
             check_inherit_acl_correctness(sender, container_join_acl)
           }
         end

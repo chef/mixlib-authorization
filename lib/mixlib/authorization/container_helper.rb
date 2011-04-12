@@ -57,7 +57,12 @@ module Mixlib
         # Returns:  true the join acl from sender contains container's join acl
         #           false otherwise.
         def check_inherit_acl_correctness(sender, container_join_acl)
-          object_join_acl = sender.fetch_join_acl
+          begin
+            object_join_acl = sender.fetch_join_acl
+          rescue => e
+            Mixlib::Authorization::Log.error("Failed trying to verify the result of inherit_acl.\nERROR:#{e.message}\n#{e.backtrace.join("\n")}")
+            return false
+          end
           container_join_acl.merge(object_join_acl) == object_join_acl
         end
 

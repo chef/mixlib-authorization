@@ -2,7 +2,7 @@ require 'rubygems'
 require 'rake/gempackagetask'
 require 'rubygems/specification'
 require 'date'
-require 'spec/rake/spectask'
+require 'rspec/core/rake_task'
 require 'cucumber/rake/task'
 
 spec = eval(File.read("mixlib-authorization.gemspec"))
@@ -10,9 +10,9 @@ spec = eval(File.read("mixlib-authorization.gemspec"))
 task :default => :spec
 
 desc "Run specs"
-Spec::Rake::SpecTask.new do |t|
-  t.spec_files = FileList['spec/**/*_spec.rb']
-  t.spec_opts = %w(-fs --color)
+RSpec::Core::RakeTask.new do |t|
+  t.pattern = 'spec/**/*_spec.rb'
+  t.rspec_opts = %w(-fs --color)
 end
 
 Rake::GemPackageTask.new(spec) do |pkg|

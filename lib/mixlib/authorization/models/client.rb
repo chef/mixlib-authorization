@@ -18,25 +18,25 @@ module Mixlib
         include Mixlib::Authorization::AuthHelper
         include Mixlib::Authorization::JoinHelper
         include Mixlib::Authorization::ContainerHelper
-        include Chef::IndexQueue::Indexable        
-        
+        include Chef::IndexQueue::Indexable
+
         view_by :clientname
 
         property :clientname
         property :orgname
-        property :public_key        
+        property :public_key
         property :certificate
         property :validator
-        
+
         validates_with_method :clientname
 
         validates_present :clientname, :orgname
 
         validates_format :clientname, :with => /\A([a-zA-Z0-9\-_\.])*\z/
         #    /^(([:alpha]{1}([:alnum]-){1,62})\.)+([:alpha]{1}([:alnum]-){1,62})$/
-        
+
         auto_validate!
-        
+
         inherit_acl
 
         create_callback :after, :add_index, :save_inherited_acl, :create_join
@@ -56,7 +56,7 @@ module Mixlib
           add_to_index(:database=>self.database.name, :id=>self["_id"], :type=>self.class.to_s.split("::").last.downcase)
           true
         end
-        
+
         def delete_index
           Mixlib::Authorization::Log.debug "deindexing client #{clientname}"
           delete_from_index(:database=>self.database.name, :orgname=>self["orgname"], :id=>self["_id"], :type=>self.class.to_s.split("::").last.downcase)
@@ -75,16 +75,16 @@ module Mixlib
           end
           [ false, "The name #{self["clientname"]} is not unique!" ]
         end
-        
+
         def validator?
           has_validator_name? || validator
         end
-        
+
         def validator
           # defaults are borken in this sad library
           self["validator"] || false
         end
-        
+
         def for_json
           result = self.properties.inject({ }) do |result, prop|
             pname = prop.name.to_sym
@@ -95,9 +95,9 @@ module Mixlib
           result[:name] = result[:clientname]
           result
         end
-        
+
         private
-        
+
         def has_validator_name?
           clientname == orgname + "-validator"
         end

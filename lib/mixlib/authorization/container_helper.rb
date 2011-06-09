@@ -22,7 +22,7 @@ module Mixlib
 
       module ClassMethods
         def inherit_acl(parent_name=nil)
-          parent_name ||= self.to_s.downcase.split("::").last.pluralize
+          parent_name ||= "#{self.to_s.downcase.split("::").last}s"
           Mixlib::Authorization::Log.debug "calling inherit_acl: parent_name: #{parent_name}"
           @container_helper_acl_merger = Proc.new { |sender, org_database|
             begin

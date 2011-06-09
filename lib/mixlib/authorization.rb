@@ -6,7 +6,6 @@
 # All rights reserved - do not redistribute
 #
 
-require 'extlib'
 require 'couchrest'
 require 'mixlib/config'
 require 'mixlib/log'

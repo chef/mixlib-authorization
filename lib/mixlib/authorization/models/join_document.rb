@@ -22,7 +22,7 @@ module Mixlib
         
         def initialize(base_url,left_join_data)
           @join_data = left_join_data
-          @resource = self.class.name.split("::").last.downcase.pluralize
+          @resource = self.class.name.split("::").last.downcase + "s"
           @base_url = base_url
         end
         

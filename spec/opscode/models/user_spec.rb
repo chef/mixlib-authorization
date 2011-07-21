@@ -126,6 +126,14 @@ describe Opscode::Models::User do
       @user.should_not be_valid
     end
 
+    it "has no id" do
+      @user.id.should be_nil
+    end
+
+    it "has no actor id" do
+      @user.actor_id.should be_nil
+    end
+
     describe "after validating" do
       before do
         @user.valid?
@@ -276,6 +284,8 @@ describe Opscode::Models::User do
   describe "when created from database params" do
     before do
       @db_data = {
+        :id => "123abc",
+        :actor_id => "abc123",
         :first_name => 'moon',
         :last_name => "polysoft",
         :middle_name => "trolol",
@@ -293,6 +303,14 @@ describe Opscode::Models::User do
         :image_file_name => 'current_status.png'
       }
       @user = Opscode::Models::User.new(@db_data)
+    end
+
+    it "has a database id" do
+      @user.id.should == "123abc"
+    end
+
+    it "has an actor id" do
+      @user.actor_id.should == "abc123"
     end
 
     it "has a first name" do

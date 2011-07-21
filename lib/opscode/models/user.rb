@@ -85,6 +85,8 @@ module Opscode
         attr_reader attr_name
       end
 
+      rw_attribute :id
+      rw_attribute :actor_id
       rw_attribute :first_name
       rw_attribute :last_name
       rw_attribute :middle_name

@@ -60,31 +60,22 @@ module Mixlib
       end
 
       def gen_cert(guid, rid=nil)
-        begin
-          Mixlib::Authorization::Log.debug "auth_helper.rb: certificate_service_uri is #{Mixlib::Authorization::Config.certificate_service_uri}"
+        Mixlib::Authorization::Log.debug "auth_helper.rb: certificate_service_uri is #{Mixlib::Authorization::Config.certificate_service_uri}"
 
-          #common name is in the format of: "URI:http://opscode.com/GUIDS/...."
-          common_name = "URI:http://opscode.com/GUIDS/#{guid}"
+        #common name is in the format of: "URI:http://opscode.com/GUIDS/...."
+        common_name = "URI:http://opscode.com/GUIDS/#{guid}"
 
-          # response = (rid == nil ? rest.post({:common_name => common_name}) : rest.post({:common_name => common_name}, rid) )
-          # BUGBUG What about the rid? [cb]
-          response = JSON.parse(RestClient.post Mixlib::Authorization::Config.certificate_service_uri, :common_name => common_name)
+        response = JSON.parse(RestClient.post Mixlib::Authorization::Config.certificate_service_uri, :common_name => common_name)
 
-          # Opscode::REST will return a hash only if the certificate service
-          # returned a document with the mime type 'application/json'. 
-          # opscode-certificate returns text/html and opscode-cert-gen
-          # returns 'application/json'
-
-          #certificate
-          cert = OpenSSL::X509::Certificate.new(response["cert"])
-          #private key
-          key = OpenSSL::PKey::RSA.new(response["keypair"])
-          [cert, key]
-        rescue StandardError => se
-          se_backtrace = se.backtrace.join("\n")
-          Mixlib::Authorization::Log.error "Exception in gen_cert: #{se}\n#{se_backtrace}"
-          raise Mixlib::Authorization::AuthorizationError, "Failed to generate cert: #{$!}", se.backtrace
-        end
+        #certificate
+        cert = OpenSSL::X509::Certificate.new(response["cert"])
+        #private key
+        key = OpenSSL::PKey::RSA.new(response["keypair"])
+        [cert, key]
+      rescue => e
+        se_backtrace = e.backtrace.join("\n")
+        Mixlib::Authorization::Log.error "Exception in gen_cert: #{e}\n#{se_backtrace}"
+        raise Mixlib::Authorization::AuthorizationError, "Failed to generate cert: #{e}", e.backtrace
       end
 
       def orgname_to_dbname(orgname)

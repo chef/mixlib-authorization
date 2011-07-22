@@ -10,6 +10,7 @@ module Mixlib
   module Authorization
     module Models
       class Node < CouchRest::ExtendedDocument
+        include Authorizable
         include CouchRest::Validation
         include Mixlib::Authorization::AuthHelper
         include Mixlib::Authorization::JoinHelper

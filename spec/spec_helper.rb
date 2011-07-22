@@ -9,4 +9,6 @@ require 'mixlib/authorization/auth_helper'
 require "mixlib/authorization/acl"
 require 'mixlib/authorization/request_authentication'
 
+require 'opscode/models/user'
+
 include Mixlib::Authorization

@@ -11,7 +11,7 @@ task :default => :spec
 
 desc "Run specs"
 RSpec::Core::RakeTask.new do |t|
-  t.pattern = 'spec/mixlib/**/*_spec.rb'
+  t.pattern = 'spec/[m,o]*/**/*_spec.rb'
   t.rspec_opts = %w(-fs --color)
 end
 
@@ -35,10 +35,6 @@ task :make_spec do
   File.open("mixlib-authorization.gemspec", "w") do |file|
     file.puts spec.to_ruby
   end
-end
-
-Cucumber::Rake::Task.new(:features) do |t|
-  t.profile = "default"
 end
 
 desc "remove build files"

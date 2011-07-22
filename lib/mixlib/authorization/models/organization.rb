@@ -11,6 +11,7 @@ module Mixlib
   module Authorization
     module Models
       class Organization < CouchRest::ExtendedDocument
+        include Authorizable
         include CouchRest::Validation
         include Mixlib::Authorization::AuthHelper
         include Mixlib::Authorization::JoinHelper

@@ -14,10 +14,39 @@ module Mixlib
   module Authorization
     module Models
       class Client < CouchRest::ExtendedDocument
+
+        def self.raise_on_failure=(error_class)
+          @error_class_for_failure = error_class
+        end
+
+        def self.raise_on_invalid=(error_class)
+          @error_class_for_invalid = error_class
+        end
+
+        def self.failed_to_save!(message)
+          error_class = @error_class_for_failure || StandardError
+          raise error_class, message
+        end
+
+        def self.invalid_object!(message)
+          error_class = @error_class_for_invalid || StandardError
+          raise error_class, message
+        end
+
+        def self.inherit_acl_from_container(parent_container_name)
+          parent_container_name = parent_container_name.to_s
+          define_method(:parent_container_name) do
+            parent_container_name
+          end
+        end
+
+        inherit_acl_from_container(:clients)
+
+        include Authorizable
         include CouchRest::Validation
         include Mixlib::Authorization::AuthHelper
         include Mixlib::Authorization::JoinHelper
-        include Mixlib::Authorization::ContainerHelper
+        #include Mixlib::Authorization::ContainerHelper
         include Chef::IndexQueue::Indexable
 
         view_by :clientname
@@ -37,14 +66,45 @@ module Mixlib
 
         auto_validate!
 
-        inherit_acl
-
-        create_callback :after, :add_index, :save_inherited_acl, :create_join
-        update_callback :after, :add_index, :update_join
+        #create_callback :after, :add_index, :save_inherited_acl, :create_join
+        #update_callback :after, :add_index, :update_join
         destroy_callback :before, :delete_index, :delete_join
 
         join_type Mixlib::Authorization::Models::JoinTypes::Actor
         join_properties :clientname, :requester_id
+
+
+        private :save
+        private :save!
+
+        # Save this document, and create the corresponding AuthZ data on behalf
+        # of +requesting_actor_id+ which is an AuthZ side id.
+        def save_as(requesting_actor_id)
+          delete("requestor_id") # clear out old crap.
+          was_a_new_doc = new_document?
+          result = save
+          if result && was_a_new_doc
+            create_authz_object_as(requesting_actor_id)
+            result = result && save_inherited_acl_as(requesting_actor_id)
+            fix_group_membership_as(requesting_actor_id) if result
+          else
+            update_authz_object_as(requesting_actor_id)
+          end
+          add_index
+          result
+        end
+
+        # Same as #save_as, except it will raise an error if the object is
+        # invalid or the save fails for some other reason. The specific errors
+        # raised are configured by the class methods raise_on_failure= and
+        # raise_on_invalid= so you can make it raise merb-friendly BadRequest
+        # and InternalServerError exceptions.
+        def save_as!(requesting_user)
+          unless valid?
+            self.class.invalid_object!(errors.full_messages)
+          end
+          save_as(requesting_user) or self.class.failed_to_save!("Could not save #{self.class} document (id: #{id})")
+        end
 
         def public_key
           Mixlib::Authorization::Log.debug "calling client model public key"
@@ -98,11 +158,103 @@ module Mixlib
 
         private
 
+        def save_inherited_acl_as(requesting_actor_id)
+          org_database = database_from_orgname(self.orgname)
+          begin
+            container = Mixlib::Authorization::Models::Container.on(org_database).by_containername(:key => parent_container_name).first
+            Mixlib::Authorization::Log.debug "CALLING ACL MERGER: object: #{inspect}, parent_name: #{parent_container_name}, org_database: #{org_database}, container: #{container.inspect}"
+            raise Mixlib::Authorization::AuthorizationError, "failed to find parent #{parent_container_name} for ACL inheritance" if container.nil?
+            authz_object = authz_object_as(requesting_actor_id)
+            container_acl_data = container.fetch_join_acl
+            container_acl = Acl.new(container_acl_data)
+            self_acl = Acl.new(authz_object.fetch_acl)
+            Mixlib::Authorization::Log.debug "CONTAINER ACL: #{container_acl.to_user(org_database).inspect},\nCLIENT ACL: #{self_acl.to_user(org_database).inspect}"
+            self_acl.merge!(container_acl)
+            Mixlib::Authorization::Log.debug "MERGED CLIENT ACL: #{self_acl.to_user(org_database).inspect}"
+            # TODO: Y U NO HAVE BULK ACE UPDATE
+            self_acl.aces.each {  |ace_name,ace| authz_object.update_ace(ace_name, ace.ace) }
+          rescue => e
+            # 4/11/2011 nuo:
+            # This rescue block is generically rescuing all the exceptions occur in the block.
+            # But it's actually the right behavior.
+            # We want to throw :halt so .save returns false in the case of any error condition, no matter what.
+            # That prevents (or at least decrease) the opportunity that the actual object and auth document go out of sync.
+            Mixlib::Authorization::Log.error("Inheriting acl from parent container failed. \nERROR: #{e.message}\n#{e.backtrace.join("\n")}")
+            throw :halt
+          end
+
+          # In the case that no exception occurred, this doubld checks the acl is inherited correctly.
+          # If it returns false, .save would return false as well.
+          #check_inherit_acl_correctness(sender, container_join_acl)
+
+          begin
+            object_acl = authz_object.fetch_acl
+          rescue => e
+            Mixlib::Authorization::Log.error("Failed trying to verify the result of inherit_acl.\nERROR:#{e.message}\n#{e.backtrace.join("\n")}")
+            return false
+          end
+          container_acl_data.merge(object_acl) == object_acl
+        end
+
+        # Retrieves join acl from sender and compares with container's join acl
+        # Returns:  true the join acl from sender contains container's join acl
+        #           false otherwise.
+        def check_inherit_acl_correctness(sender, container_join_acl)
+          begin
+            object_join_acl = sender.fetch_join_acl
+          rescue => e
+            Mixlib::Authorization::Log.error("Failed trying to verify the result of inherit_acl.\nERROR:#{e.message}\n#{e.backtrace.join("\n")}")
+            return false
+          end
+          container_join_acl.merge(object_join_acl) == object_join_acl
+        end
+
         def has_validator_name?
           clientname == orgname + "-validator"
         end
-      end
 
+        # Adds this client to the clients group, and adds the admins group to
+        # this client's ACLs.
+        #--
+        # Note: the requesting_actor_id is not currently used because groups
+        # have not been updated to use explicit requesting_actor_ids. Consider
+        # this a TODO.
+        def fix_group_membership_as(requesting_actor_id)
+          Merb.logger.debug "about to spin..."
+          # Adds the client to the clients group, retrying in case authz is backed up by our joke of a database.
+          spin_on_error do
+            # BUGBUG adding the client to the organization's "clients" group should probably be done by policy outside the service somewhere [cb]
+            Merb.logger.debug { "Adding client #{clientname} to clients group" }
+            clients_group = Mixlib::Authorization::Models::Group.on(database).by_groupname(:key=>"clients").first
+            clients_group.add_actor(clientname,database)
+          end
+
+        rescue Exception => e
+          Merb.logger.error "Unexpected failure type in adding groups during client creation: #{e.inspect}, #{e.backtrace.join(",\n")}"
+          destroy
+          self.class.failed_to_save!("Failed to update groups in client creation")
+        end
+
+
+        def spin_on_error(retries=5)
+          ret = false
+
+          catch(:done) do
+            0.upto(retries) do |n|
+              Merb.logger.debug "spinning... trying #{retries}"
+              if yield
+                ret = true
+                throw :done
+              else
+                Merb.logger.error "SPINNING ON ERROR: #{retries}"
+                sleep(rand(4))
+              end
+            end
+          end
+          ret
+        end
+
+      end
     end
   end
 end

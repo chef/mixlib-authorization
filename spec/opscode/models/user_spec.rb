@@ -369,6 +369,10 @@ describe Opscode::Models::User do
     it "has an image file" do
       @user.image_file_name.should == "current_status.png"
     end
+
+    it "converts to a hash for JSONification" do
+      pending
+    end
   end
 
 end

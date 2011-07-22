@@ -13,6 +13,17 @@ module Mixlib
     end
 
     module Authorizable
+
+      def logger
+        Mixlib::Authorization::Log
+      end
+
+      def call_info
+        caller[0]
+      end
+
+      # Returns the AuthZ side id of this object, as found by fetching the
+      # AuthJoin by_user_object_id
       def authorization_id
         @authorization_id ||= begin
           join = AuthJoin.by_user_object_id(:key => id).first
@@ -20,9 +31,29 @@ module Mixlib
         end
       end
 
-      def authorization_request_for(requesting_actor_id)
+      # Returns the so called "AuthJoin" model document representing this object.
+      def authz_model_for(requesting_actor_id)
         full_join_data = join_data.merge({ "object_id"=>authorization_id, "requester_id" => requesting_actor_id})
         join_type.new(Mixlib::Authorization::Config.authorization_service_uri, full_join_data)
+      end
+
+      def create_authz_object_as(creator_actor_id)
+        logger.debug { "#{call_info} saving #{join_type} #{self.inspect}" }
+
+        auth_join_object = join_type.new(Mixlib::Authorization::Config.authorization_service_uri,"requester_id" => creator_actor_id)
+        auth_join_object.save
+        logger.debug { "#{call_info} auth_join_object for #{self.class} (user id: #{id}) saved: #{auth_join_object.identity}" }
+        join_doc = AuthJoin.new({ :user_object_id=>self.id,
+                                   :auth_object_id=>auth_join_object.identity["id"]})
+        retval = join_doc.save
+        logger.debug { "#{call_info} return value of save = '#{retval.inspect}'" }
+        unless retval
+          raise Mixlib::Authorization::AuthorizationError, "Failed to save join document for #{self.class} (user id: #{id})"
+        end
+
+        logger.debug { "#{call_info} join doc saved" }
+
+        join_doc
       end
 
     end
@@ -95,7 +126,7 @@ module Mixlib
 
       def is_authorized?(actor,ace)
         Mixlib::Authorization::Log.debug "IN IS_AUTHORIZED?: #{join_data.inspect}"
-        auth_join_object = authorization_request_for(actor)
+        auth_join_object = authz_model_for(actor)
         #auth_join_object = fetch_auth_join_for(nil)
         Mixlib::Authorization::Log.debug "IN IS_AUTHORIZED? AUTH_JOIN OBJECT: #{auth_join_object.inspect}"
         auth_join_object.is_authorized?(actor,ace)

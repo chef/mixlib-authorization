@@ -34,17 +34,18 @@ module Mixlib
       # Returns the so called "AuthJoin" model document representing this
       # object. The requesting actor id is required for authz to authorize the
       # request.
-      def authz_model_for(requesting_actor_id)
+      def authz_object_as(requesting_actor_id)
         full_join_data = join_data.merge({ "object_id"=>authorization_id, "requester_id" => requesting_actor_id})
         join_type.new(Mixlib::Authorization::Config.authorization_service_uri, full_join_data)
       end
 
       # Creates the AuthZ side model for this object, acting as the actor (user/client)
-      # specified by +creator_actor_id+ (an AuthZ actor's id).
-      def create_authz_object_as(creator_actor_id)
+      # specified by +requesting_actor_id+ (an AuthZ actor's id).
+      def create_authz_object_as(requesting_actor_id)
         logger.debug { "#{call_info} saving #{join_type} #{self.inspect}" }
 
-        auth_join_object = join_type.new(Mixlib::Authorization::Config.authorization_service_uri,"requester_id" => creator_actor_id)
+        #auth_join_object = join_type.new(Mixlib::Authorization::Config.authorization_service_uri,"requester_id" => requesting_actor_id)
+        auth_join_object = authz_object_as(requesting_actor_id)
         auth_join_object.save
         logger.debug { "#{call_info} auth_join_object for #{self.class} (user id: #{id}) saved: #{auth_join_object.identity}" }
         join_doc = AuthJoin.new({ :user_object_id=>self.id,
@@ -60,12 +61,20 @@ module Mixlib
         join_doc
       end
 
+      def update_authz_object_as(requesting_actor_id)
+        Mixlib::Authorization::Log.debug "IN UPDATE JOIN, updating #{join_type} #{self.inspect}"
+
+        auth_join_object = authz_object_as(requesting_actor_id)
+        auth_join_object.update
+        Mixlib::Authorization::Log.debug "IN UPDATE JOIN, fetched #{auth_join_object.inspect}"
+      end
+
       # Destroys the AuthZ side model for this object, acting as the user/client
       # specified by +requesting_actor_id+ (an AuthZ side actor's id)
-      def destroy_authz_model_as(requesting_actor_id)
+      def destroy_authz_object_as(requesting_actor_id)
         Mixlib::Authorization::Log.debug "IN DELETE JOIN ACL: #{join_data.inspect}"
         if authorization_id
-          auth_join_object = authz_model_for(requesting_actor_id)
+          auth_join_object = authz_object_as(requesting_actor_id)
           Mixlib::Authorization::Log.debug "IN DELETE JOIN ACL: auth_join_object = #{auth_join_object.inspect}"
           AuthJoin.by_user_object_id(:key => self.id).first.destroy
         else
@@ -143,7 +152,7 @@ module Mixlib
 
       def is_authorized?(actor,ace)
         Mixlib::Authorization::Log.debug "IN IS_AUTHORIZED?: #{join_data.inspect}"
-        auth_join_object = authz_model_for(actor)
+        auth_join_object = authz_object_as(actor)
         #auth_join_object = fetch_auth_join_for(nil)
         Mixlib::Authorization::Log.debug "IN IS_AUTHORIZED? AUTH_JOIN OBJECT: #{auth_join_object.inspect}"
         auth_join_object.is_authorized?(actor,ace)

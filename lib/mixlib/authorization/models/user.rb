@@ -111,7 +111,7 @@ module Mixlib
         private :destroy
 
         def destroy_as(requesting_user)
-          destroy_authz_model_as(requesting_user)
+          destroy_authz_object_as(requesting_user)
           destroy
         end
 

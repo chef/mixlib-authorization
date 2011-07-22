@@ -31,12 +31,16 @@ module Mixlib
         end
       end
 
-      # Returns the so called "AuthJoin" model document representing this object.
+      # Returns the so called "AuthJoin" model document representing this
+      # object. The requesting actor id is required for authz to authorize the
+      # request.
       def authz_model_for(requesting_actor_id)
         full_join_data = join_data.merge({ "object_id"=>authorization_id, "requester_id" => requesting_actor_id})
         join_type.new(Mixlib::Authorization::Config.authorization_service_uri, full_join_data)
       end
 
+      # Creates the AuthZ side model for this object, acting as the actor (user/client)
+      # specified by +creator_actor_id+ (an AuthZ actor's id).
       def create_authz_object_as(creator_actor_id)
         logger.debug { "#{call_info} saving #{join_type} #{self.inspect}" }
 
@@ -56,6 +60,19 @@ module Mixlib
         join_doc
       end
 
+      # Destroys the AuthZ side model for this object, acting as the user/client
+      # specified by +requesting_actor_id+ (an AuthZ side actor's id)
+      def destroy_authz_model_as(requesting_actor_id)
+        Mixlib::Authorization::Log.debug "IN DELETE JOIN ACL: #{join_data.inspect}"
+        if authorization_id
+          auth_join_object = authz_model_for(requesting_actor_id)
+          Mixlib::Authorization::Log.debug "IN DELETE JOIN ACL: auth_join_object = #{auth_join_object.inspect}"
+          AuthJoin.by_user_object_id(:key => self.id).first.destroy
+        else
+          Mixlib::Authorization::Log.debug "IN DELETE JOIN ACL: Cannot find join for #{self.id}"
+          false
+        end
+      end
     end
 
     module JoinHelper

@@ -76,8 +76,6 @@ module Mixlib
 
         auto_validate!
 
-        destroy_callback :before, :delete_join
-
         join_type Mixlib::Authorization::Models::JoinTypes::Actor
 
         join_properties :requester_id
@@ -108,6 +106,13 @@ module Mixlib
             self.class.invalid_object!(errors.full_messages)
           end
           save_as(requesting_user) or self.class.failed_to_save!("Could not save #{self.class} document (id: #{id})")
+        end
+
+        private :destroy
+
+        def destroy_as(requesting_user)
+          destroy_authz_model_as(requesting_user)
+          destroy
         end
 
         # Generates a new salt (overwriting the old one, if any) and sets password

@@ -12,6 +12,7 @@ module Mixlib
   module Authorization
     module Models
       class User < CouchRest::ExtendedDocument
+        include Authorization::Authorizable
         include CouchRest::Validation
         include Mixlib::Authorization::AuthHelper
         include Mixlib::Authorization::JoinHelper
@@ -56,13 +57,41 @@ module Mixlib
 
         auto_validate!
 
-        create_callback :after, :create_join
-        update_callback :after, :update_join
+        #create_callback :after, :create_join
+        #update_callback :after, :update_join
         destroy_callback :before, :delete_join
 
         join_type Mixlib::Authorization::Models::JoinTypes::Actor
 
         join_properties :requester_id
+
+        def save
+          #creator_actor_id = self[:requester_id] or raise "NO REQUESTER ID"
+          creator_actor_id = delete("requester_id") or raise "No requester id set, cannot setup authorization info"
+          was_a_new_document = new_document?
+          result = super
+          if result && was_a_new_document
+            # COPIED FROM JOIN HELPER
+
+            # IF WE HAVE AN AUTHORIZATION ID, things are wrong.
+            raise Mixlib::Authorization::AuthorizationError, "join object already exists! #{join_object.inspect}" if authorization_id
+
+            Mixlib::Authorization::Log.debug "IN CREATE JOIN, saving #{join_type} #{self.inspect}"
+
+            auth_join_object = join_type.new(Mixlib::Authorization::Config.authorization_service_uri,"requester_id" => creator_actor_id)
+            auth_join_object.save
+            Mixlib::Authorization::Log.debug "IN CREATE JOIN, auth_join_object for #{join_type} saved: #{auth_join_object.identity}"
+            @join_doc = AuthJoin.new({ :user_object_id=>self.id,
+                                       :auth_object_id=>auth_join_object.identity["id"]})
+            retval = @join_doc.save
+            Mixlib::Authorization::Log.debug "IN CREATE JOIN, return value of save = '#{retval.inspect}'"
+            raise Mixlib::Authorization::AuthorizationError, "Failed to save join document for #{self.id}" unless retval
+            Mixlib::Authorization::Log.debug "IN CREATE JOIN, join doc saved"
+            @join_doc
+          end
+          result
+        end
+
 
         # Generates a new salt (overwriting the old one, if any) and sets password
         # to the salted digest of +unhashed_password+

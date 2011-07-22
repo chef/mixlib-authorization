@@ -9,6 +9,24 @@ require 'mixlib/authorization/auth_join'
 
 module Mixlib
   module Authorization
+    class AuthorizationIDNotFound < ArgumentError
+    end
+
+    module Authorizable
+      def authorization_id
+        @authorization_id ||= begin
+          join = AuthJoin.by_user_object_id(:key => id).first
+          join && join[:auth_object_id]
+        end
+      end
+
+      def authorization_request_for(requesting_actor_id)
+        full_join_data = join_data.merge({ "object_id"=>authorization_id, "requester_id" => requesting_actor_id})
+        join_type.new(Mixlib::Authorization::Config.authorization_service_uri, full_join_data)
+      end
+
+    end
+
     module JoinHelper
       def self.included(klass)
         klass.extend ClassMethods
@@ -34,14 +52,9 @@ module Mixlib
       end
 
       def update_join
-        Mixlib::Authorization::Log.debug "IN UPDATE JOIN"
-
-        join_object = load_join_object
-        raise Mixlib::Authorization::AuthorizationError, "#{self.class.name} #{self.id} does not have an auth join object" if join_object.nil?
-
         Mixlib::Authorization::Log.debug "IN UPDATE JOIN, updating #{join_type} #{self.inspect}"
 
-        auth_join_object = fetch_auth_join_for(join_object)
+        auth_join_object = fetch_auth_join_for(nil)
         auth_join_object.update
         Mixlib::Authorization::Log.debug "IN UPDATE JOIN, fetched #{auth_join_object.inspect}"
       end
@@ -62,11 +75,11 @@ module Mixlib
 
       def delete_join
         Mixlib::Authorization::Log.debug "IN DELETE JOIN ACL: #{join_data.inspect}"
-        if join_object = load_join_object
-          auth_join_object = fetch_auth_join_for(join_object)
-          Mixlib::Authorization::Log.debug "IN DELETE JOIN ACL: join_object = #{join_object.inspect}"
+        if authorization_id
+          auth_join_object = fetch_auth_join_for(nil) # WIP, argument to this method no longer relevant
+          #Mixlib::Authorization::Log.debug "IN DELETE JOIN ACL: join_object = #{join_object.inspect}"
           Mixlib::Authorization::Log.debug "IN DELETE JOIN ACL: auth_join_object = #{auth_join_object.inspect}"
-          join_object.destroy
+          AuthJoin.by_user_object_id(:key => self.id).first.destroy
         else
           Mixlib::Authorization::Log.debug "IN DELETE JOIN ACL: Cannot find join for #{self.id}"
           false
@@ -82,13 +95,15 @@ module Mixlib
 
       def is_authorized?(actor,ace)
         Mixlib::Authorization::Log.debug "IN IS_AUTHORIZED?: #{join_data.inspect}"
-        auth_join_object = load_auth_join_object!
+        auth_join_object = authorization_request_for(actor)
+        #auth_join_object = fetch_auth_join_for(nil)
         Mixlib::Authorization::Log.debug "IN IS_AUTHORIZED? AUTH_JOIN OBJECT: #{auth_join_object.inspect}"
         auth_join_object.is_authorized?(actor,ace)
       end
 
       def fetch_auth_join_for(join_object)
-        join_type.new(Mixlib::Authorization::Config.authorization_service_uri, { "object_id"=>join_object[:auth_object_id]}.merge(join_data))
+        authorization_id or raise AuthorizationIDNotFound, "No authorization id found for #{self.class.name} id:#{id}"
+        join_type.new(Mixlib::Authorization::Config.authorization_service_uri, { "object_id"=>authorization_id}.merge(join_data))
       end
 
       def join_type
@@ -104,7 +119,7 @@ module Mixlib
       end
 
       def load_auth_join_object!
-        fetch_auth_join_for(load_join_object!)
+        fetch_auth_join_for(nil)
       end
 
       def join_data

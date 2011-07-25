@@ -86,7 +86,7 @@ module Opscode
       end
 
       rw_attribute :id
-      rw_attribute :actor_id
+      rw_attribute :authz_id
       rw_attribute :first_name
       rw_attribute :last_name
       rw_attribute :middle_name
@@ -144,6 +144,11 @@ module Opscode
         @hashed_password = encrypt_password(unhashed_password)
       end
 
+      def correct_password?(candidate_password)
+        hashed_candidate_password = encrypt_password(candidate_password)
+        (@hashed_password.to_s.hex ^ hashed_candidate_password.hex) == 0
+      end
+
       def public_key
         if @public_key
           @public_key
@@ -171,43 +176,11 @@ module Opscode
       end
 
       def for_json
-        # TODO!
-        #
-        # Example output from AuthZ::Models::User :
-        # =New style user w/ cert:
-        # {"salt"=>"41VUs96LS6fGYfWHNYibkyA5yPYlL9OHtTkvO7hj9fr4aSMEUXKna72a2-8q",
-        #  "city"=>nil,
-        #  "image_file_name"=>nil,
-        #  "twitter_account"=>nil,
-        #  "_rev"=>"3-3549bc41b3d0ab5eacfd1148b5cb2255",
-        #  "country"=>nil,
-        #  "certificate"=>"-----BEGIN CERTIFICATE-----\nMIIDODCCAqGgAwIBAgIEz5HZWDANBgkqhkiG9w0BAQUFADCBnjELMAkGA1UEBhMC\nVVMxEzARBgNVBAgMCldhc2hpbmd0b24xEDAOBgNVBAcMB1NlYXR0bGUxFjAUBgNV\nBAoMDU9wc2NvZGUsIEluYy4xHDAaBgNVBAsME0NlcnRpZmljYXRlIFNlcnZpY2Ux\nMjAwBgNVBAMMKW9wc2NvZGUuY29tL2VtYWlsQWRkcmVzcz1hdXRoQG9wc2NvZGUu\nY29tMCAXDTExMDcxOTIyNTY1MloYDzIxMDAwOTIwMjI1NjUyWjCBmzEQMA4GA1UE\nBxMHU2VhdHRsZTETMBEGA1UECBMKV2FzaGluZ3RvbjELMAkGA1UEBhMCVVMxHDAa\nBgNVBAsTE0NlcnRpZmljYXRlIFNlcnZpY2UxFjAUBgNVBAoTDU9wc2NvZGUsIElu\nYy4xLzAtBgNVBAMUJlVSSTpodHRwOi8vb3BzY29kZS5jb20vR1VJRFMvdXNlcl9n\ndWlkMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0NKi934E1BoX2PVP\nNlv+2rtdFervrNt5tK762QYFBlciwAdH0DIxcBsEpJyi/V/IAPi05LRoIs+a2qjN\nVD73YjxoKIVnm3wFOEHY6XKMN0NCzyhPPxGQqws9aSSOU1lGa72sOoPGH+1e46ni\n7adW1TMTNN8w8bYCXeL2dvyXAbzlTap+tLbkeKgjt9MvRwFQfQ8Im9KqfuHDbVJn\nEquRIx/0TbT+BF9jBg463GG0tMKySulqw4+CpAAh2BxdjvdcfIpXQNPJao3CgvGF\nxN+GlrHO5kIGNT0iie+Z02TUr8sIAhc6n21q/F06W7i7vY07WgiwT+iLJ+IG4ylQ\newAYtwIDAQABMA0GCSqGSIb3DQEBBQUAA4GBAGKC0q99xFwyrHZkKhrMOZSWLV/L\n9t4WWPdI+iGB6bG0sbUF+bWRIetPtUY5Ueqf7zLxkFBvFkC/ob4Kb5/S+81/jE0r\nh7zcu9piePUXRq+wzg6be6mTL/+YVFtowSeBR1sZbhjtNM8vv2fVq7OEkb7BYJ9l\nHYCz2siW4sVv9rca\n-----END CERTIFICATE-----\n",
-        #  "_id"=>"033b2bbea7551073dce3d52133aff8bd",
-        #  "username"=>"kallistec2",
-        #  "couchrest-type"=>"Mixlib::Authorization::Models::User",
-        #  "last_name"=>"deleo",
-        #  "display_name"=>"dan deleo",
-        #  "password"=>"ff99a4ed138363b4db3957366149dcf2d078a885",
-        #  "requester_id"=>"4920224947d7ed92e872e53b620e94b7",
-        #  "middle_name"=>"",
-        #  "first_name"=>"dan",
-        #  "email"=>"dan+trolol@opscode.com"}
-        #
-        # =Old style w/ pubkey:
-        # {"salt"=>"cdcb3129-3b54-aac3-f3c5-31c5cacdfdc4",
-        #  "public_key"=>"-----BEGIN RSA PUBLIC KEY-----\nMIIBCgKCAQEA3ml2+ld8kOcqFshKVHApLXgLpNYqLWrIfF3kogJLDWKYuW+sCZna\nbO1m7AKgM2vE87R1ASmepluUYafiztPl8ywYS06ZkgF/ihMnsINF0a2h1dz4YW83\npci5ZMbCPt7cU3D+3F3qLvefDLozHNteFndseA7xxTGGIZ6WN7on+wMPWCis1YR0\nM1CV69ySH3PS/E4slP/ClO3Tvn+P3a3UAyR+cL2lU5djDt+/p8TikJyTFaC9ABZR\nhtgQUPmE4p43S4/kogli7ST/pUOBHXMA69D9hhDqLLtAkknACVN4ZhRUxittdA1c\nhuOvPWgP1KG10DB08Wq2AyhMBEYKonf0rQIDAQAB\n-----END RSA PUBLIC KEY-----\n",
-        #  "_rev"=>"3-ea3490bfb7f783b7cae728261c5a34aa",
-        #  "_id"=>"bba1b4d7578ff21b1ac03a60194e8d69",
-        #  "username"=>"dan",
-        #  "last_name"=>"CommunitySite",
-        #  "couchrest-type"=>"Mixlib::Authorization::Models::User",
-        #  "display_name"=>"CommunitySite",
-        #  "password"=>"610615d59afa9717c30aed015bd3ee12723438e5",
-        #  "middle_name"=>"CommunitySite",
-        #  "requester_id"=>"4920224947d7ed92e872e53b620e94b7",
-        #  "email"=>"dan@opscode.com",
-        #  "first_name"=>"CommunitySite"}
-        #
+        hash_for_json = {}
+        self.class.model_attributes.each do |attr_name, ivar_name|
+          hash_for_json[attr_name] = instance_variable_get(ivar_name)
+        end
+        hash_for_json
       end
 
       def certificate_or_pubkey_present

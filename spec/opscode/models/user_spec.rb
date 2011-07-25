@@ -131,7 +131,7 @@ describe Opscode::Models::User do
     end
 
     it "has no actor id" do
-      @user.actor_id.should be_nil
+      @user.authz_id.should be_nil
     end
 
     describe "after validating" do
@@ -188,6 +188,15 @@ describe Opscode::Models::User do
         @user.errors[:password].should be_empty
         @user.errors[:hashed_password].should be_empty
         @user.errors[:salt].should be_empty
+      end
+
+      it "verifies that the correct password is correct" do
+        @user.should be_correct_password("p@ssw0rd1")
+      end
+
+      it "rejects an invalid password" do
+        @user.should_not be_correct_password("wrong!")
+        pending
       end
     end
 
@@ -285,7 +294,7 @@ describe Opscode::Models::User do
     before do
       @db_data = {
         :id => "123abc",
-        :actor_id => "abc123",
+        :authz_id => "abc123",
         :first_name => 'moon',
         :last_name => "polysoft",
         :middle_name => "trolol",
@@ -310,7 +319,7 @@ describe Opscode::Models::User do
     end
 
     it "has an actor id" do
-      @user.actor_id.should == "abc123"
+      @user.authz_id.should == "abc123"
     end
 
     it "has a first name" do
@@ -371,7 +380,23 @@ describe Opscode::Models::User do
     end
 
     it "converts to a hash for JSONification" do
-      pending
+      user_as_a_hash = @user.for_json
+      user_as_a_hash.should be_a_kind_of(Hash)
+      user_as_a_hash[:city].should == "Fremont"
+      user_as_a_hash[:salt].should == "some random bits"
+      user_as_a_hash[:hashed_password].should == "some hex bits"
+      user_as_a_hash[:image_file_name].should == "current_status.png"
+      user_as_a_hash[:twitter_account].should == 'moonpolysoft'
+      user_as_a_hash[:country].should == 'USA'
+      user_as_a_hash[:certificate].should == SAMPLE_CERT
+      user_as_a_hash[:id].should == '123abc'
+      user_as_a_hash[:authz_id].should == "abc123"
+      user_as_a_hash[:username].should == "trolol"
+      user_as_a_hash[:first_name].should == "moon"
+      user_as_a_hash[:last_name].should == "polysoft"
+      user_as_a_hash[:display_name].should == "problem?"
+      user_as_a_hash[:middle_name].should == 'trolol'
+      user_as_a_hash[:email].should == 'trolol@example.com'
     end
   end
 

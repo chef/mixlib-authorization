@@ -306,7 +306,6 @@ describe Opscode::Models::User do
         :city => "Fremont",
         :country => "USA",
         :twitter_account => "moonpolysoft",
-        :password => nil,
         :hashed_password => "some hex bits",
         :salt => "some random bits",
         :image_file_name => 'current_status.png'
@@ -397,6 +396,16 @@ describe Opscode::Models::User do
       user_as_a_hash[:display_name].should == "problem?"
       user_as_a_hash[:middle_name].should == 'trolol'
       user_as_a_hash[:email].should == 'trolol@example.com'
+
+      expected_keys = [ :city, :salt, :hashed_password, :twitter_account,
+                        :country, :certificate, :id, :authz_id, :username,
+                        :first_name, :last_name, :display_name, :middle_name,
+                        :email, :image_file_name, :public_key]
+
+
+      user_as_a_hash.keys.should =~ expected_keys
+
+
     end
   end
 

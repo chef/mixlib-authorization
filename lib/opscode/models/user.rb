@@ -100,9 +100,10 @@ module Opscode
       rw_attribute :twitter_account
       rw_attribute :image_file_name
 
-      ro_attribute :password # with a custom setter below
       ro_attribute :hashed_password
       ro_attribute :salt
+
+      attr_reader :password # with a custom setter below
 
       validates_presence_of :first_name
       validates_presence_of :last_name

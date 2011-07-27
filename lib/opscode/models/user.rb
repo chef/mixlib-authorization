@@ -8,6 +8,11 @@ require 'active_model/validations'
 module Opscode
   module Models
     class User
+
+
+      class InvalidParameters < ArgumentError
+      end
+
       include ActiveModel::Validations
 
       # Stolen from CouchRest for maxcompat:
@@ -127,11 +132,23 @@ module Opscode
       validate :certificate_or_pubkey_present
 
       def initialize(params={})
+        # Setting the password and hashed_password+salt at the same time is ambiguous.
+        # did you want to overwrite the existing hashed_password+salt or not?
+        if params.key?(:password) && (params.key?(:hashed_password) || params.key?(:salt))
+          raise InvalidParameters, "cannot set the password and hashed password at the same time"
+        end
+
+        params = params.dup
+
+        if params.key?(:password)
+          self.password = params.delete(:password)
+        end
+
         params.each do |attr, value|
           if ivar = self.class.model_attributes[attr]
             instance_variable_set(ivar, params[attr])
           else
-            raise ArgumentError, "unknown attribute #{attr} (set to #{value}) for #{self.class}"
+            raise InvalidParameters, "unknown attribute #{attr} (set to #{value}) for #{self.class}"
           end
         end
         @persisted = false

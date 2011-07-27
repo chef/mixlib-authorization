@@ -376,6 +376,66 @@ describe Opscode::Models::User do
 
 
     end
+
   end
+
+  describe "when created from form data" do
+    before do
+      @form_data = {
+        :id => "123abc",
+        :authz_id => "abc123",
+        :first_name => 'moon',
+        :last_name => "polysoft",
+        :middle_name => "trolol",
+        :display_name => "problem?",
+        :email => 'trolol@example.com',
+        :username => 'trolol',
+        :public_key => nil,
+        :certificate => SAMPLE_CERT,
+        :city => "Fremont",
+        :country => "USA",
+        :twitter_account => "moonpolysoft",
+        :password => 'p@ssw0rd1',
+        :image_file_name => 'current_status.png'
+      }
+      @user = Opscode::Models::User.new(@form_data)
+    end
+
+    it "generates a hashed password and salt" do
+      @user.password.should == "p@ssw0rd1"
+      @user.salt.should_not be_nil
+      @user.hashed_password.should_not be_nil
+      @user.should be_correct_password('p@ssw0rd1')
+    end
+
+  end
+
+  describe "when created from data containing both a hashed password and non-hashed password" do
+    it "raises an error" do
+      @form_data = {
+        :id => "123abc",
+        :authz_id => "abc123",
+        :first_name => 'moon',
+        :last_name => "polysoft",
+        :middle_name => "trolol",
+        :display_name => "problem?",
+        :email => 'trolol@example.com',
+        :username => 'trolol',
+        :public_key => nil,
+        :certificate => SAMPLE_CERT,
+        :city => "Fremont",
+        :country => "USA",
+        :twitter_account => "moonpolysoft",
+        :image_file_name => 'current_status.png',
+
+        :password => 'p@ssw0rd1',
+        :hashed_password => "whoah what are you doing here?",
+        :salt => "some random bits"
+
+      }
+      lambda { Opscode::Models::User.new(@form_data) }.should raise_error(ArgumentError)
+    end
+  end
+
 
 end

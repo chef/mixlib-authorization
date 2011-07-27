@@ -202,10 +202,15 @@ module Opscode
         hash_for_json
       end
 
+      # Adds a validation error if there is no certificate or public key,
+      # or else if *both* a certificate *and* a public_key are present (which
+      # is ambiguous)
       def certificate_or_pubkey_present
-        if certificate.nil? && public_key.nil?
+        # must use the @public_key instance var b/c the getter method will
+        # return the cert's public key for compat reasons
+        if certificate.nil? && @public_key.nil?
           errors.add(:credentials, "must have a certificate or public key")
-        elsif certificate && public_key # should never have BOTH
+        elsif certificate && @public_key # should never have BOTH
           errors.add(:credentials, "cannot have both a certificate and public key")
         end
       end

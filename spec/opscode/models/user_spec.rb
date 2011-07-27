@@ -243,6 +243,11 @@ describe Opscode::Models::User do
         @user.public_key.should be_a_kind_of(OpenSSL::PKey::RSA)
         @user.public_key.to_s.should == SAMPLE_CERT_KEY
       end
+
+      it "has valid credentials" do
+        @user.valid?
+        @user.errors[:credentials].should be_empty
+      end
     end
 
   end

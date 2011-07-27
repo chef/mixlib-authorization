@@ -57,7 +57,7 @@ KEY
 describe Opscode::Models::User do
   it_should_behave_like("an active model")
 
-  describe "when empty" do
+  describe "when created without any data" do
     before do
       @user = Opscode::Models::User.new
     end
@@ -396,11 +396,12 @@ describe Opscode::Models::User do
       user_as_a_hash[:display_name].should == "problem?"
       user_as_a_hash[:middle_name].should == 'trolol'
       user_as_a_hash[:email].should == 'trolol@example.com'
+      user_as_a_hash.should_not have_key(:public_key)
 
       expected_keys = [ :city, :salt, :hashed_password, :twitter_account,
                         :country, :certificate, :id, :authz_id, :username,
                         :first_name, :last_name, :display_name, :middle_name,
-                        :email, :image_file_name, :public_key]
+                        :email, :image_file_name]
 
 
       user_as_a_hash.keys.should =~ expected_keys

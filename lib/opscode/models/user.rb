@@ -179,7 +179,8 @@ module Opscode
       def for_json
         hash_for_json = {}
         self.class.model_attributes.each do |attr_name, ivar_name|
-          hash_for_json[attr_name] = instance_variable_get(ivar_name)
+          value = instance_variable_get(ivar_name)
+          hash_for_json[attr_name] = value if value
         end
         hash_for_json
       end

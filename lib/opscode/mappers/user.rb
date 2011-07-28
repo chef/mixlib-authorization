@@ -21,7 +21,7 @@ module Opscode
       end
 
       # Set the default exception classes
-      raise_on_invalid(ArgumentError)
+      raise_on_invalid(InvalidRecord)
       raise_on_error(RuntimeError)
 
 
@@ -32,7 +32,7 @@ module Opscode
       # These properties of a Model::User have their own columns in the
       # database. There are also columns for cert/private key but these are
       # mapped in a special way.
-      BREAKOUT_COLUMNS = [:id, :authz_id, :username, :created_at, :updated_at, :last_updated_by]
+      BREAKOUT_COLUMNS = [:id, :authz_id, :username, :email, :created_at, :updated_at, :last_updated_by]
 
       # A Sequel Collection object representing the table
       attr_reader :table
@@ -51,24 +51,61 @@ module Opscode
       end
 
       def create(user)
+        user.id ||= new_uuid
+        user.update_timestamps!
+        user.last_updated_by!(requester_authz_id)
+
+        validate_before_create!(user)
+
         connection.transaction do
-          user.id ||= new_uuid
-          user.update_timestamps!
-          user.last_updated_by!(requester_authz_id)
           user_side_create(user)
           # authz_side_create(user)
           # enqueue_for_indexing(user) # actually not, but this is where we would do it
         end
+        user.persisted!
+        user
+      rescue Sequel::DatabaseError => e
+        we = e.wrapped_exception
+        pp [we.class.name, we.message, we.errno, we.sql_state, we.backtrace]
+        pp [e.class.name, e.message, e.backtrace]
+        false
+      end
+
+      def validate_before_create!(user)
+        # Calling valid? will reset the error list :( so it has to be done first.
+        user.valid?
+
+        # NB: These uniqueness constraints have to be enforced by the database
+        # also, or else there is a race condition. However, checking for them
+        # separately allows us to give a better experience in the common
+        # non-race failure conditions.
+        unless (user.username.nil? || user.username.empty?)
+          if benchmark_db(:validate, :user) { table.filter(:username => user.username).any? }
+            user.username_not_unique!
+          end
+        end
+
+        unless (user.email.nil? || user.email.empty?)
+          if benchmark_db(:validate, :user) { table.filter(:email => user.email).any? }
+            user.email_not_unique!
+          end
+        end
+
+        unless user.errors.empty?
+          self.class.invalid_object!(user.errors.full_messages.join(", "))
+        end
+
+        true
       end
 
       # Creates a row for the Models::User object +user+ in the database. In
       # typical use you will never call this directly, but it might be useful
       # in orgmapper or other diagnostic situations. In other words, let's
       # pretend this method is private.
+      #
+      # In addition to the above, note that this method DOES NOT validate the
+      # user object before saving.
       def user_side_create(user)
-        unless user.valid?
-          self.class.invalid_object!(user.errors.full_messages.join(", "))
-        end
         user_data = user.for_db
         row_data = map_to_row!(user_data)
         benchmark_db(:create, :user) { table.insert(row_data) }

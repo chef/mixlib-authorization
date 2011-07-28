@@ -51,6 +51,12 @@ describe Opscode::Mappers::User do
       pending "integrate benchmarker"
     end
 
+    it "raises an error when attempting to save an invalid object" do
+      @user_data.delete(:first_name)
+      @user = Opscode::Models::User.load(@user_data)
+      lambda { @mapper.create(@user) }.should raise_error(Opscode::Mappers::InvalidRecord)
+    end
+
   end
 
   describe "after 'joeuser' is created with the db id and authz id set" do
@@ -61,7 +67,11 @@ describe Opscode::Mappers::User do
       @mapper.create(@user)
     end
 
-    it "finds a user for authentication purposes" do
+    it "marks the user object as persisted" do
+      @user.should be_persisted
+    end
+
+    it "loads a subset of the user's data for authentication purposes" do
       user = @mapper.find_for_authentication("joeuser")
       user.username.should == "joeuser"
       user.public_key.to_s.should == SAMPLE_CERT_KEY
@@ -71,12 +81,45 @@ describe Opscode::Mappers::User do
       user.should be_persisted
     end
 
+    it "loads the full user object" do
+      user = @mapper.find_by_username("joeuser")
+      user.should == @user
+    end
+
     it "has a created_at and updated_at timestamp set on the user" do
       user = @mapper.find_by_username("joeuser")
       user.created_at.to_i.should be_within(1).of(@now.to_i)
       user.updated_at.to_i.should be_within(1).of(@now.to_i)
     end
 
+    describe "when trying to create another user with the same username" do
+      it "raises an InvalidRecord exception" do
+        @user.id.replace("duplicate_guy")
+        lambda { @mapper.create(@user) }.should raise_error(Opscode::Mappers::InvalidRecord)
+      end
+
+      it "marks the user object as invalid" do
+        @user.id.replace("duplicate_username_guy")
+        @mapper.create(@user) rescue nil
+        @user.errors.should have_key(:username)
+      end
+    end
+
+    describe "when trying to create another user with the same email" do
+      it "raises an InvalidRecord exception" do
+        @user.id.replace("duplicate_guy")
+        @user.username.replace("a-different-username")
+        lambda { @mapper.create(@user)}.should raise_error(Opscode::Mappers::InvalidRecord)
+      end
+
+      it "marks the user object as invalid" do
+        @user.id.replace("duplicate_guy")
+        @user.authz_id.replace("wtfbro")
+        @user.username.replace("a-different-username")
+        @mapper.create(@user) rescue nil
+        @user.errors.should have_key(:email)
+      end
+    end
   end
 
   describe "after 'joeuser' is created without a database id or authz id" do
@@ -92,6 +135,7 @@ describe Opscode::Mappers::User do
       user = @mapper.find_by_username("joeuser")
       user.id.should_not be_nil
       user.id.should_not == @old_id
+      pending "Authz side ID comes from authz itself..."
       user.authz_id.should_not be_nil
       user.authz_id.should_not == @old_authz_id
     end

@@ -126,6 +126,16 @@ describe Opscode::Mappers::User do
       @mapper.find_all_usernames.should == ["joeuser"]
     end
 
+    it "updates the user in the database from a User object" do
+      updated_data = {:certificate => ALTERNATE_CERT, :password => "newPassword"}
+      @user.update_from_params(updated_data)
+      @mapper.update(@user)
+      round_tripped = @mapper.find_by_username("joeuser")
+      round_tripped.should == @user
+      round_tripped.should be_correct_password("newPassword")
+      round_tripped.certificate.should == ALTERNATE_CERT
+    end
+
     describe "when trying to create another user with the same username" do
       it "raises an InvalidRecord exception" do
         @user.id.replace("duplicate_guy")

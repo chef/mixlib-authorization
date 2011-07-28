@@ -109,6 +109,18 @@ module Opscode
         true
       end
 
+      def update(user)
+        unless user.id
+          self.class.invalid_object!("Cannot save user #{user.username} without a valid id")
+        end
+
+        @table.filter(:id => user.id).update(map_to_row!(user.for_db))
+
+      rescue Sequel::DatabaseError => e
+        log_exception("User creation failed")
+        self.class.query_failed!(e.message)
+      end
+
       # Creates a row for the Models::User object +user+ in the database. In
       # typical use you will never call this directly, but it might be useful
       # in orgmapper or other diagnostic situations. In other words, let's

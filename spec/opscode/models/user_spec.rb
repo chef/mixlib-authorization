@@ -146,11 +146,16 @@ describe Opscode::Models::User do
       end
 
       it "sets created_at to now" do
-        @user.created_at.should == @now
+        @user.created_at.should == @now.utc
       end
 
       it "sets updated_at to now" do
-        @user.updated_at.should == @now
+        @user.updated_at.should == @now.utc
+      end
+
+      it "includes the timestamps in the hash format for the database" do
+        @user.for_db[:created_at].should == @now
+        @user.for_db[:updated_at].should == @now
       end
 
       describe "and updating them again" do
@@ -165,6 +170,7 @@ describe Opscode::Models::User do
         it "sets updated_at to the newer 'now'" do
           @user.updated_at.should == @later
         end
+
       end
     end
 
@@ -306,6 +312,7 @@ describe Opscode::Models::User do
 
   describe "when created from database params" do
     before do
+      @now = Time.now
       @db_data = {
         :id => "123abc",
         :authz_id => "abc123",
@@ -322,7 +329,10 @@ describe Opscode::Models::User do
         :twitter_account => "moonpolysoft",
         :hashed_password => "some hex bits",
         :salt => "some random bits",
-        :image_file_name => 'current_status.png'
+        :image_file_name => 'current_status.png',
+        :created_at => @now.utc.to_s,
+        :updated_at => @now.utc.to_s
+
       }
       @user = Opscode::Models::User.load(@db_data)
     end
@@ -390,6 +400,16 @@ describe Opscode::Models::User do
 
     it "has an image file" do
       @user.image_file_name.should == "current_status.png"
+    end
+
+    it "gives the created_at timestamp as a time object" do
+      @user.created_at.should be_a_kind_of(Time)
+      @user.created_at.to_i.should be_within(1).of(@now.to_i)
+    end
+
+    it "gives the updated_at timestamp as a time object" do
+      @user.updated_at.should be_a_kind_of(Time)
+      @user.updated_at.to_i.should be_within(1).of(@now.to_i)
     end
 
     it "converts to a hash for JSONification" do

@@ -144,8 +144,8 @@ module Opscode
       ro_attribute :salt
 
       protected_attribute :authz_id
-      protected_attribute :created_at
-      protected_attribute :updated_at
+      protected_attribute :created_at #custom reader method
+      protected_attribute :updated_at #custom reader method
       protected_attribute :last_updated_by
 
       attr_reader :password # with a custom setter below
@@ -240,6 +240,24 @@ module Opscode
         @hashed_password = encrypt_password(unhashed_password)
       end
 
+      # Casts created_at to a Time object (if required) and returns it
+      def created_at
+        if @created_at && @created_at.kind_of?(String)
+          @created_at = Time.parse(@created_at)
+        else
+          @created_at
+        end
+      end
+
+      # Casts updated_at to a Time object (if required) and returns it
+      def updated_at
+        if @updated_at && @updated_at.kind_of?(String)
+          @updated_at = Time.parse(@updated_at)
+        else
+          @updated_at
+        end
+      end
+
       # True if +candidate_password+'s hashed form matches the hashed_password,
       # false otherwise.
       def correct_password?(candidate_password)
@@ -263,7 +281,7 @@ module Opscode
 
       # Sets the updated_at and created_at (if necessary) timestamps.
       def update_timestamps!
-        now = Time.now
+        now = Time.now.utc
         @created_at ||= now
         @updated_at = now
       end

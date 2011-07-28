@@ -6,7 +6,7 @@ describe Opscode::Mappers::User do
   before(:all) do
     require 'logger'
     @db = Sequel.connect("mysql2://root@localhost/opscode_chef_test")
-    @db.logger = Logger.new(STDOUT)
+    #@db.logger = Logger.new(STDOUT) # makes the tests loud.
   end
 
   before do
@@ -27,7 +27,7 @@ describe Opscode::Mappers::User do
       :password => "p@ssword1",
       :image_file_name => 'current_status.png'
     }
-    @mapper = Opscode::Mappers::User.new(@db, 0)
+    @mapper = Opscode::Mappers::User.new(@db, "some_dudes_authz_id")
   end
 
   describe "when no users are in the database" do
@@ -39,14 +39,14 @@ describe Opscode::Mappers::User do
       @mapper.find_by_username("joeuser").should be_nil
     end
 
-    it "creates a user record from a user model" do
-      @user = Opscode::Models::User.new(@user_data)
+    it "can create a user record from a user model" do
+      @user = Opscode::Models::User.load(@user_data)
       @mapper.create(@user)
       @db[:users].first[:username].should == "joeuser"
     end
 
     it "benchmarks a create operation" do
-      @user = Opscode::Models::User.new(@user_data)
+      @user = Opscode::Models::User.load(@user_data)
       @mapper.create(@user)
       pending "integrate benchmarker"
     end
@@ -55,7 +55,9 @@ describe Opscode::Mappers::User do
 
   describe "after 'joeuser' is created with the db id and authz id set" do
     before do
-      @user = Opscode::Models::User.new(@user_data)
+      @user = Opscode::Models::User.load(@user_data)
+      @now = Time.now
+      Time.stub!(:now).and_return(@now)
       @mapper.create(@user)
     end
 
@@ -71,7 +73,8 @@ describe Opscode::Mappers::User do
 
     it "has a created_at and updated_at timestamp set on the user" do
       user = @mapper.find_by_username("joeuser")
-      pending
+      user.created_at.to_i.should be_within(1).of(@now.to_i)
+      user.updated_at.to_i.should be_within(1).of(@now.to_i)
     end
 
   end

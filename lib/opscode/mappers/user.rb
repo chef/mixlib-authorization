@@ -32,7 +32,7 @@ module Opscode
       # These properties of a Model::User have their own columns in the
       # database. There are also columns for cert/private key but these are
       # mapped in a special way.
-      BREAKOUT_COLUMNS = [:id, :authz_id, :username]
+      BREAKOUT_COLUMNS = [:id, :authz_id, :username, :created_at, :updated_at, :last_updated_by]
 
       # A Sequel Collection object representing the table
       attr_reader :table
@@ -52,6 +52,9 @@ module Opscode
 
       def create(user)
         connection.transaction do
+          user.id ||= new_uuid
+          user.update_timestamps!
+          user.last_updated_by!(requester_authz_id)
           user_side_create(user)
           # authz_side_create(user)
           # enqueue_for_indexing(user) # actually not, but this is where we would do it
@@ -66,11 +69,8 @@ module Opscode
         unless user.valid?
           self.class.invalid_object!(user.errors.full_messages.join(", "))
         end
-        user_data = user.for_json
+        user_data = user.for_db
         row_data = map_to_row!(user_data)
-        row_data[:created_at] = row_data[:updated_at] = Time.now
-        row_data[:last_updated_by] = requester_authz_id
-        row_data[:id] ||= new_uuid
         benchmark_db(:create, :user) { table.insert(row_data) }
       end
 
@@ -104,7 +104,8 @@ module Opscode
       end
 
       def inflate_model(row_data)
-        user = Models::User.new(map_from_row!(row_data))
+        created_at = row_data[:created_at]
+        user = Models::User.load(map_from_row!(row_data))
         user.persisted!
         user
       end

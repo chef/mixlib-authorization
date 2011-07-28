@@ -412,6 +412,33 @@ describe Opscode::Models::User do
       @user.updated_at.to_i.should be_within(1).of(@now.to_i)
     end
 
+    it "is == to another user object with the same data" do
+      copy = Opscode::Models::User.load(@db_data)
+      @user.should == copy
+    end
+
+    it "is == to another user object with the same data but timestamps truncated to 1s resolution" do
+      very_close_data = @db_data.dup
+      very_close_data[:created_at] = Time.at(@now.to_i).utc.to_s
+      very_close_data[:updated_at] = Time.at(@now.to_i).utc.to_s
+      very_close_user = Opscode::Models::User.load(very_close_data)
+
+      # Force lazy typecasting of timestamps to fire
+      very_close_user.created_at
+      very_close_user.updated_at
+
+      @user.should == very_close_user
+    end
+
+    it "is not == to another user object if any of the data is different" do
+      [:id, :authz_id, :first_name, :middle_name, :last_name, :username, :display_name, :hashed_password, :salt, :twitter_account].each do |attr_name|
+        not_quite_data = @db_data.dup
+        not_quite_data[attr_name] += "nope"
+        not_quite = Opscode::Models::User.load(not_quite_data)
+        @user.should_not == not_quite
+      end
+    end
+
     it "converts to a hash for JSONification" do
       user_as_a_hash = @user.for_json
       user_as_a_hash.should be_a_kind_of(Hash)

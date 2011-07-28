@@ -232,6 +232,19 @@ module Opscode
         end
       end
 
+      def ==(other)
+        return false unless other.kind_of?(self.class)
+        other_data = other.for_db
+        for_db.inject(true) do |matches, (attr_name, value)|
+          matches && case attr_name
+          when :created_at, :updated_at
+            send(attr_name).to_i == other.send(attr_name).to_i
+          else
+            value == other_data[attr_name]
+          end
+        end
+      end
+
       # Generates a new salt (overwriting the old one, if any) and sets password
       # to the salted digest of +unhashed_password+
       def password=(unhashed_password)

@@ -211,7 +211,6 @@ describe Opscode::Models::User do
 
       it "rejects an invalid password" do
         @user.should_not be_correct_password("wrong!")
-        pending
       end
     end
 
@@ -449,7 +448,6 @@ describe Opscode::Models::User do
       user_as_a_hash[:twitter_account].should == 'moonpolysoft'
       user_as_a_hash[:country].should == 'USA'
       user_as_a_hash[:certificate].should == SAMPLE_CERT
-      user_as_a_hash[:id].should == '123abc'
       user_as_a_hash[:username].should == "trolol"
       user_as_a_hash[:first_name].should == "moon"
       user_as_a_hash[:last_name].should == "polysoft"
@@ -459,14 +457,24 @@ describe Opscode::Models::User do
       user_as_a_hash.should_not have_key(:public_key)
 
       expected_keys = [ :city, :salt, :hashed_password, :twitter_account,
-                        :country, :certificate, :id, :username,
+                        :country, :certificate, :username,
                         :first_name, :last_name, :display_name, :middle_name,
                         :email, :image_file_name]
 
 
       user_as_a_hash.keys.should =~ expected_keys
+    end
 
+    it "can update the password from params" do
+      new_data = {:password => "opensesame"}
+      @user.update_from_params(new_data)
+      @user.should be_correct_password("opensesame")
+    end
 
+    it "can update the certificate from params" do
+      new_data = {:certificate => ALTERNATE_CERT}
+      @user.update_from_params(new_data)
+      @user.certificate.should == ALTERNATE_CERT
     end
 
   end
@@ -474,7 +482,6 @@ describe Opscode::Models::User do
   describe "when created from form data" do
     before do
       @form_data = {
-        :id => "123abc",
         :first_name => 'moon',
         :last_name => "polysoft",
         :middle_name => "trolol",

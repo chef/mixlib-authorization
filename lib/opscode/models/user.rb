@@ -126,7 +126,6 @@ module Opscode
         attr_reader attr_name
       end
 
-      rw_attribute :id
       rw_attribute :first_name
       rw_attribute :last_name
       rw_attribute :middle_name
@@ -143,6 +142,7 @@ module Opscode
       ro_attribute :hashed_password
       ro_attribute :salt
 
+      protected_attribute :id
       protected_attribute :authz_id
       protected_attribute :created_at #custom reader method
       protected_attribute :updated_at #custom reader method
@@ -218,6 +218,11 @@ module Opscode
         end
       end
 
+      # Updates this User from the given params
+      def update_from_params(params)
+        assign_ivars_from_params!(params.dup)
+      end
+
       # Sets protected instance variables from the given +params+. This should
       # only be called when loading objects from the database. Definitely do
       # not use this when loading user-supplied parameters.
@@ -232,6 +237,12 @@ module Opscode
         end
       end
 
+      # True if the other object is a User or subclass and all "public" and
+      # "protected" attributes are equal. Timestamps are fudged to 1s
+      # resolution, since that's what MySQL stores, e.g., if you save a User to
+      # the database and then load a copy of it from the database, the two will
+      # be equal even though the former will have fractional second resolution
+      # on the timestamps.
       def ==(other)
         return false unless other.kind_of?(self.class)
         other_data = other.for_db
@@ -306,6 +317,12 @@ module Opscode
       # not abuse its existence.
       def last_updated_by!(authz_updating_actor_id)
         @last_updated_by = authz_updating_actor_id
+      end
+
+      # Sets the database id of this object. Only meant to be used by the
+      # mapper layer when/if it generates an id for you.
+      def assign_id!(id)
+        @id = id
       end
 
       # Whether or not this object has been stored to/loaded from the database.

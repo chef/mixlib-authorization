@@ -24,6 +24,9 @@ module Opscode
       raise_on_invalid(InvalidRecord)
       raise_on_error(RuntimeError)
 
+      def self.query_failed!(*args)
+        raise @db_error_exception, *args
+      end
 
       def self.invalid_object!(*args)
         raise @invalid_object_exception, *args
@@ -51,8 +54,17 @@ module Opscode
         @requester_authz_id = requester_authz_id
       end
 
+      def logger
+        # TODO: less ghetto.
+        @logger ||= Logger.new('/dev/null')
+      end
+
+      def log_exception(where, e)
+        logger.error "#{where}: #{e.class}: #{e.message}\n#{e.backtrace.join("\n")}"
+      end
+
       def create(user)
-        user.id ||= new_uuid
+        user.assign_id!(new_uuid) unless user.id
         user.update_timestamps!
         user.last_updated_by!(requester_authz_id)
 
@@ -66,10 +78,8 @@ module Opscode
         user.persisted!
         user
       rescue Sequel::DatabaseError => e
-        we = e.wrapped_exception
-        pp [we.class.name, we.message, we.errno, we.sql_state, we.backtrace]
-        pp [e.class.name, e.message, e.backtrace]
-        false
+        log_exception("User creation failed")
+        self.class.query_failed!(e.message)
       end
 
       def validate_before_create!(user)

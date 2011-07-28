@@ -146,6 +146,7 @@ module Opscode
       protected_attribute :authz_id
       protected_attribute :created_at
       protected_attribute :updated_at
+      protected_attribute :last_updated_by
 
       attr_reader :password # with a custom setter below
 
@@ -181,7 +182,6 @@ module Opscode
         model.assign_ivars_from_params!(params)
         model
       end
-
 
       # Create a User. If +params+ is a hash of attributes, the User will be
       # "inflated" with those values; otherwise the user will be empty.
@@ -261,10 +261,20 @@ module Opscode
         end
       end
 
+      # Sets the updated_at and created_at (if necessary) timestamps.
       def update_timestamps!
         now = Time.now
         @created_at ||= now
         @updated_at = now
+      end
+
+      # Sets the last_updated_by attribute to +authz_updating_actor_id+,
+      # which should be the authz side id of the user/client making changes.
+      #
+      # NB: the last_updated_by is for diagnostic/troubleshooting use. Plz to
+      # not abuse its existence.
+      def last_updated_by!(authz_updating_actor_id)
+        @last_updated_by = authz_updating_actor_id
       end
 
       # Whether or not this object has been stored to/loaded from the database.

@@ -168,6 +168,16 @@ describe Opscode::Models::User do
       end
     end
 
+    describe "after updating the last_updated_by field" do
+      before do
+        @user.last_updated_by!("authz_id_for_some_dude")
+      end
+
+      it "shows who it was last updated by" do
+        @user.last_updated_by.should == "authz_id_for_some_dude"
+      end
+    end
+
     describe "after setting the password" do
       before do
         @user.password = 'p@ssw0rd1'

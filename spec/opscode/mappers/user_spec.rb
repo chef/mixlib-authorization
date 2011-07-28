@@ -1,5 +1,18 @@
 require File.expand_path('../../spec_helper', __FILE__)
 
+class TestingStatsClient
+  attr_reader :times_called
+
+  def initialize
+    @times_called = 0
+  end
+
+  def db_call
+    @times_called += 1
+    yield
+  end
+end
+
 describe Opscode::Mappers::User do
   include Fixtures
 
@@ -11,6 +24,8 @@ describe Opscode::Mappers::User do
 
   before do
     @db[:users].truncate
+
+    @stats_client = TestingStatsClient.new
 
     @user_data = {
       :id => "123abc",
@@ -27,7 +42,7 @@ describe Opscode::Mappers::User do
       :password => "p@ssword1",
       :image_file_name => 'current_status.png'
     }
-    @mapper = Opscode::Mappers::User.new(@db, "some_dudes_authz_id")
+    @mapper = Opscode::Mappers::User.new(@db, @stats_client, "some_dudes_authz_id")
   end
 
   describe "when no users are in the database" do
@@ -45,16 +60,21 @@ describe Opscode::Mappers::User do
       @db[:users].first[:username].should == "joeuser"
     end
 
-    it "benchmarks a create operation" do
+    it "benchmarks a create operations" do
       @user = Opscode::Models::User.load(@user_data)
       @mapper.create(@user)
-      pending "integrate benchmarker"
+      # there may be extra calls to do uniqueness validations, that's fine.
+      @stats_client.times_called.should >= 1
     end
 
     it "raises an error when attempting to save an invalid object" do
       @user_data.delete(:first_name)
       @user = Opscode::Models::User.load(@user_data)
       lambda { @mapper.create(@user) }.should raise_error(Opscode::Mappers::InvalidRecord)
+    end
+
+    it "has no users in the full list" do
+      @mapper.find_all_usernames.should == []
     end
 
   end
@@ -90,6 +110,20 @@ describe Opscode::Mappers::User do
       user = @mapper.find_by_username("joeuser")
       user.created_at.to_i.should be_within(1).of(@now.to_i)
       user.updated_at.to_i.should be_within(1).of(@now.to_i)
+    end
+
+    it "loads the username, first name, last name, and email of all users" do
+      verbose_user_list = @mapper.find_all_for_support_ui
+      verbose_user_list.should have(1).users
+      verbose_user = verbose_user_list.first
+      verbose_user.username.should == "joeuser"
+      verbose_user.first_name.should == "Joe"
+      verbose_user.last_name.should == "User"
+      verbose_user.email.should == "joe@example.com"
+    end
+
+    it "lists all username" do
+      @mapper.find_all_usernames.should == ["joeuser"]
     end
 
     describe "when trying to create another user with the same username" do

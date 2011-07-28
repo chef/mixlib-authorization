@@ -44,9 +44,10 @@ module Opscode
       # Recorded for debug/audit purposes.
       attr_reader :requester_authz_id
 
-      def initialize(database_connection, requester_authz_id)
+      def initialize(database_connection, stats_client, requester_authz_id)
         @connection = database_connection
         @table = @connection[:users]
+        @stats_client = stats_client
         @requester_authz_id = requester_authz_id
       end
 
@@ -140,6 +141,23 @@ module Opscode
         end
       end
 
+      def find_all_usernames
+        benchmark_db(:read, :user) do
+          table.select(:username).map do |row|
+            row[:username]
+          end
+        end
+      end
+
+      def find_all_for_support_ui
+        benchmark_db(:read, :user) do
+          table.select(:username, :email, :serialized_object).map do |row|
+            inflate_model(row)
+          end
+        end
+      end
+
+
       def inflate_model(row_data)
         created_at = row_data[:created_at]
         user = Models::User.load(map_from_row!(row_data))
@@ -180,8 +198,10 @@ module Opscode
           model_data[:public_key] = row_data.delete(:public_key)
         when 1
           model_data[:certificate] = row_data.delete(:public_key)
+        when nil
+          row_data.delete(:public_key) # just in case
         else
-          raise ArguementError, "fetching a user w/o the public key is not supported yet."
+          raise ArgumentError, "Unknown public key version."
         end
 
         if serialized_data = row_data.delete(:serialized_object)
@@ -199,7 +219,7 @@ module Opscode
       # +crud_operation+ and +tags+ can be used to classify the operation.
       # +crud_operation+ should be one of :create, :read, :update, :delete
       def benchmark_db(crud_operation, model)
-        yield
+        @stats_client.db_call { yield }
       end
 
       def new_uuid

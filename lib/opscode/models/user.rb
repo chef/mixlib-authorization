@@ -72,6 +72,12 @@ module Opscode
         model_ivars[ivar] = attr_name
       end
 
+      def self.add_protected_model_attribute(attr_name)
+        ivar = "@#{attr_name}".to_sym
+        protected_model_attributes[attr_name] = ivar
+        protected_ivars[ivar] = attr_name
+      end
+
       def self.model_attributes
         @model_attributes ||= {}
       end
@@ -80,18 +86,47 @@ module Opscode
         @model_ivars ||= {}
       end
 
+      def self.protected_model_attributes
+        @protected_model_attributes ||= {}
+      end
+
+      def self.protected_ivars
+        @protected_ivars ||= {}
+      end
+
+      # Defines an attribute that has an attr_accessor and can be set from
+      # parameters passed to new()
       def self.rw_attribute(attr_name)
         add_model_attribute(attr_name)
         attr_accessor attr_name
       end
 
+      # Defines an attribute that has an attr_reader and can be set from
+      # parameters passed to new()
       def self.ro_attribute(attr_name)
         add_model_attribute(attr_name)
         attr_reader attr_name
       end
 
+      # Defines an attribute that has an attr_reader but CANNOT be set from
+      # parameters passed to new()
+      #
+      # These parameters will not be included in the JSON representation of
+      # this object.
+      #
+      # This is intended for attributes that are set by the Mapper layer, such
+      # as created/updated timestamps or anything that end users should not be
+      # able to modify directly
+      #--
+      # NB: if you get all GoF about it, this is a _presentation_ concern that
+      # should be handled by a presenter object. It's very noble to shave that
+      # yak, good luck.
+      def self.protected_attribute(attr_name)
+        add_protected_model_attribute(attr_name)
+        attr_reader attr_name
+      end
+
       rw_attribute :id
-      rw_attribute :authz_id
       rw_attribute :first_name
       rw_attribute :last_name
       rw_attribute :middle_name
@@ -107,6 +142,10 @@ module Opscode
 
       ro_attribute :hashed_password
       ro_attribute :salt
+
+      protected_attribute :authz_id
+      protected_attribute :created_at
+      protected_attribute :updated_at
 
       attr_reader :password # with a custom setter below
 
@@ -131,14 +170,40 @@ module Opscode
 
       validate :certificate_or_pubkey_present
 
-      def initialize(params={})
+      # This is an alternative constructor that will load both "public" and
+      # "protected" attributes from the +params+. This should not be called
+      # with user input, it's for the mapper layer to create a new object from
+      # database data.
+      def self.load(params)
+        params = params.dup
+        model = new
+        model.assign_protected_ivars_from_params!(params)
+        model.assign_ivars_from_params!(params)
+        model
+      end
+
+
+      # Create a User. If +params+ is a hash of attributes, the User will be
+      # "inflated" with those values; otherwise the user will be empty.
+      def initialize(params=nil)
+        params = params.nil? ? {} : params.dup
+        assign_ivars_from_params!(params.dup)
+        @persisted = false
+      end
+
+      # Assigns instance variables from "safe" params, that is ones that are
+      # not defined via +protected_attribute+.
+      #
+      # This should be called by #initialize so you shouldn't have to call it
+      # yourself. But if you do, user supplied input is ok.
+      #
+      # NB: This destructively modifies the argument, so dup before you call it.
+      def assign_ivars_from_params!(params)
         # Setting the password and hashed_password+salt at the same time is ambiguous.
         # did you want to overwrite the existing hashed_password+salt or not?
         if params.key?(:password) && (params.key?(:hashed_password) || params.key?(:salt))
           raise InvalidParameters, "cannot set the password and hashed password at the same time"
         end
-
-        params = params.dup
 
         if params.key?(:password)
           self.password = params.delete(:password)
@@ -151,7 +216,20 @@ module Opscode
             raise InvalidParameters, "unknown attribute #{attr} (set to #{value}) for #{self.class}"
           end
         end
-        @persisted = false
+      end
+
+      # Sets protected instance variables from the given +params+. This should
+      # only be called when loading objects from the database. Definitely do
+      # not use this when loading user-supplied parameters.
+      #
+      # NB: This method destructively modifies the argument. Be sure to dup
+      # before you call this if the params don't belong to you.
+      def assign_protected_ivars_from_params!(params)
+        self.class.protected_model_attributes.each do |attr, ivar|
+          if value = params.delete(attr)
+            instance_variable_set(ivar, value)
+          end
+        end
       end
 
       # Generates a new salt (overwriting the old one, if any) and sets password
@@ -162,11 +240,17 @@ module Opscode
         @hashed_password = encrypt_password(unhashed_password)
       end
 
+      # True if +candidate_password+'s hashed form matches the hashed_password,
+      # false otherwise.
       def correct_password?(candidate_password)
         hashed_candidate_password = encrypt_password(candidate_password)
         (@hashed_password.to_s.hex ^ hashed_candidate_password.hex) == 0
       end
 
+      # The User's public key. Derived from the certificate if the user has a
+      # certificate, or just returns the public key if the user has a public
+      # key. Users nowadays are created with certificates but some older users
+      # have public keys.
       def public_key
         if @public_key
           @public_key
@@ -177,10 +261,21 @@ module Opscode
         end
       end
 
+      def update_timestamps!
+        now = Time.now
+        @created_at ||= now
+        @updated_at = now
+      end
+
+      # Whether or not this object has been stored to/loaded from the database.
+      # In a rails form, this is used to determine whether the operation is a
+      # create or update so that the same form view can be used for both
+      # operations.
       def persisted?
         @persisted
       end
 
+      # Marks this object as persisted. Should only be called by the mapper layer.
       def persisted!
         @persisted = true
       end
@@ -189,10 +284,15 @@ module Opscode
         persisted? ? username : nil
       end
 
+      # Essentially the "natural key" of this object, if it has been persisted.
+      # In a rails app, this can be used to generate routes. For example, a
+      # Chef node has a URL +nodes/NODE_NAME+
       def to_key
         persisted? ? [username] : nil
       end
 
+      # A Hash representation of this object suitable for conversion to JSON
+      # for publishing via API. Protected attributes will not be included.
       def for_json
         hash_for_json = {}
         self.class.model_attributes.each do |attr_name, ivar_name|
@@ -200,6 +300,27 @@ module Opscode
           hash_for_json[attr_name] = value if value
         end
         hash_for_json
+      end
+
+      # A Hash representation of this object suitable for persistence to the
+      # database.  Protected attributes will be included so don't send this to
+      # end users.
+      def for_db
+        hash_for_db = {}
+
+        self.class.model_attributes.each do |attr_name, ivar_name|
+          if value = instance_variable_get(ivar_name)
+            hash_for_db[attr_name] = value
+          end
+        end
+
+        self.class.protected_model_attributes.each do |attr_name, ivar_name|
+          if value = instance_variable_get(ivar_name)
+            hash_for_db[attr_name] = value
+          end
+        end
+
+        hash_for_db
       end
 
       # Adds a validation error if there is no certificate or public key,

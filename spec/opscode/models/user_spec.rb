@@ -137,6 +137,37 @@ describe Opscode::Models::User do
       end
     end
 
+    describe "after updating the timestamps" do
+      before do
+        @now = Time.now
+        @later = @now + 3612
+        Time.stub(:now).and_return(@now, @later)
+        @user.update_timestamps!
+      end
+
+      it "sets created_at to now" do
+        @user.created_at.should == @now
+      end
+
+      it "sets updated_at to now" do
+        @user.updated_at.should == @now
+      end
+
+      describe "and updating them again" do
+        before do
+          @user.update_timestamps!
+        end
+
+        it "leaves created_at set to the original value" do
+          @user.created_at.should == @now
+        end
+
+        it "sets updated_at to the newer 'now'" do
+          @user.updated_at.should == @later
+        end
+      end
+    end
+
     describe "after setting the password" do
       before do
         @user.password = 'p@ssw0rd1'
@@ -283,7 +314,7 @@ describe Opscode::Models::User do
         :salt => "some random bits",
         :image_file_name => 'current_status.png'
       }
-      @user = Opscode::Models::User.new(@db_data)
+      @user = Opscode::Models::User.load(@db_data)
     end
 
     it "has a database id" do
@@ -362,7 +393,6 @@ describe Opscode::Models::User do
       user_as_a_hash[:country].should == 'USA'
       user_as_a_hash[:certificate].should == SAMPLE_CERT
       user_as_a_hash[:id].should == '123abc'
-      user_as_a_hash[:authz_id].should == "abc123"
       user_as_a_hash[:username].should == "trolol"
       user_as_a_hash[:first_name].should == "moon"
       user_as_a_hash[:last_name].should == "polysoft"
@@ -372,7 +402,7 @@ describe Opscode::Models::User do
       user_as_a_hash.should_not have_key(:public_key)
 
       expected_keys = [ :city, :salt, :hashed_password, :twitter_account,
-                        :country, :certificate, :id, :authz_id, :username,
+                        :country, :certificate, :id, :username,
                         :first_name, :last_name, :display_name, :middle_name,
                         :email, :image_file_name]
 
@@ -388,7 +418,6 @@ describe Opscode::Models::User do
     before do
       @form_data = {
         :id => "123abc",
-        :authz_id => "abc123",
         :first_name => 'moon',
         :last_name => "polysoft",
         :middle_name => "trolol",
@@ -439,6 +468,13 @@ describe Opscode::Models::User do
 
       }
       lambda { Opscode::Models::User.new(@form_data) }.should raise_error(ArgumentError)
+    end
+  end
+
+  describe "when create from form data containing illegal params" do
+    it "raises an error" do
+      # not legal to set your authz_id for yourself :P
+      lambda { Opscode::Models::User.new(:authz_id => "12345") }.should raise_error(ArgumentError)
     end
   end
 

@@ -67,6 +67,8 @@ module Opscode
         logger.error "#{where}: #{e.class}: #{e.message}\n#{e.backtrace.join("\n")}"
       end
 
+      # Create a record in the database representing +user+ which is expected
+      # to be a Models::User object.
       def create(user)
         user.assign_id!(new_uuid) unless user.id
         user.update_timestamps!
@@ -86,6 +88,9 @@ module Opscode
         self.class.query_failed!(e.message)
       end
 
+      # Runs validations on +user+ and checks uniqueness constraints (currently
+      # for username and email). If +user+ is not valid, invalid_object! will
+      # be called, which by default will raise an InvalidRecord exception.
       def validate_before_create!(user)
         # Calling valid? will reset the error list :( so it has to be done first.
         user.valid?
@@ -126,6 +131,9 @@ module Opscode
         benchmark_db(:create, :user) { table.insert(row_data) }
       end
 
+      # Updates the row in the database representing +user+ which should be a
+      # Models::User object. Note that the current code doesn't track which
+      # attributes have been "dirtied" so the full object is saved every time.
       def update(user)
         unless user.id
           self.class.invalid_object!("Cannot save user #{user.username} without a valid id")
@@ -138,6 +146,8 @@ module Opscode
         self.class.query_failed!(e.message)
       end
 
+      # Deletes the row in the database representing +user+ which should be a
+      # Models::User object.
       def destroy(user)
         unless user.id
           self.class.invalid_object!("Cannot save user #{user.username} without a valid id")
@@ -179,6 +189,7 @@ module Opscode
         end
       end
 
+      # Returns a list of all usernames in the database as strings.
       def find_all_usernames
         benchmark_db(:read, :user) do
           table.select(:username).map do |row|
@@ -187,6 +198,9 @@ module Opscode
         end
       end
 
+      # Returns a list of all users in the database as Models::User objects.
+      # The objects are "partially inflated" and contain the username, first
+      # name, last name, and email address
       def find_all_for_support_ui
         benchmark_db(:read, :user) do
           table.select(:username, :email, :serialized_object).map do |row|
@@ -196,6 +210,9 @@ module Opscode
       end
 
 
+      # Converts a Hash of the form returned from a Sequel query into a
+      # Models::User object. Not all fields need to be present (but of course
+      # you don't want to save an object that has only partial data).
       def inflate_model(row_data)
         created_at = row_data[:created_at]
         user = Models::User.load(map_from_row!(row_data))

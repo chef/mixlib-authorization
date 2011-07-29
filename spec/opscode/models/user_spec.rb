@@ -521,6 +521,41 @@ describe Opscode::Models::User do
 
   end
 
+  describe "when created from form data containing a mix of string and symbol keys and extraneous data" do
+    before do
+      @form_data = {
+        'first_name' => 'moon',
+        'last_name' => "polysoft",
+        'middle_name' => "trolol",
+        'display_name' => "problem?",
+        'email' => 'trolol@example.com',
+        'username' => 'trolol',
+        :certificate => SAMPLE_CERT,
+        'city' => "Fremont",
+        'country' => "USA",
+        'twitter_account' => "moonpolysoft",
+        'password' => 'p@ssw0rd1',
+        'image_file_name' => 'current_status.png',
+        :requesting_actor_id => "some garbage",
+        :id => "whatever", # pretty common in our code
+        :user_id => "something",
+        :authz_id => "malicious-intent"
+      }
+      @user = Opscode::Models::User.new(@form_data)
+    end
+
+    it "correctly sets all given fields that are publicly settable" do
+    end
+
+    it "does not set any fields that are protected" do
+      @user.id.should be_nil
+      @user.authz_id.should be_nil
+      @user.created_at.should be_nil
+      @user.updated_at.should be_nil
+    end
+
+  end
+
   describe "when created from data containing both a hashed password and non-hashed password" do
     it "raises an error" do
       @form_data = {
@@ -545,13 +580,6 @@ describe Opscode::Models::User do
 
       }
       lambda { Opscode::Models::User.new(@form_data) }.should raise_error(ArgumentError)
-    end
-  end
-
-  describe "when created from form data containing illegal params" do
-    it "raises an error" do
-      # not legal to set your authz_id for yourself :P
-      lambda { Opscode::Models::User.new(:authz_id => "12345") }.should raise_error(ArgumentError)
     end
   end
 

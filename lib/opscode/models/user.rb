@@ -70,12 +70,14 @@ module Opscode
 
       def self.add_model_attribute(attr_name)
         @model_ivars ||= {}
+        attr_name = attr_name.to_s
         ivar = "@#{attr_name}".to_sym
         model_attributes[attr_name] = ivar
         model_ivars[ivar] = attr_name
       end
 
       def self.add_protected_model_attribute(attr_name)
+        attr_name = attr_name.to_s
         ivar = "@#{attr_name}".to_sym
         protected_model_attributes[attr_name] = ivar
         protected_ivars[ivar] = attr_name
@@ -208,6 +210,8 @@ module Opscode
         @persisted = false
       end
 
+      PASSWORD = 'password'
+
       # Assigns instance variables from "safe" params, that is ones that are
       # not defined via +protected_attribute+.
       #
@@ -224,13 +228,13 @@ module Opscode
 
         if params.key?(:password)
           self.password = params.delete(:password)
+        elsif params.key?(PASSWORD)
+          self.password = params.delete(PASSWORD)
         end
 
         params.each do |attr, value|
-          if ivar = self.class.model_attributes[attr]
+          if ivar = self.class.model_attributes[attr.to_s]
             instance_variable_set(ivar, params[attr])
-          else
-            raise InvalidParameters, "unknown attribute #{attr} (set to #{value}) for #{self.class}"
           end
         end
       end
@@ -248,11 +252,14 @@ module Opscode
       # before you call this if the params don't belong to you.
       def assign_protected_ivars_from_params!(params)
         self.class.protected_model_attributes.each do |attr, ivar|
-          if value = params.delete(attr)
+          if value = (params.delete(attr) || params.delete(attr.to_sym) )
             instance_variable_set(ivar, value)
           end
         end
       end
+
+      CREATED_AT = 'created_at'
+      UPDATED_AT = 'updated_at'
 
       # True if the other object is a User or subclass and all "public" and
       # "protected" attributes are equal. Timestamps are fudged to 1s
@@ -265,7 +272,7 @@ module Opscode
         other_data = other.for_db
         for_db.inject(true) do |matches, (attr_name, value)|
           matches && case attr_name
-          when :created_at, :updated_at
+          when :created_at, :updated_at, CREATED_AT, UPDATED_AT
             send(attr_name).to_i == other.send(attr_name).to_i
           else
             value == other_data[attr_name]
@@ -373,7 +380,6 @@ module Opscode
       end
 
       def inspect
-        pp :INSPECTING
         as_str = "#<#{self.class}:#{self.object_id.to_s(16)}"
         self.class.model_attributes.merge(self.class.protected_model_attributes).each do |attr_name, ivar_name|
           as_str << " #{attr_name}=#{instance_variable_get(ivar_name).inspect}"
@@ -387,7 +393,7 @@ module Opscode
         hash_for_json = {}
         self.class.model_attributes.each do |attr_name, ivar_name|
           value = instance_variable_get(ivar_name)
-          hash_for_json[attr_name] = value if value
+          hash_for_json[attr_name.to_sym] = value if value
         end
         hash_for_json
       end
@@ -400,13 +406,13 @@ module Opscode
 
         self.class.model_attributes.each do |attr_name, ivar_name|
           if value = instance_variable_get(ivar_name)
-            hash_for_db[attr_name] = value
+            hash_for_db[attr_name.to_sym] = value
           end
         end
 
         self.class.protected_model_attributes.each do |attr_name, ivar_name|
           if value = instance_variable_get(ivar_name)
-            hash_for_db[attr_name] = value
+            hash_for_db[attr_name.to_sym] = value
           end
         end
 

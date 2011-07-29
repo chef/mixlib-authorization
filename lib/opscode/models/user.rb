@@ -5,10 +5,13 @@ require 'digest/sha2'
 require 'active_model'
 require 'active_model/validations'
 
+require 'opscode/authorizable'
+
 module Opscode
   module Models
     class User
 
+      include Opscode::Authorizable
 
       class InvalidParameters < ArgumentError
       end
@@ -124,6 +127,20 @@ module Opscode
       def self.protected_attribute(attr_name)
         add_protected_model_attribute(attr_name)
         attr_reader attr_name
+      end
+
+      def self.use_authz_model_class(authz_model_class)
+        @authz_model_class = authz_model_class
+      end
+
+      def self.authz_model_class
+        @authz_model_class or raise NotImplementedError, "#{self.class.name} must declare an authz model class before it can do authz things"
+      end
+
+      use_authz_model_class(Opscode::AuthzModels::Actor)
+
+      def authz_model_class
+        self.class.authz_model_class
       end
 
       rw_attribute :first_name
@@ -325,6 +342,12 @@ module Opscode
         @id = id
       end
 
+      # Sets the authz side id of this object. Only meant to be used when
+      # creating this object in the database and authz.
+      def assign_authz_id!(new_authz_id)
+        @authz_id = new_authz_id
+      end
+
       # Whether or not this object has been stored to/loaded from the database.
       # In a rails form, this is used to determine whether the operation is a
       # create or update so that the same form view can be used for both
@@ -347,6 +370,15 @@ module Opscode
       # Chef node has a URL +nodes/NODE_NAME+
       def to_key
         persisted? ? [username] : nil
+      end
+
+      def inspect
+        pp :INSPECTING
+        as_str = "#<#{self.class}:#{self.object_id.to_s(16)}"
+        self.class.model_attributes.merge(self.class.protected_model_attributes).each do |attr_name, ivar_name|
+          as_str << " #{attr_name}=#{instance_variable_get(ivar_name).inspect}"
+        end
+        as_str << ">"
       end
 
       # A Hash representation of this object suitable for conversion to JSON

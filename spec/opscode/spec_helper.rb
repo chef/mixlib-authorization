@@ -6,6 +6,8 @@ $:.unshift File.expand_path("../../../lib/", __FILE__)
 require 'opscode/models/user'
 require 'opscode/mappers/user'
 
+Mixlib::Authorization::Config.authorization_service_uri = "http://localhost:5959"
+
 module Fixtures
 
 

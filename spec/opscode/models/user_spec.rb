@@ -25,6 +25,31 @@ describe Opscode::Models::User do
 
   it_should_behave_like("an active model")
 
+  before do
+    @now = Time.now
+    @db_data = {
+      :id => "123abc",
+      :authz_id => "abc123",
+      :first_name => 'moon',
+      :last_name => "polysoft",
+      :middle_name => "trolol",
+      :display_name => "problem?",
+      :email => 'trolol@example.com',
+      :username => 'trolol',
+      :public_key => nil,
+      :certificate => SAMPLE_CERT,
+      :city => "Fremont",
+      :country => "USA",
+      :twitter_account => "moonpolysoft",
+      :hashed_password => "some hex bits",
+      :salt => "some random bits",
+      :image_file_name => 'current_status.png',
+      :created_at => @now.utc.to_s,
+      :updated_at => @now.utc.to_s
+
+    }
+  end
+
   describe "when created without any data" do
     before do
       @user = Opscode::Models::User.new
@@ -296,6 +321,16 @@ describe Opscode::Models::User do
       end
     end
 
+    describe "after the authz_id is set" do
+      before do
+        @user.assign_authz_id!("new-authz-id")
+      end
+
+      it "has the updated authz_id" do
+        @user.authz_id.should == "new-authz-id"
+      end
+    end
+
   end
 
   describe "when marked as peristed" do
@@ -311,28 +346,6 @@ describe Opscode::Models::User do
 
   describe "when created from database params" do
     before do
-      @now = Time.now
-      @db_data = {
-        :id => "123abc",
-        :authz_id => "abc123",
-        :first_name => 'moon',
-        :last_name => "polysoft",
-        :middle_name => "trolol",
-        :display_name => "problem?",
-        :email => 'trolol@example.com',
-        :username => 'trolol',
-        :public_key => nil,
-        :certificate => SAMPLE_CERT,
-        :city => "Fremont",
-        :country => "USA",
-        :twitter_account => "moonpolysoft",
-        :hashed_password => "some hex bits",
-        :salt => "some random bits",
-        :image_file_name => 'current_status.png',
-        :created_at => @now.utc.to_s,
-        :updated_at => @now.utc.to_s
-
-      }
       @user = Opscode::Models::User.load(@db_data)
     end
 
@@ -535,11 +548,90 @@ describe Opscode::Models::User do
     end
   end
 
-  describe "when create from form data containing illegal params" do
+  describe "when created from form data containing illegal params" do
     it "raises an error" do
       # not legal to set your authz_id for yourself :P
       lambda { Opscode::Models::User.new(:authz_id => "12345") }.should raise_error(ArgumentError)
     end
+  end
+
+  # TODO: make this a shared example group
+  describe "implementing the required interface for Authorizable" do
+    before do
+      @user = Opscode::Models::User.new
+    end
+
+    it "defines all the required methods" do
+      @user.should respond_to(:authz_id)
+      @user.should respond_to(:authz_model_class)
+      @user.should respond_to(:assign_authz_id!)
+      @user.method(:assign_authz_id!).arity.should == 1
+    end
+
+    it "sets an authz id" do
+      @user.assign_authz_id!("new-uuid-id")
+      @user.authz_id.should == "new-uuid-id"
+    end
+
+    it "has an authz model class" do
+      # could make a bunch of assertions about this class also.
+      @user.authz_model_class.should be_a_kind_of(Class)
+    end
+
+    it "unsets an authz id" do
+      @user.assign_authz_id!("some-uuid")
+      @user.assign_authz_id!(nil)
+      @user.authz_id.should be_nil
+    end
+
+  end
+
+  describe "when authorizing a request" do
+    before do
+      @user = Opscode::Models::User.load(@db_data)
+    end
+
+    it "creates an authorization side object" do
+      @user.create_authz_object_as(0)
+      @user.authz_id.should_not be_nil
+      authz_id = @user.authz_id
+      @user.authz_object_as(0).fetch.should == {"id" => authz_id}
+    end
+
+    describe "and the authz side has been created" do
+      before do
+        @user.create_authz_object_as(0)
+      end
+
+      it "checks authorization rights" do
+        @user.should_not be_authorized("123456789abcdef", :update)
+        @user.should be_authorized(@user.authz_id, :update)
+      end
+
+      it "supports the old interface to authorization checks" do
+        @user.should respond_to(:is_authorized?)
+      end
+
+      it "updates the authz side object" do
+        # This is actually a no-op, because there is no updateable data in the
+        # authz side object for a user. But we want to test it anyway.
+        expected_id = @user.authz_id
+        @user.update_authz_object_as(@user.authz_id)
+        @user.authz_object_as(@user.authz_id).fetch.should == {"id" => expected_id}
+      end
+
+      # NOTE: the previous implementation did NOT actually destroy the authz
+      # side object, so this implementation won't either to keep compat at a
+      # maximum. But we may wish to revisit this decision, or invent a true
+      # turing machine with infinite tape for storage.
+      it "destroys the authz side object by removing the reference to it" do
+        authz_id = @user.authz_id
+        @user.destroy_authz_object_as(authz_id)
+        @user.authz_id.should be_nil
+      end
+
+    end
+
   end
 
 

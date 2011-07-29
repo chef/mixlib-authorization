@@ -3,7 +3,11 @@ require 'opscode/models/user'
 
 module Opscode
   module Mappers
+
     class InvalidRecord < ArgumentError
+    end
+
+    class RecordNotFound < ArgumentError
     end
 
     class User
@@ -109,18 +113,6 @@ module Opscode
         true
       end
 
-      def update(user)
-        unless user.id
-          self.class.invalid_object!("Cannot save user #{user.username} without a valid id")
-        end
-
-        @table.filter(:id => user.id).update(map_to_row!(user.for_db))
-
-      rescue Sequel::DatabaseError => e
-        log_exception("User creation failed")
-        self.class.query_failed!(e.message)
-      end
-
       # Creates a row for the Models::User object +user+ in the database. In
       # typical use you will never call this directly, but it might be useful
       # in orgmapper or other diagnostic situations. In other words, let's
@@ -132,6 +124,30 @@ module Opscode
         user_data = user.for_db
         row_data = map_to_row!(user_data)
         benchmark_db(:create, :user) { table.insert(row_data) }
+      end
+
+      def update(user)
+        unless user.id
+          self.class.invalid_object!("Cannot save user #{user.username} without a valid id")
+        end
+
+        benchmark_db(:update, :user) { table.filter(:id => user.id).update(map_to_row!(user.for_db)) }
+
+      rescue Sequel::DatabaseError => e
+        log_exception("User creation failed")
+        self.class.query_failed!(e.message)
+      end
+
+      def destroy(user)
+        unless user.id
+          self.class.invalid_object!("Cannot save user #{user.username} without a valid id")
+        end
+
+        unless benchmark_db(:validate, :user) { table.filter(:id => user.id).any? }
+          raise RecordNotFound, "Can't delete user #{user.username} because it doesn't exist"
+        end
+
+        benchmark_db(:delete, :user) { table.filter(:id => user.id).delete }
       end
 
       # Returns a Models::User object containing *only* enough data to

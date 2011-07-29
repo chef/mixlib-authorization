@@ -77,6 +77,11 @@ describe Opscode::Mappers::User do
       @mapper.find_all_usernames.should == []
     end
 
+    it "raises an error when attempting to delete a user that doesn't exist" do
+      @user = Opscode::Models::User.load(@user_data)
+      lambda { @mapper.destroy(@user) }.should raise_error(Opscode::Mappers::RecordNotFound)
+    end
+
   end
 
   describe "after 'joeuser' is created with the db id and authz id set" do
@@ -134,6 +139,11 @@ describe Opscode::Mappers::User do
       round_tripped.should == @user
       round_tripped.should be_correct_password("newPassword")
       round_tripped.certificate.should == ALTERNATE_CERT
+    end
+
+    it "deletes the user from the database" do
+      @mapper.destroy(@user)
+      @mapper.find_by_username("joeuser").should be_nil
     end
 
     describe "when trying to create another user with the same username" do

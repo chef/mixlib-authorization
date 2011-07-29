@@ -257,6 +257,7 @@ describe Opscode::Models::User do
 
       it "has an invalid email address" do
         @user.errors[:email].should == ["is already in use"]
+        @user.errors[:conflicts].should == ["email"]
       end
     end
 
@@ -267,6 +268,7 @@ describe Opscode::Models::User do
 
       it "has an invalid username" do
         @user.errors[:username].should == ["is already taken"]
+        @user.errors[:conflicts].should == ["username"]
       end
     end
 

@@ -139,8 +139,13 @@ module Opscode
           self.class.invalid_object!("Cannot save user #{user.username} without a valid id")
         end
 
-        benchmark_db(:update, :user) { table.filter(:id => user.id).update(map_to_row!(user.for_db)) }
+        user.update_timestamps!
 
+        unless user.valid?
+          self.class.invalid_object!(user.errors.full_messages.join(", "))
+        end
+
+        benchmark_db(:update, :user) { table.filter(:id => user.id).update(map_to_row!(user.for_db)) }
       rescue Sequel::DatabaseError => e
         log_exception("User creation failed")
         self.class.query_failed!(e.message)

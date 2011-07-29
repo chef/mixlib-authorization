@@ -437,6 +437,7 @@ module Opscode
       # is here for the data access layer to add validation errors for invalid
       # email addrs.
       def email_not_unique!
+        errors.add(:conflicts, "email")
         errors.add(:email, "is already in use")
       end
 
@@ -444,6 +445,7 @@ module Opscode
       # are globally unique or not, so the data layer calls this when a
       # uniqueness constraint is violated.
       def username_not_unique!
+        errors.add(:conflicts, "username")
         errors.add(:username, "is already taken")
       end
 

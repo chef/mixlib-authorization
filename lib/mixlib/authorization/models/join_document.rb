@@ -16,36 +16,38 @@ module Mixlib
         attr_reader :identity
         attr_reader :resource
         attr_reader :base_url
-        attr_reader :join_data
+        attr_reader :model_data
 
-        include Mixlib::Authorization::AuthHelper
+        alias :join_data :model_data
 
-        def initialize(base_url,left_join_data)
-          @join_data = left_join_data
+        #include Mixlib::Authorization::AuthHelper
+
+        def initialize(base_url,model_data)
+          @model_data = model_data
           @resource = self.class.name.split("::").last.downcase + "s"
           @base_url = base_url
         end
 
         def save
           url = [base_url,resource].join("/")
-          requester_id = join_data["requester_id"]
-          Mixlib::Authorization::Log.debug "IN SAVE: join_data #{join_data.inspect}"
+          requester_id = model_data["requester_id"]
+          Mixlib::Authorization::Log.debug "IN SAVE: model_data #{model_data.inspect}"
           headers = {:accept => "application/json", :content_type => "application/json"}
           headers["X-Ops-Requesting-Actor-Id"] = requester_id if requester_id
           headers["X-Ops-User-Id"] = 'front-end-service'
 
-          Mixlib::Authorization::Log.debug "IN SAVE: url: #{url.inspect}, with payload: #{join_data.to_json}"
+          Mixlib::Authorization::Log.debug "IN SAVE: url: #{url.inspect}, with payload: #{model_data.to_json}"
           rest = RestClient::Resource.new(url,:headers=>headers, :timeout=>1800, :open_timeout=>1800)
-          @identity = JSON.parse(rest.post(join_data.to_json))
+          @identity = JSON.parse(rest.post(model_data.to_json))
           Mixlib::Authorization::Log.debug "IN SAVE: response: #{@identity.inspect}"
           @identity
         end
 
         def fetch
           Mixlib::Authorization::Log.debug "IN FETCH: #{self.inspect}"
-          object_id = join_data["object_id"]
+          object_id = model_data["object_id"]
           url = [base_url,resource,object_id].join("/")
-          requester_id = join_data["requester_id"]
+          requester_id = model_data["requester_id"]
           Mixlib::Authorization::Log.debug "IN FETCH: #{url.inspect}"
 
           headers = {:accept => "application/json", :content_type => "application/json"}
@@ -63,9 +65,9 @@ module Mixlib
 
         def fetch_acl
           Mixlib::Authorization::Log.debug "IN FETCH ACL: #{self.inspect}"
-          object_id = join_data["object_id"]
+          object_id = model_data["object_id"]
           url = [base_url,resource,object_id,"acl"].join("/")
-          requester_id = join_data["requester_id"]
+          requester_id = model_data["requester_id"]
           Mixlib::Authorization::Log.debug "IN FETCH ACL: #{url}"
 
           headers = {:accept => "application/json", :content_type => "application/json"}
@@ -79,10 +81,10 @@ module Mixlib
         end
 
         def is_authorized?(actor, ace)
-          object_id = join_data["object_id"]
+          object_id = model_data["object_id"]
           url = [base_url,resource,object_id,"acl",ace,"actors", actor].join("/")
           url_dbg = [base_url,resource,object_id,"acl",ace,].join("/")
-          requester_id = join_data["requester_id"]
+          requester_id = model_data["requester_id"]
           Mixlib::Authorization::Log.debug "IN IS_AUTHORIZED: #{self.inspect} \n\twith actor: #{actor}\n\tace: #{ace}\n\turl:#{url}"
 
           headers = {:accept=>"application/json", :content_type=>"application/json"}
@@ -104,9 +106,9 @@ module Mixlib
 
           # update actors and groups
           begin
-            object_id = join_data["object_id"]
+            object_id = model_data["object_id"]
 
-            headers = {:accept=>:json, :content_type=>:json, "X-Ops-Requesting-Actor-Id" => join_data["requester_id"], "X-Ops-User-Id"=>'front-end-service'}
+            headers = {:accept=>:json, :content_type=>:json, "X-Ops-Requesting-Actor-Id" => model_data["requester_id"], "X-Ops-User-Id"=>'front-end-service'}
 
             url_get_ace = [base_url,resource, object_id,"acl",ace_name].join("/")
             rest = RestClient::Resource.new(url_get_ace,:headers=>headers, :timeout=>1800, :open_timeout=>1800)
@@ -132,7 +134,7 @@ module Mixlib
         end
 
         def delete
-          object_id = join_data["object_id"]
+          object_id = model_data["object_id"]
           url = [base_url,resource,object_id].join("/")
 
           headers = {:accept=>"application/json", :content_type=>'application/json'}

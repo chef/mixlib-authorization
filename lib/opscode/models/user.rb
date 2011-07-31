@@ -210,7 +210,8 @@ module Opscode
         @persisted = false
       end
 
-      PASSWORD = 'password'
+      PASSWORD = 'password'.freeze
+      CERTIFICATE = 'certificate'.freeze
 
       # Assigns instance variables from "safe" params, that is ones that are
       # not defined via +protected_attribute+.
@@ -226,10 +227,12 @@ module Opscode
           raise InvalidParameters, "cannot set the password and hashed password at the same time"
         end
 
-        if params.key?(:password)
-          self.password = params.delete(:password)
-        elsif params.key?(PASSWORD)
-          self.password = params.delete(PASSWORD)
+        if params.key?(:password) || params.key?(PASSWORD)
+          self.password = params.delete(:password) || params.delete(PASSWORD)
+        end
+
+        if params.key?(:certificate) || params.key?(CERTIFICATE)
+          self.certificate = params.delete(:certificate) || params.delete(CERTIFICATE)
         end
 
         params.each do |attr, value|
@@ -278,6 +281,12 @@ module Opscode
             value == other_data[attr_name]
           end
         end
+      end
+
+      # Like a regular attribute setter, except that it forcibly casts the
+      # argument to a string first
+      def certificate=(new_certificate)
+        @certificate = new_certificate.to_s
       end
 
       # Generates a new salt (overwriting the old one, if any) and sets password

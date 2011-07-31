@@ -106,6 +106,15 @@ describe Opscode::Mappers::User do
       user.should be_persisted
     end
 
+    it "loads the username, id, and authz_id by username" do
+      authz_id = @user.authz_id
+      id = @user.id
+      user = @mapper.find_by_authz_id(authz_id)
+      user.authz_id.should == authz_id
+      user.username.should == "joeuser"
+      user.id.should == id
+    end
+
     it "loads the full user object" do
       user = @mapper.find_by_username("joeuser")
       user.should == @user

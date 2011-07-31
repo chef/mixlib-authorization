@@ -86,11 +86,11 @@ module Mixlib
       end
 
       def requesting_actor_id
-        @requesting_actor_id ||= actor && actor.auth_object_id
+        @requesting_actor_id ||= actor
       end
 
       def actor
-        @actor ||= user_to_actor(requesting_entity.id)
+        @actor ||= requesting_entity.authz_id
       end
 
       def actor_exists?
@@ -127,8 +127,15 @@ module Mixlib
       end
 
       def find_user
+
+        stats = Object.new
+        def stats.db_call
+          yield
+        end
+
+        user_mapper = Opscode::Mappers::User.new(DB,stats, 0)
         Log.debug "checking for user #{username}"
-        user = Models::User.find(username)
+        user = user_mapper.find_for_authentication(username)
         @actor_type = :user
         user
       rescue ArgumentError

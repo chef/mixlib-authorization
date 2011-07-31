@@ -76,11 +76,10 @@ module Opscode
 
         validate_before_create!(user)
 
-        connection.transaction do
-          user_side_create(user)
+        user.create_authz_object_as(requester_authz_id)
+        user_side_create(user)
           # authz_side_create(user)
           # enqueue_for_indexing(user) # actually not, but this is where we would do it
-        end
         user.persisted!
         user
       rescue Sequel::DatabaseError => e
@@ -194,6 +193,39 @@ module Opscode
         end
       end
 
+      # Finds the user with +user_id+ and returns it with all properties
+      def find_by_id(user_id)
+        finder = table.where(:id => user_id)
+        if user_data = benchmark_db(:read, :user) { finder.first }
+          inflate_model(user_data)
+        else
+          nil
+        end
+      end
+
+      # Finds the user by the given +authz_id+ and returns it with the id, authz_id and username set.
+      def find_by_authz_id(authz_id)
+        finder = table.select(:id,:authz_id,:username).where(:authz_id => authz_id)
+        if user_data = benchmark_db(:read, :user) { finder.first }
+          inflate_model(user_data)
+        else
+          nil
+        end
+      end
+
+      # Finds the users by username, and returns it with the id, authz_id, and username set.
+      def find_all_for_authz_map(usernames)
+        return usernames if usernames.empty?
+        finder = table.select(:id,:authz_id,:username).where(:username => usernames)
+        benchmark_db(:read, :user) { finder.map {|u| inflate_model(u)}}
+      end
+
+      def find_all_by_authz_id(authz_ids)
+        return authz_ids if authz_ids.empty?
+        finder = table.select(:id,:authz_id,:username).where(:authz_id => authz_ids)
+        benchmark_db(:read, :user) { finder.map {|u| inflate_model(u)}}
+      end
+
       # Returns a list of all usernames in the database as strings.
       def find_all_usernames
         benchmark_db(:read, :user) do
@@ -279,7 +311,11 @@ module Opscode
       # +crud_operation+ and +tags+ can be used to classify the operation.
       # +crud_operation+ should be one of :create, :read, :update, :delete
       def benchmark_db(crud_operation, model)
-        @stats_client.db_call { yield }
+        if @stats_client
+          @stats_client.db_call { yield }
+        else
+          yield
+        end
       end
 
       def new_uuid

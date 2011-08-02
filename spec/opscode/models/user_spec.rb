@@ -133,23 +133,23 @@ describe Opscode::Models::User do
       end
 
       it "has an invalid first name" do
-        @user.errors[:first_name].should include("can't be blank")
+        @user.errors[:first_name].should include("must not be blank")
       end
 
       it "has an invalid last name" do
-        @user.errors[:last_name].should include("can't be blank")
+        @user.errors[:last_name].should include("must not be blank")
       end
 
       it "has an invalid display name" do
-        @user.errors[:display_name].should include("can't be blank")
+        @user.errors[:display_name].should include("must not be blank")
       end
 
       it "has an invalid username" do
-        @user.errors[:username].should include("can't be blank")
+        @user.errors[:username].should include("must not be blank")
       end
 
       it "has an invalid email address" do
-        @user.errors[:email].should include("can't be blank")
+        @user.errors[:email].should include("must not be blank")
       end
 
       it "has an invalid password" do
@@ -246,7 +246,7 @@ describe Opscode::Models::User do
 
       it "has an invalid password" do
         @user.should_not be_valid
-        @user.errors[:password].should == ["is too short (minimum is 6 characters)"]
+        @user.errors[:password].should == ["must be between 6 and 50 characters"]
       end
     end
 
@@ -256,7 +256,7 @@ describe Opscode::Models::User do
       end
 
       it "has an invalid email address" do
-        @user.errors[:email].should == ["is already in use"]
+        @user.errors[:email].should == ["already exists."]
         @user.errors[:conflicts].should == ["email"]
       end
     end
@@ -458,7 +458,8 @@ describe Opscode::Models::User do
       user_as_a_hash.should be_a_kind_of(Hash)
       user_as_a_hash[:city].should == "Fremont"
       user_as_a_hash[:salt].should == "some random bits"
-      user_as_a_hash[:hashed_password].should == "some hex bits"
+      # existing systems expect hashed password under the key "password"
+      user_as_a_hash[:password].should == "some hex bits"
       user_as_a_hash[:image_file_name].should == "current_status.png"
       user_as_a_hash[:twitter_account].should == 'moonpolysoft'
       user_as_a_hash[:country].should == 'USA'
@@ -471,7 +472,7 @@ describe Opscode::Models::User do
       user_as_a_hash[:email].should == 'trolol@example.com'
       user_as_a_hash.should_not have_key(:public_key)
 
-      expected_keys = [ :city, :salt, :hashed_password, :twitter_account,
+      expected_keys = [ :city, :salt, :password, :twitter_account,
                         :country, :certificate, :username,
                         :first_name, :last_name, :display_name, :middle_name,
                         :email, :image_file_name]

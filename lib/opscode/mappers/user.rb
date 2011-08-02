@@ -28,10 +28,17 @@ module Opscode
       raise_on_invalid(InvalidRecord)
       raise_on_error(RuntimeError)
 
+      # Raise an error in response to an error from the database. By default,
+      # this error is RuntimeError, but it can be customized, e.g., to raise a
+      # Merb InternalServerError exception.
       def self.query_failed!(*args)
         raise @db_error_exception, *args
       end
 
+      # Raise an error in response to an error from the database. By default,
+      # this is an Opscode::Mappers::InvalidRecord error. Though it _can_ be
+      # customized, the current implementation of opscode account returns a 400
+      # or 409 depending on how the model object is invalid...
       def self.invalid_object!(*args)
         raise @invalid_object_exception, *args
       end
@@ -51,6 +58,16 @@ module Opscode
       # Recorded for debug/audit purposes.
       attr_reader :requester_authz_id
 
+      # Create a new Mapper:
+      # * database_connection::: A kind of Sequel::Database, as returned by
+      #   Sequel.connect
+      # * stats_client::: a Statsd::Client object, or nil for no stats. In
+      #   general you should supply stats for production code, unless you have
+      #   to workaround inflexible code.
+      # * requester_authz_id::: The authz id of the actor making requests. This
+      #   will be used when create/update/delete needs to make requests to
+      #   authz--authz has its own internal authorization for requests. You can
+      #   give 0 if you're only reading.
       def initialize(database_connection, stats_client, requester_authz_id)
         @connection = database_connection
         @table = @connection[:users]
@@ -61,10 +78,6 @@ module Opscode
       def logger
         # TODO: less ghetto.
         @logger ||= Logger.new('/dev/null')
-      end
-
-      def log_exception(where, e)
-        logger.error "#{where}: #{e.class}: #{e.message}\n#{e.backtrace.join("\n")}"
       end
 
       # Create a record in the database representing +user+ which is expected
@@ -78,8 +91,6 @@ module Opscode
 
         user.create_authz_object_as(requester_authz_id)
         user_side_create(user)
-          # authz_side_create(user)
-          # enqueue_for_indexing(user) # actually not, but this is where we would do it
         user.persisted!
         user
       rescue Sequel::DatabaseError => e
@@ -140,14 +151,51 @@ module Opscode
 
         user.update_timestamps!
 
-        unless user.valid?
-          self.class.invalid_object!(user.errors.full_messages.join(", "))
-        end
+        validate_before_update!(user)
 
         benchmark_db(:update, :user) { table.filter(:id => user.id).update(map_to_row!(user.for_db)) }
       rescue Sequel::DatabaseError => e
-        log_exception("User creation failed")
+        log_exception("User update failed", e)
         self.class.query_failed!(e.message)
+      end
+
+      # Runs validations on +user+ and checks uniqueness constraints (currently
+      # for username and email). If +user+ is not valid, invalid_object! will
+      # be called, which by default will raise an InvalidRecord exception.
+      #
+      # The uniqueness constraints on users have to be checked a bit
+      # differently than for create.
+      def validate_before_update!(user)
+        # Calling valid? will reset the error list :( so it has to be done first.
+        user.valid?
+
+        # NB: These uniqueness constraints have to be enforced by the database
+        # also, or else there is a race condition. However, checking for them
+        # separately allows us to give a better experience in the common
+        # non-race failure conditions.
+        unless (user.username.nil? || user.username.empty?) # these are covered by other validations
+          existing_users_ids = benchmark_db(:validate, :user) do
+            table.select(:id).filter(:username => user.username).map {|u| u[:id]}
+          end
+          if existing_users_ids.any? {|id| id != user.id }
+            user.username_not_unique!
+          end
+        end
+
+        unless (user.email.nil? || user.email.empty?) # validated elsewhere
+          existing_users_ids = benchmark_db(:validate, :user) do
+            table.select(:id).filter(:email => user.email).map {|u| u[:id]}
+          end
+          if existing_users_ids.any? {|id| id != user.id }
+            user.email_not_unique!
+          end
+        end
+
+        unless user.errors.empty?
+          self.class.invalid_object!(user.errors.full_messages.join(", "))
+        end
+
+        true
       end
 
       # Deletes the row in the database representing +user+ which should be a
@@ -223,6 +271,12 @@ module Opscode
       def find_all_by_authz_id(authz_ids)
         return authz_ids if authz_ids.empty?
         finder = table.select(:id,:authz_id,:username).where(:authz_id => authz_ids)
+        benchmark_db(:read, :user) { finder.map {|u| inflate_model(u)}}
+      end
+
+      def find_all_by_id(ids)
+        return ids if ids.empty?
+        finder = table.select(:id,:authz_id,:username).where(:id => ids)
         benchmark_db(:read, :user) { finder.map {|u| inflate_model(u)}}
       end
 
@@ -318,16 +372,27 @@ module Opscode
         end
       end
 
-      def new_uuid
-        UUIDTools::UUID.timestamp_create.hexdigest
-      end
+      private
 
+      # Parse the portion of the object that's stored as a blob o' JSON
       def from_json(serialized_data)
         Yajl::Parser.parse(serialized_data, :symbolize_keys => true)
       end
 
+      # Encode the portion of the object that's stored as a blob o' JSON
       def as_json(data)
         Yajl::Encoder.encode(data)
+      end
+
+      # Log an exception. +where+ should be a descriptive message about which
+      # operation failed, and +e+ is the actual exception object.
+      def log_exception(where, e)
+        logger.error "#{where}: #{e.class}: #{e.message}\n#{e.backtrace.join("\n")}"
+      end
+
+      # Generate a new UUID. Currently uses the v1 UUID scheme.
+      def new_uuid
+        UUIDTools::UUID.timestamp_create.hexdigest
       end
 
     end

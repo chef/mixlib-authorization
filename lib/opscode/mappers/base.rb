@@ -24,8 +24,6 @@ module Opscode
           @total_db_calls += 1
           start_time = Time.now
           yield
-        rescue => e
-          pp [e.class, e.message, e.backtrace]
         ensure
           end_time = Time.now
           elapsed_ms = ((end_time - start_time) * 1000).round

@@ -100,14 +100,18 @@ module Opscode
       end
 
       # Defines an attribute that has an attr_accessor and can be set from
-      # parameters passed to new()
+      # parameters passed to new(). This attribute will automatically be
+      # included in the 'pre-JSON' representation of the object given by
+      # #for_json and #for_db
       def self.rw_attribute(attr_name)
         add_model_attribute(attr_name)
         attr_accessor attr_name
       end
 
       # Defines an attribute that has an attr_reader and can be set from
-      # parameters passed to new()
+      # parameters passed to new() This attribute will automatically be
+      # included in the 'pre-JSON' representation of the object given by
+      # #for_json and #for_db
       def self.ro_attribute(attr_name)
         add_model_attribute(attr_name)
         attr_reader attr_name
@@ -121,7 +125,11 @@ module Opscode
       #
       # This is intended for attributes that are set by the Mapper layer, such
       # as created/updated timestamps or anything that end users should not be
-      # able to modify directly
+      # able to modify directly.
+      #
+      # This attribute will automatically be included in the Hash
+      # representation of the object used by the mapper layer (i.e., the ouput
+      # of #for_db )
       #--
       # NB: if you get all GoF about it, this is a _presentation_ concern that
       # should be handled by a presenter object. It's very noble to shave that
@@ -131,16 +139,22 @@ module Opscode
         attr_reader attr_name
       end
 
+      # Declares which class should be used for the authz side representation
+      # of this model.
       def self.use_authz_model_class(authz_model_class)
         @authz_model_class = authz_model_class
       end
 
+      # Returns the class object that is used for the authz side representation
+      # of this model. If not set, it will raise a NotImplementedError.
       def self.authz_model_class
         @authz_model_class or raise NotImplementedError, "#{self.class.name} must declare an authz model class before it can do authz things"
       end
 
       use_authz_model_class(Opscode::AuthzModels::Actor)
 
+      # Returns the class object that is used for the authz side representation
+      # of this model. If not set, it will raise a NotImplementedError.
       def authz_model_class
         self.class.authz_model_class
       end
@@ -169,11 +183,18 @@ module Opscode
 
       attr_reader :password # with a custom setter below
 
-      validates_presence_of :first_name
-      validates_presence_of :last_name
-      validates_presence_of :display_name
-      validates_presence_of :username
-      validates_presence_of :email
+      #########################################################################
+      # NOTE: the error messages here are customized to match the previous
+      # couchrest implementation as much as possible. I find the copy somewhat
+      # awkward, but tests and who-knows-what-else expect the messages to have
+      # this text, so we'll leave it for now.
+      #########################################################################
+
+      validates_presence_of :first_name, :message => "must not be blank"
+      validates_presence_of :last_name, :message => "must not be blank"
+      validates_presence_of :display_name, :message => "must not be blank"
+      validates_presence_of :username, :message => "must not be blank"
+      validates_presence_of :email, :message => "must not be blank"
 
       # We need to get a password when creating; on updates we only need a
       # password when updating the hashed_password
@@ -182,10 +203,10 @@ module Opscode
       validates_presence_of :hashed_password
       validates_presence_of :salt
 
-      validates_format_of :username, :with => /^[a-z0-9\-_]+$/
-      validates_format_of :email, :with => EmailAddress
+      validates_format_of :username, :with => /^[a-z0-9\-_]+$/, :message => "has an invalid format (valid characters are a-z, 0-9, hyphen and underscore)"
+      validates_format_of :email, :with => EmailAddress, :message => "has an invalid format"
 
-      validates_length_of :password, :within => 6..50
+      validates_length_of :password, :within => 6..50, :message => 'must be between 6 and 50 characters'
       validates_length_of :username, :within => 1..50
 
       validate :certificate_or_pubkey_present
@@ -206,7 +227,7 @@ module Opscode
       # "inflated" with those values; otherwise the user will be empty.
       def initialize(params=nil)
         params = params.nil? ? {} : params.dup
-        assign_ivars_from_params!(params.dup)
+        assign_ivars_from_params!(params)
         @persisted = false
       end
 
@@ -242,9 +263,23 @@ module Opscode
         end
       end
 
+      # The previous implementation required that these attributes *always* be
+      # given when updating a user. It's not entirely clear why.
+      BASE_PARAMS_FOR_UPDATE = { :username        => nil,
+                                 :first_name      => nil,
+                                 :middle_name     => nil,
+                                 :last_name       => nil,
+                                 :display_name    => nil,
+                                 :email           => nil,
+                                 :city            => nil,
+                                 :country         => nil,
+                                 :twitter_account => nil,
+                                 :image_file_name => nil}
+
       # Updates this User from the given params
       def update_from_params(params)
-        assign_ivars_from_params!(params.dup)
+        params = BASE_PARAMS_FOR_UPDATE.merge(params)
+        assign_ivars_from_params!(params)
       end
 
       # Sets protected instance variables from the given +params+. This should
@@ -388,6 +423,10 @@ module Opscode
         persisted? ? [username] : nil
       end
 
+      # The debugging optimized representation of this object. All public and
+      # "protected" attributes are included, which means things like passwords
+      # can be disclosed. So don't use this in a way that will be logged in
+      # production.
       def inspect
         as_str = "#<#{self.class}:#{self.object_id.to_s(16)}"
         self.class.model_attributes.merge(self.class.protected_model_attributes).each do |attr_name, ivar_name|
@@ -404,6 +443,7 @@ module Opscode
           value = instance_variable_get(ivar_name)
           hash_for_json[attr_name.to_sym] = value if value
         end
+        hash_for_json[:password] = hash_for_json.delete(:hashed_password)
         hash_for_json
       end
 
@@ -447,7 +487,7 @@ module Opscode
       # email addrs.
       def email_not_unique!
         errors.add(:conflicts, "email")
-        errors.add(:email, "is already in use")
+        errors.add(:email, "already exists.")
       end
 
       # Same deal as with email, these objects can't determine if their attrs

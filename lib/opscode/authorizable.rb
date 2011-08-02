@@ -91,7 +91,6 @@ module Opscode
     end
 
     def authorized?(actor,ace)
-      logger.debug { "IN IS_AUTHORIZED?: #{join_data.inspect}" }
       authz_model = authz_object_as(actor)
       logger.debug { "IN IS_AUTHORIZED? AUTH_JOIN OBJECT: #{authz_model.inspect}" }
       authz_model.is_authorized?(actor,ace)

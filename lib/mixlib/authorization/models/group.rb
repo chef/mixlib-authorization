@@ -52,7 +52,7 @@ module Mixlib
           org_db = (orgname && database_from_orgname(orgname)) || database
 
           if true #DARKLAUNCH
-            user_mapper = Opscode::Mappers::User.new(DB, nil, 0)
+            user_mapper = Opscode::Mappers::User.new(Opscode::Models.default_connection, nil, 0)
             users = user_mapper.find_all_for_authz_map(actornames)
             actor_ids = users.map {|u| u.authz_id}
           else

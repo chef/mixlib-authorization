@@ -106,21 +106,34 @@ module Mixlib
       def actor_to_user(actor, org_database)
         raise ArgumentError, "must supply actor" unless actor
 
-        user_mapper = Opscode::Mappers::User.new(DB, nil, 0)
-        user = user_mapper.find_by_authz_id(actor)
-        user_object = AuthJoin.by_auth_object_id(:key=>actor).first
-        
-        user ||= begin
-                 user_object && Mixlib::Authorization::Models::User.get(user_object.user_object_id)
-               rescue RestClient::ResourceNotFound
-                 Mixlib::Authorization::Models::Client.on(org_database).get(user_object.user_object_id)
-               rescue StandardError=>se
-                 Mixlib::Authorization::Log.error "Failed to turn actor #{actor} into a user or client: #{se}"
-                 nil
-               end
-        
-        Mixlib::Authorization::Log.debug("actor to user: actor: #{actor}, user or client name #{user.nil? ? nil : user.respond_to?(:username) ? user.username : user.clientname}")
-        user
+        if true #DARKLAUNCH
+          user_mapper = Opscode::Mappers::User.new(Opscode::Models.default_connection, nil, 0)
+          if user = user_mapper.find_by_authz_id(actor)
+            Mixlib::Authorization::Log.debug("actor to user: authz id: #{actor} is a user named #{user.username}")
+          else
+            begin
+              client_id = AuthJoin.by_auth_object_id(:key=>actor).first
+              user = Mixlib::Authorization::Models::Client.on(org_database).get(user_object.user_object_id)
+              Mixlib::Authorization::Log.debug("actor to user: authz id: #{actor} is a client named #{client.clientname}")
+            rescue StandardError=>se
+              # BUGBUG: why rescue?
+              Mixlib::Authorization::Log.error "Failed to turn actor #{actor} into a user or client: #{se}"
+              nil
+            end
+          end
+          user
+        else
+          user = begin
+                   user_object && Mixlib::Authorization::Models::User.get(user_object.user_object_id)
+                 rescue RestClient::ResourceNotFound
+                   Mixlib::Authorization::Models::Client.on(org_database).get(user_object.user_object_id)
+                 rescue StandardError=>se
+                   Mixlib::Authorization::Log.error "Failed to turn actor #{actor} into a user or client: #{se}"
+                   nil
+                 end
+          Mixlib::Authorization::Log.debug("actor to user: actor: #{actor}, user or client name #{user.nil? ? nil : user.respond_to?(:username) ? user.username : user.clientname}")
+          user
+        end
       end
 
       def auth_group_to_user_group(group_id, org_database)
@@ -158,7 +171,7 @@ module Mixlib
       
       def user_or_client_by_name(ucname, org_database)
         if true #DARKLAUNCH
-          user_mapper = Opscode::Mappers::User.new(DB, nil, 0)
+          user_mapper = Opscode::Mappers::User.new(Opscode::Models.default_connection, nil, 0)
           user = user_mapper.find_by_username(ucname)
         else
           user = Mixlib::Authorization::Models::User.on(org_database).by_username(:key => ucname).first
@@ -181,7 +194,7 @@ module Mixlib
         if true #DARKLAUNCH
           usernames = []
           # Find all the users in one query like a boss
-          user_mapper = Opscode::Mappers::User.new(DB, nil, 0)
+          user_mapper = Opscode::Mappers::User.new(Opscode::Models.default_connection, nil, 0)
           users = user_mapper.find_all_by_authz_id(actors)
           remaining_actors = actors - users.map(&:authz_id)
           usernames.concat(users.map(&:username))
@@ -213,7 +226,7 @@ module Mixlib
         if true #DARKLAUNCH
           authz_ids = []
           #look up all the users with one query like a boss
-          user_mapper = Opscode::Mappers::User.new(DB, nil, 0)
+          user_mapper = Opscode::Mappers::User.new(Opscode::Models.default_connection, nil, 0)
           users = user_mapper.find_all_for_authz_map(actors)
           authz_ids.concat(users.map(&:authz_id))
           actors -= users.map(&:username)

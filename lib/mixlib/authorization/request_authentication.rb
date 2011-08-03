@@ -127,20 +127,32 @@ module Mixlib
       end
 
       def find_user
-
-        stats = Object.new
-        def stats.db_call
-          yield
+        Log.debug "Authentication: trying to find user: #{username}"
+        if true #DARKLAUNCH
+          find_user_sql
+        else
+          find_user_couchdb
         end
+      end
 
-        user_mapper = Opscode::Mappers::User.new(DB,stats, 0)
-        Log.debug "checking for user #{username}"
-        user = user_mapper.find_for_authentication(username)
+      def find_user_couchdb
+        user = Models::User.find(username)
         @actor_type = :user
         user
       rescue ArgumentError
         Log.debug "No user found for username: #{username}"
         nil
+      end
+
+      def find_user_sql
+        user_mapper = Opscode::Mappers::User.new(Opscode::Models.default_connection,nil, 0)
+        if user = user_mapper.find_for_authentication(username)
+          @actor_type = :user
+          user
+        else
+          Log.debug "No user found for username: #{username}"
+          nil
+        end
       end
 
       def find_client

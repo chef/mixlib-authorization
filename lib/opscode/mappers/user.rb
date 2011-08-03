@@ -83,13 +83,15 @@ module Opscode
       # Create a record in the database representing +user+ which is expected
       # to be a Models::User object.
       def create(user)
+        # If the caller has already set an id, trust it.
         user.assign_id!(new_uuid) unless user.id
         user.update_timestamps!
         user.last_updated_by!(requester_authz_id)
 
         validate_before_create!(user)
 
-        user.create_authz_object_as(requester_authz_id)
+        # If you say you know the authz id, then we trust that it already exists
+        user.create_authz_object_as(requester_authz_id) unless user.authz_id
         user_side_create(user)
         user.persisted!
         user

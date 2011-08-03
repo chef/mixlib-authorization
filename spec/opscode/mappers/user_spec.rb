@@ -141,7 +141,9 @@ describe Opscode::Mappers::User do
     end
 
     it "updates the user in the database from a User object" do
-      updated_data = {:certificate => ALTERNATE_CERT, :password => "newPassword"}
+      updated_data = @user_data.dup
+      updated_data[:certificate] = ALTERNATE_CERT
+      updated_data[:password] = "newPassword"
       @user.update_from_params(updated_data)
       @mapper.update(@user)
       round_tripped = @mapper.find_by_username("joeuser")

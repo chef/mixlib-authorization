@@ -128,7 +128,7 @@ module Mixlib
 
       def find_user
         Log.debug "Authentication: trying to find user: #{username}"
-        if true #DARKLAUNCH
+        if Opscode::DarkLaunch.is_feature_enabled?('sql_users', :GLOBALLY)
           find_user_sql
         else
           find_user_couchdb

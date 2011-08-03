@@ -106,7 +106,7 @@ module Mixlib
       def actor_to_user(actor, org_database)
         raise ArgumentError, "must supply actor" unless actor
 
-        if true #DARKLAUNCH
+        if Opscode::DarkLaunch.is_feature_enabled?('sql_users', :GLOBALLY)
           user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection, nil, 0)
           if user = user_mapper.find_by_authz_id(actor)
             Mixlib::Authorization::Log.debug("actor to user: authz id: #{actor} is a user named #{user.username}")
@@ -170,7 +170,7 @@ module Mixlib
       end
       
       def user_or_client_by_name(ucname, org_database)
-        if true #DARKLAUNCH
+        if Opscode::DarkLaunch.is_feature_enabled?('sql_users', :GLOBALLY)
           user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection, nil, 0)
           user = user_mapper.find_by_username(ucname)
         else
@@ -191,7 +191,7 @@ module Mixlib
       end
 
       def lookup_usernames_for_authz_ids(actors, org_database)
-        if true #DARKLAUNCH
+        if Opscode::DarkLaunch.is_feature_enabled?('sql_users', :GLOBALLY)
           usernames = []
           # Find all the users in one query like a boss
           user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection, nil, 0)
@@ -223,7 +223,7 @@ module Mixlib
       end
 
       def lookup_authz_side_ids_for(actors, org_database)
-        if true #DARKLAUNCH
+        if Opscode::DarkLaunch.is_feature_enabled?('sql_users', :GLOBALLY)
           authz_ids = []
           #look up all the users with one query like a boss
           user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection, nil, 0)

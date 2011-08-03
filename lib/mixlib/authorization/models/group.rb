@@ -51,7 +51,7 @@ module Mixlib
           # set the organization database for use with global groups
           org_db = (orgname && database_from_orgname(orgname)) || database
 
-          if true #DARKLAUNCH
+          if Opscode::DarkLaunch.is_feature_enabled?('sql_users', :GLOBALLY)
             user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection, nil, 0)
             users = user_mapper.find_all_for_authz_map(actornames)
             actor_ids = users.map {|u| u.authz_id}

@@ -31,6 +31,8 @@ module Mixlib
         end
       end
 
+      alias :authz_id :authorization_id
+
       # Returns the so called "AuthJoin" model document representing this
       # object. The requesting actor id is required for authz to authorize the
       # request.

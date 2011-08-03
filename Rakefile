@@ -1,5 +1,5 @@
 require 'rubygems'
-require 'rake/gempackagetask'
+require 'rubygems/package_task'
 require 'rubygems/specification'
 require 'date'
 require 'rspec/core/rake_task'
@@ -21,7 +21,7 @@ RSpec::Core::RakeTask.new(:functional) do |t|
   t.rspec_opts = %w(-fs --color)
 end
 
-Rake::GemPackageTask.new(spec) do |pkg|
+Gem::PackageTask.new(spec) do |pkg|
   pkg.gem_spec = spec
 end
 
@@ -30,17 +30,26 @@ task :install => [:package] do
   sh %{gem install pkg/mixlib-authorization-#{MIXLIB_AUTHORIZATION_VERSION}}
 end
 
-desc "create a gemspec file"
-task :make_spec do
-  File.open("mixlib-authorization.gemspec", "w") do |file|
-    file.puts spec.to_ruby
-  end
-end
-
 desc "remove build files"
 task :clean do
   sh %Q{ rm -f pkg/*.gem }
 end
 
-desc "Run the spec and features"
-task :test => [ :features, :spec ]
+desc "Run the specs and functional specs"
+task :test => [ :fucntional, :spec ]
+
+namespace :db do
+  desc "Effectively drop the db and then migrate it to current"
+  task :remigrate do
+    sh("sequel -m db/migrate mysql2://root@localhost/opscode_chef  -M 0")
+    sh("sequel -m db/migrate mysql2://root@localhost/opscode_chef")
+  end
+
+  desc "Effectively drop the db and then migrate it to current"
+  task :remigrate_test do
+    sh("sequel -m db/migrate mysql2://root@localhost/opscode_chef_test -M 0")
+    sh("sequel -m db/migrate mysql2://root@localhost/opscode_chef_test")
+  end
+end
+
+

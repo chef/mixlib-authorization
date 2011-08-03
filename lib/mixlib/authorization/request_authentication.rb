@@ -86,11 +86,11 @@ module Mixlib
       end
 
       def requesting_actor_id
-        @requesting_actor_id ||= actor && actor.auth_object_id
+        @requesting_actor_id ||= actor
       end
 
       def actor
-        @actor ||= user_to_actor(requesting_entity.id)
+        @actor ||= requesting_entity.authz_id
       end
 
       def actor_exists?
@@ -127,13 +127,32 @@ module Mixlib
       end
 
       def find_user
-        Log.debug "checking for user #{username}"
+        Log.debug "Authentication: trying to find user: #{username}"
+        if Opscode::DarkLaunch.is_feature_enabled?('sql_users', :GLOBALLY)
+          find_user_sql
+        else
+          find_user_couchdb
+        end
+      end
+
+      def find_user_couchdb
         user = Models::User.find(username)
         @actor_type = :user
         user
       rescue ArgumentError
         Log.debug "No user found for username: #{username}"
         nil
+      end
+
+      def find_user_sql
+        user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection,nil, 0)
+        if user = user_mapper.find_for_authentication(username)
+          @actor_type = :user
+          user
+        else
+          Log.debug "No user found for username: #{username}"
+          nil
+        end
       end
 
       def find_client

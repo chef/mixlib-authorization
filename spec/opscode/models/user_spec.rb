@@ -20,44 +20,37 @@ shared_examples_for "an active model" do
   end
 end
 
-SAMPLE_CERT =<<-CERT
------BEGIN CERTIFICATE-----
-MIIDODCCAqGgAwIBAgIEz5HZWDANBgkqhkiG9w0BAQUFADCBnjELMAkGA1UEBhMC
-VVMxEzARBgNVBAgMCldhc2hpbmd0b24xEDAOBgNVBAcMB1NlYXR0bGUxFjAUBgNV
-BAoMDU9wc2NvZGUsIEluYy4xHDAaBgNVBAsME0NlcnRpZmljYXRlIFNlcnZpY2Ux
-MjAwBgNVBAMMKW9wc2NvZGUuY29tL2VtYWlsQWRkcmVzcz1hdXRoQG9wc2NvZGUu
-Y29tMCAXDTExMDcxOTIyNTY1MloYDzIxMDAwOTIwMjI1NjUyWjCBmzEQMA4GA1UE
-BxMHU2VhdHRsZTETMBEGA1UECBMKV2FzaGluZ3RvbjELMAkGA1UEBhMCVVMxHDAa
-BgNVBAsTE0NlcnRpZmljYXRlIFNlcnZpY2UxFjAUBgNVBAoTDU9wc2NvZGUsIElu
-Yy4xLzAtBgNVBAMUJlVSSTpodHRwOi8vb3BzY29kZS5jb20vR1VJRFMvdXNlcl9n
-dWlkMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0NKi934E1BoX2PVP
-Nlv+2rtdFervrNt5tK762QYFBlciwAdH0DIxcBsEpJyi/V/IAPi05LRoIs+a2qjN
-VD73YjxoKIVnm3wFOEHY6XKMN0NCzyhPPxGQqws9aSSOU1lGa72sOoPGH+1e46ni
-7adW1TMTNN8w8bYCXeL2dvyXAbzlTap+tLbkeKgjt9MvRwFQfQ8Im9KqfuHDbVJn
-EquRIx/0TbT+BF9jBg463GG0tMKySulqw4+CpAAh2BxdjvdcfIpXQNPJao3CgvGF
-xN+GlrHO5kIGNT0iie+Z02TUr8sIAhc6n21q/F06W7i7vY07WgiwT+iLJ+IG4ylQ
-ewAYtwIDAQABMA0GCSqGSIb3DQEBBQUAA4GBAGKC0q99xFwyrHZkKhrMOZSWLV/L
-9t4WWPdI+iGB6bG0sbUF+bWRIetPtUY5Ueqf7zLxkFBvFkC/ob4Kb5/S+81/jE0r
-h7zcu9piePUXRq+wzg6be6mTL/+YVFtowSeBR1sZbhjtNM8vv2fVq7OEkb7BYJ9l
-HYCz2siW4sVv9rca
------END CERTIFICATE-----
-CERT
-
-SAMPLE_CERT_KEY =<<-KEY
------BEGIN RSA PUBLIC KEY-----
-MIIBCgKCAQEA0NKi934E1BoX2PVPNlv+2rtdFervrNt5tK762QYFBlciwAdH0DIx
-cBsEpJyi/V/IAPi05LRoIs+a2qjNVD73YjxoKIVnm3wFOEHY6XKMN0NCzyhPPxGQ
-qws9aSSOU1lGa72sOoPGH+1e46ni7adW1TMTNN8w8bYCXeL2dvyXAbzlTap+tLbk
-eKgjt9MvRwFQfQ8Im9KqfuHDbVJnEquRIx/0TbT+BF9jBg463GG0tMKySulqw4+C
-pAAh2BxdjvdcfIpXQNPJao3CgvGFxN+GlrHO5kIGNT0iie+Z02TUr8sIAhc6n21q
-/F06W7i7vY07WgiwT+iLJ+IG4ylQewAYtwIDAQAB
------END RSA PUBLIC KEY-----
-KEY
-
 describe Opscode::Models::User do
+  include Fixtures
+
   it_should_behave_like("an active model")
 
-  describe "when empty" do
+  before do
+    @now = Time.now
+    @db_data = {
+      :id => "123abc",
+      :authz_id => "abc123",
+      :first_name => 'moon',
+      :last_name => "polysoft",
+      :middle_name => "trolol",
+      :display_name => "problem?",
+      :email => 'trolol@example.com',
+      :username => 'trolol',
+      :public_key => nil,
+      :certificate => SAMPLE_CERT,
+      :city => "Fremont",
+      :country => "USA",
+      :twitter_account => "moonpolysoft",
+      :hashed_password => "some hex bits",
+      :salt => "some random bits",
+      :image_file_name => 'current_status.png',
+      :created_at => @now.utc.to_s,
+      :updated_at => @now.utc.to_s
+
+    }
+  end
+
+  describe "when created without any data" do
     before do
       @user = Opscode::Models::User.new
     end
@@ -131,7 +124,7 @@ describe Opscode::Models::User do
     end
 
     it "has no actor id" do
-      @user.actor_id.should be_nil
+      @user.authz_id.should be_nil
     end
 
     describe "after validating" do
@@ -140,23 +133,23 @@ describe Opscode::Models::User do
       end
 
       it "has an invalid first name" do
-        @user.errors[:first_name].should include("can't be blank")
+        @user.errors[:first_name].should include("must not be blank")
       end
 
       it "has an invalid last name" do
-        @user.errors[:last_name].should include("can't be blank")
+        @user.errors[:last_name].should include("must not be blank")
       end
 
       it "has an invalid display name" do
-        @user.errors[:display_name].should include("can't be blank")
+        @user.errors[:display_name].should include("must not be blank")
       end
 
       it "has an invalid username" do
-        @user.errors[:username].should include("can't be blank")
+        @user.errors[:username].should include("must not be blank")
       end
 
       it "has an invalid email address" do
-        @user.errors[:email].should include("can't be blank")
+        @user.errors[:email].should include("must not be blank")
       end
 
       it "has an invalid password" do
@@ -166,6 +159,53 @@ describe Opscode::Models::User do
 
       it "has a vaidation error because there is no cert or pubkey" do
         @user.errors[:credentials].should include("must have a certificate or public key")
+      end
+    end
+
+    describe "after updating the timestamps" do
+      before do
+        @now = Time.now
+        @later = @now + 3612
+        Time.stub(:now).and_return(@now, @later)
+        @user.update_timestamps!
+      end
+
+      it "sets created_at to now" do
+        @user.created_at.should == @now.utc
+      end
+
+      it "sets updated_at to now" do
+        @user.updated_at.should == @now.utc
+      end
+
+      it "includes the timestamps in the hash format for the database" do
+        @user.for_db[:created_at].should == @now
+        @user.for_db[:updated_at].should == @now
+      end
+
+      describe "and updating them again" do
+        before do
+          @user.update_timestamps!
+        end
+
+        it "leaves created_at set to the original value" do
+          @user.created_at.should == @now
+        end
+
+        it "sets updated_at to the newer 'now'" do
+          @user.updated_at.should == @later
+        end
+
+      end
+    end
+
+    describe "after updating the last_updated_by field" do
+      before do
+        @user.last_updated_by!("authz_id_for_some_dude")
+      end
+
+      it "shows who it was last updated by" do
+        @user.last_updated_by.should == "authz_id_for_some_dude"
       end
     end
 
@@ -189,6 +229,14 @@ describe Opscode::Models::User do
         @user.errors[:hashed_password].should be_empty
         @user.errors[:salt].should be_empty
       end
+
+      it "verifies that the correct password is correct" do
+        @user.should be_correct_password("p@ssw0rd1")
+      end
+
+      it "rejects an invalid password" do
+        @user.should_not be_correct_password("wrong!")
+      end
     end
 
     describe "after setting the password to something too short" do
@@ -198,7 +246,7 @@ describe Opscode::Models::User do
 
       it "has an invalid password" do
         @user.should_not be_valid
-        @user.errors[:password].should == ["is too short (minimum is 6 characters)"]
+        @user.errors[:password].should == ["must be between 6 and 50 characters"]
       end
     end
 
@@ -208,7 +256,8 @@ describe Opscode::Models::User do
       end
 
       it "has an invalid email address" do
-        @user.errors[:email].should == ["is already in use"]
+        @user.errors[:email].should == ["already exists."]
+        @user.errors[:conflicts].should == ["email"]
       end
     end
 
@@ -219,6 +268,7 @@ describe Opscode::Models::User do
 
       it "has an invalid username" do
         @user.errors[:username].should == ["is already taken"]
+        @user.errors[:conflicts].should == ["username"]
       end
     end
 
@@ -266,6 +316,21 @@ describe Opscode::Models::User do
         @user.public_key.should be_a_kind_of(OpenSSL::PKey::RSA)
         @user.public_key.to_s.should == SAMPLE_CERT_KEY
       end
+
+      it "has valid credentials" do
+        @user.valid?
+        @user.errors[:credentials].should be_empty
+      end
+    end
+
+    describe "after the authz_id is set" do
+      before do
+        @user.assign_authz_id!("new-authz-id")
+      end
+
+      it "has the updated authz_id" do
+        @user.authz_id.should == "new-authz-id"
+      end
     end
 
   end
@@ -283,26 +348,7 @@ describe Opscode::Models::User do
 
   describe "when created from database params" do
     before do
-      @db_data = {
-        :id => "123abc",
-        :actor_id => "abc123",
-        :first_name => 'moon',
-        :last_name => "polysoft",
-        :middle_name => "trolol",
-        :display_name => "problem?",
-        :email => 'trolol@example.com',
-        :username => 'trolol',
-        :public_key => nil,
-        :certificate => SAMPLE_CERT,
-        :city => "Fremont",
-        :country => "USA",
-        :twitter_account => "moonpolysoft",
-        :password => nil,
-        :hashed_password => "some hex bits",
-        :salt => "some random bits",
-        :image_file_name => 'current_status.png'
-      }
-      @user = Opscode::Models::User.new(@db_data)
+      @user = Opscode::Models::User.load(@db_data)
     end
 
     it "has a database id" do
@@ -310,7 +356,7 @@ describe Opscode::Models::User do
     end
 
     it "has an actor id" do
-      @user.actor_id.should == "abc123"
+      @user.authz_id.should == "abc123"
     end
 
     it "has a first name" do
@@ -370,9 +416,254 @@ describe Opscode::Models::User do
       @user.image_file_name.should == "current_status.png"
     end
 
+    it "gives the created_at timestamp as a time object" do
+      @user.created_at.should be_a_kind_of(Time)
+      @user.created_at.to_i.should be_within(1).of(@now.to_i)
+    end
+
+    it "gives the updated_at timestamp as a time object" do
+      @user.updated_at.should be_a_kind_of(Time)
+      @user.updated_at.to_i.should be_within(1).of(@now.to_i)
+    end
+
+    it "is == to another user object with the same data" do
+      copy = Opscode::Models::User.load(@db_data)
+      @user.should == copy
+    end
+
+    it "is == to another user object with the same data but timestamps truncated to 1s resolution" do
+      very_close_data = @db_data.dup
+      very_close_data[:created_at] = Time.at(@now.to_i).utc.to_s
+      very_close_data[:updated_at] = Time.at(@now.to_i).utc.to_s
+      very_close_user = Opscode::Models::User.load(very_close_data)
+
+      # Force lazy typecasting of timestamps to fire
+      very_close_user.created_at
+      very_close_user.updated_at
+
+      @user.should == very_close_user
+    end
+
+    it "is not == to another user object if any of the data is different" do
+      [:id, :authz_id, :first_name, :middle_name, :last_name, :username, :display_name, :hashed_password, :salt, :twitter_account].each do |attr_name|
+        not_quite_data = @db_data.dup
+        not_quite_data[attr_name] += "nope"
+        not_quite = Opscode::Models::User.load(not_quite_data)
+        @user.should_not == not_quite
+      end
+    end
+
     it "converts to a hash for JSONification" do
-      pending
+      user_as_a_hash = @user.for_json
+      user_as_a_hash.should be_a_kind_of(Hash)
+      user_as_a_hash[:city].should == "Fremont"
+      user_as_a_hash[:salt].should == "some random bits"
+      # existing systems expect hashed password under the key "password"
+      user_as_a_hash[:password].should == "some hex bits"
+      user_as_a_hash[:image_file_name].should == "current_status.png"
+      user_as_a_hash[:twitter_account].should == 'moonpolysoft'
+      user_as_a_hash[:country].should == 'USA'
+      user_as_a_hash[:certificate].should == SAMPLE_CERT
+      user_as_a_hash[:username].should == "trolol"
+      user_as_a_hash[:first_name].should == "moon"
+      user_as_a_hash[:last_name].should == "polysoft"
+      user_as_a_hash[:display_name].should == "problem?"
+      user_as_a_hash[:middle_name].should == 'trolol'
+      user_as_a_hash[:email].should == 'trolol@example.com'
+      user_as_a_hash.should_not have_key(:public_key)
+
+      expected_keys = [ :city, :salt, :password, :twitter_account,
+                        :country, :certificate, :username,
+                        :first_name, :last_name, :display_name, :middle_name,
+                        :email, :image_file_name]
+
+
+      user_as_a_hash.keys.should =~ expected_keys
+    end
+
+    it "can update the password from params" do
+      new_data = {:password => "opensesame"}
+      @user.update_from_params(new_data)
+      @user.should be_correct_password("opensesame")
+    end
+
+    it "can update the certificate from params" do
+      new_data = {:certificate => ALTERNATE_CERT}
+      @user.update_from_params(new_data)
+      @user.certificate.should == ALTERNATE_CERT
+    end
+
+  end
+
+  describe "when created from form data" do
+    before do
+      @form_data = {
+        :first_name => 'moon',
+        :last_name => "polysoft",
+        :middle_name => "trolol",
+        :display_name => "problem?",
+        :email => 'trolol@example.com',
+        :username => 'trolol',
+        :public_key => nil,
+        :certificate => SAMPLE_CERT,
+        :city => "Fremont",
+        :country => "USA",
+        :twitter_account => "moonpolysoft",
+        :password => 'p@ssw0rd1',
+        :image_file_name => 'current_status.png'
+      }
+      @user = Opscode::Models::User.new(@form_data)
+    end
+
+    it "generates a hashed password and salt" do
+      @user.password.should == "p@ssw0rd1"
+      @user.salt.should_not be_nil
+      @user.hashed_password.should_not be_nil
+      @user.should be_correct_password('p@ssw0rd1')
+    end
+
+  end
+
+  describe "when created from form data containing a mix of string and symbol keys and extraneous data" do
+    before do
+      @form_data = {
+        'first_name' => 'moon',
+        'last_name' => "polysoft",
+        'middle_name' => "trolol",
+        'display_name' => "problem?",
+        'email' => 'trolol@example.com',
+        'username' => 'trolol',
+        :certificate => SAMPLE_CERT,
+        'city' => "Fremont",
+        'country' => "USA",
+        'twitter_account' => "moonpolysoft",
+        'password' => 'p@ssw0rd1',
+        'image_file_name' => 'current_status.png',
+        :requesting_actor_id => "some garbage",
+        :id => "whatever", # pretty common in our code
+        :user_id => "something",
+        :authz_id => "malicious-intent"
+      }
+      @user = Opscode::Models::User.new(@form_data)
+    end
+
+    it "correctly sets all given fields that are publicly settable" do
+    end
+
+    it "does not set any fields that are protected" do
+      @user.id.should be_nil
+      @user.authz_id.should be_nil
+      @user.created_at.should be_nil
+      @user.updated_at.should be_nil
+    end
+
+  end
+
+  describe "when created from data containing both a hashed password and non-hashed password" do
+    it "raises an error" do
+      @form_data = {
+        :id => "123abc",
+        :authz_id => "abc123",
+        :first_name => 'moon',
+        :last_name => "polysoft",
+        :middle_name => "trolol",
+        :display_name => "problem?",
+        :email => 'trolol@example.com',
+        :username => 'trolol',
+        :public_key => nil,
+        :certificate => SAMPLE_CERT,
+        :city => "Fremont",
+        :country => "USA",
+        :twitter_account => "moonpolysoft",
+        :image_file_name => 'current_status.png',
+
+        :password => 'p@ssw0rd1',
+        :hashed_password => "whoah what are you doing here?",
+        :salt => "some random bits"
+
+      }
+      lambda { Opscode::Models::User.new(@form_data) }.should raise_error(ArgumentError)
     end
   end
+
+  # TODO: make this a shared example group
+  describe "implementing the required interface for Authorizable" do
+    before do
+      @user = Opscode::Models::User.new
+    end
+
+    it "defines all the required methods" do
+      @user.should respond_to(:authz_id)
+      @user.should respond_to(:authz_model_class)
+      @user.should respond_to(:assign_authz_id!)
+      @user.method(:assign_authz_id!).arity.should == 1
+    end
+
+    it "sets an authz id" do
+      @user.assign_authz_id!("new-uuid-id")
+      @user.authz_id.should == "new-uuid-id"
+    end
+
+    it "has an authz model class" do
+      # could make a bunch of assertions about this class also.
+      @user.authz_model_class.should be_a_kind_of(Class)
+    end
+
+    it "unsets an authz id" do
+      @user.assign_authz_id!("some-uuid")
+      @user.assign_authz_id!(nil)
+      @user.authz_id.should be_nil
+    end
+
+  end
+
+  describe "when authorizing a request" do
+    before do
+      @user = Opscode::Models::User.load(@db_data)
+    end
+
+    it "creates an authorization side object" do
+      @user.create_authz_object_as(0)
+      @user.authz_id.should_not be_nil
+      authz_id = @user.authz_id
+      @user.authz_object_as(0).fetch.should == {"id" => authz_id}
+    end
+
+    describe "and the authz side has been created" do
+      before do
+        @user.create_authz_object_as(0)
+      end
+
+      it "checks authorization rights" do
+        @user.should_not be_authorized("123456789abcdef", :update)
+        @user.should be_authorized(@user.authz_id, :update)
+      end
+
+      it "supports the old interface to authorization checks" do
+        @user.should respond_to(:is_authorized?)
+      end
+
+      it "updates the authz side object" do
+        # This is actually a no-op, because there is no updateable data in the
+        # authz side object for a user. But we want to test it anyway.
+        expected_id = @user.authz_id
+        @user.update_authz_object_as(@user.authz_id)
+        @user.authz_object_as(@user.authz_id).fetch.should == {"id" => expected_id}
+      end
+
+      # NOTE: the previous implementation did NOT actually destroy the authz
+      # side object, so this implementation won't either to keep compat at a
+      # maximum. But we may wish to revisit this decision, or invent a true
+      # turing machine with infinite tape for storage.
+      it "destroys the authz side object by removing the reference to it" do
+        authz_id = @user.authz_id
+        @user.destroy_authz_object_as(authz_id)
+        @user.authz_id.should be_nil
+      end
+
+    end
+
+  end
+
 
 end

@@ -5,9 +5,17 @@ require 'digest/sha2'
 require 'active_model'
 require 'active_model/validations'
 
+require 'opscode/authorizable'
+
 module Opscode
   module Models
     class User
+
+      include Opscode::Authorizable
+
+      class InvalidParameters < ArgumentError
+      end
+
       include ActiveModel::Validations
 
       # Stolen from CouchRest for maxcompat:
@@ -62,9 +70,17 @@ module Opscode
 
       def self.add_model_attribute(attr_name)
         @model_ivars ||= {}
+        attr_name = attr_name.to_s
         ivar = "@#{attr_name}".to_sym
         model_attributes[attr_name] = ivar
         model_ivars[ivar] = attr_name
+      end
+
+      def self.add_protected_model_attribute(attr_name)
+        attr_name = attr_name.to_s
+        ivar = "@#{attr_name}".to_sym
+        protected_model_attributes[attr_name] = ivar
+        protected_ivars[ivar] = attr_name
       end
 
       def self.model_attributes
@@ -75,18 +91,74 @@ module Opscode
         @model_ivars ||= {}
       end
 
+      def self.protected_model_attributes
+        @protected_model_attributes ||= {}
+      end
+
+      def self.protected_ivars
+        @protected_ivars ||= {}
+      end
+
+      # Defines an attribute that has an attr_accessor and can be set from
+      # parameters passed to new(). This attribute will automatically be
+      # included in the 'pre-JSON' representation of the object given by
+      # #for_json and #for_db
       def self.rw_attribute(attr_name)
         add_model_attribute(attr_name)
         attr_accessor attr_name
       end
 
+      # Defines an attribute that has an attr_reader and can be set from
+      # parameters passed to new() This attribute will automatically be
+      # included in the 'pre-JSON' representation of the object given by
+      # #for_json and #for_db
       def self.ro_attribute(attr_name)
         add_model_attribute(attr_name)
         attr_reader attr_name
       end
 
-      rw_attribute :id
-      rw_attribute :actor_id
+      # Defines an attribute that has an attr_reader but CANNOT be set from
+      # parameters passed to new()
+      #
+      # These parameters will not be included in the JSON representation of
+      # this object.
+      #
+      # This is intended for attributes that are set by the Mapper layer, such
+      # as created/updated timestamps or anything that end users should not be
+      # able to modify directly.
+      #
+      # This attribute will automatically be included in the Hash
+      # representation of the object used by the mapper layer (i.e., the ouput
+      # of #for_db )
+      #--
+      # NB: if you get all GoF about it, this is a _presentation_ concern that
+      # should be handled by a presenter object. It's very noble to shave that
+      # yak, good luck.
+      def self.protected_attribute(attr_name)
+        add_protected_model_attribute(attr_name)
+        attr_reader attr_name
+      end
+
+      # Declares which class should be used for the authz side representation
+      # of this model.
+      def self.use_authz_model_class(authz_model_class)
+        @authz_model_class = authz_model_class
+      end
+
+      # Returns the class object that is used for the authz side representation
+      # of this model. If not set, it will raise a NotImplementedError.
+      def self.authz_model_class
+        @authz_model_class or raise NotImplementedError, "#{self.class.name} must declare an authz model class before it can do authz things"
+      end
+
+      use_authz_model_class(Opscode::AuthzModels::Actor)
+
+      # Returns the class object that is used for the authz side representation
+      # of this model. If not set, it will raise a NotImplementedError.
+      def authz_model_class
+        self.class.authz_model_class
+      end
+
       rw_attribute :first_name
       rw_attribute :last_name
       rw_attribute :middle_name
@@ -100,15 +172,29 @@ module Opscode
       rw_attribute :twitter_account
       rw_attribute :image_file_name
 
-      ro_attribute :password # with a custom setter below
       ro_attribute :hashed_password
       ro_attribute :salt
 
-      validates_presence_of :first_name
-      validates_presence_of :last_name
-      validates_presence_of :display_name
-      validates_presence_of :username
-      validates_presence_of :email
+      protected_attribute :id
+      protected_attribute :authz_id
+      protected_attribute :created_at #custom reader method
+      protected_attribute :updated_at #custom reader method
+      protected_attribute :last_updated_by
+
+      attr_reader :password # with a custom setter below
+
+      #########################################################################
+      # NOTE: the error messages here are customized to match the previous
+      # couchrest implementation as much as possible. I find the copy somewhat
+      # awkward, but tests and who-knows-what-else expect the messages to have
+      # this text, so we'll leave it for now.
+      #########################################################################
+
+      validates_presence_of :first_name, :message => "must not be blank"
+      validates_presence_of :last_name, :message => "must not be blank"
+      validates_presence_of :display_name, :message => "must not be blank"
+      validates_presence_of :username, :message => "must not be blank"
+      validates_presence_of :email, :message => "must not be blank"
 
       # We need to get a password when creating; on updates we only need a
       # password when updating the hashed_password
@@ -117,23 +203,125 @@ module Opscode
       validates_presence_of :hashed_password
       validates_presence_of :salt
 
-      validates_format_of :username, :with => /^[a-z0-9\-_]+$/
-      validates_format_of :email, :with => EmailAddress
+      validates_format_of :username, :with => /^[a-z0-9\-_]+$/, :message => "has an invalid format (valid characters are a-z, 0-9, hyphen and underscore)"
+      validates_format_of :email, :with => EmailAddress, :message => "has an invalid format"
 
-      validates_length_of :password, :within => 6..50
+      validates_length_of :password, :within => 6..50, :message => 'must be between 6 and 50 characters'
       validates_length_of :username, :within => 1..50
 
       validate :certificate_or_pubkey_present
 
-      def initialize(params={})
+      # This is an alternative constructor that will load both "public" and
+      # "protected" attributes from the +params+. This should not be called
+      # with user input, it's for the mapper layer to create a new object from
+      # database data.
+      def self.load(params)
+        params = params.dup
+        model = new
+        model.assign_protected_ivars_from_params!(params)
+        model.assign_ivars_from_params!(params)
+        model
+      end
+
+      # Create a User. If +params+ is a hash of attributes, the User will be
+      # "inflated" with those values; otherwise the user will be empty.
+      def initialize(params=nil)
+        params = params.nil? ? {} : params.dup
+        assign_ivars_from_params!(params)
+        @persisted = false
+      end
+
+      PASSWORD = 'password'.freeze
+      CERTIFICATE = 'certificate'.freeze
+
+      # Assigns instance variables from "safe" params, that is ones that are
+      # not defined via +protected_attribute+.
+      #
+      # This should be called by #initialize so you shouldn't have to call it
+      # yourself. But if you do, user supplied input is ok.
+      #
+      # NB: This destructively modifies the argument, so dup before you call it.
+      def assign_ivars_from_params!(params)
+        # Setting the password and hashed_password+salt at the same time is ambiguous.
+        # did you want to overwrite the existing hashed_password+salt or not?
+        if params.key?(:password) && (params.key?(:hashed_password) || params.key?(:salt))
+          raise InvalidParameters, "cannot set the password and hashed password at the same time"
+        end
+
+        if params.key?(:password) || params.key?(PASSWORD)
+          self.password = params.delete(:password) || params.delete(PASSWORD)
+        end
+
+        if params.key?(:certificate) || params.key?(CERTIFICATE)
+          self.certificate = params.delete(:certificate) || params.delete(CERTIFICATE)
+        end
+
         params.each do |attr, value|
-          if ivar = self.class.model_attributes[attr]
+          if ivar = self.class.model_attributes[attr.to_s]
             instance_variable_set(ivar, params[attr])
-          else
-            raise ArgumentError, "unknown attribute #{attr} (set to #{value}) for #{self.class}"
           end
         end
-        @persisted = false
+      end
+
+      # The previous implementation required that these attributes *always* be
+      # given when updating a user. It's not entirely clear why.
+      BASE_PARAMS_FOR_UPDATE = { :username        => nil,
+                                 :first_name      => nil,
+                                 :middle_name     => nil,
+                                 :last_name       => nil,
+                                 :display_name    => nil,
+                                 :email           => nil,
+                                 :city            => nil,
+                                 :country         => nil,
+                                 :twitter_account => nil,
+                                 :image_file_name => nil}
+
+      # Updates this User from the given params
+      def update_from_params(params)
+        params = BASE_PARAMS_FOR_UPDATE.merge(params)
+        assign_ivars_from_params!(params)
+      end
+
+      # Sets protected instance variables from the given +params+. This should
+      # only be called when loading objects from the database. Definitely do
+      # not use this when loading user-supplied parameters.
+      #
+      # NB: This method destructively modifies the argument. Be sure to dup
+      # before you call this if the params don't belong to you.
+      def assign_protected_ivars_from_params!(params)
+        self.class.protected_model_attributes.each do |attr, ivar|
+          if value = (params.delete(attr) || params.delete(attr.to_sym) )
+            instance_variable_set(ivar, value)
+          end
+        end
+      end
+
+      CREATED_AT = 'created_at'
+      UPDATED_AT = 'updated_at'
+
+      # True if the other object is a User or subclass and all "public" and
+      # "protected" attributes are equal. Timestamps are fudged to 1s
+      # resolution, since that's what MySQL stores, e.g., if you save a User to
+      # the database and then load a copy of it from the database, the two will
+      # be equal even though the former will have fractional second resolution
+      # on the timestamps.
+      def ==(other)
+        return false unless other.kind_of?(self.class)
+        other_data = other.for_db
+        for_db.inject(true) do |matches, (attr_name, value)|
+          matches && case attr_name
+          when :created_at, :updated_at, CREATED_AT, UPDATED_AT
+            send(attr_name).to_i == other.send(attr_name).to_i
+          else
+            value == other_data[attr_name]
+          end
+        end
+      end
+
+      # Like a regular attribute setter, except that it forcibly casts the
+      # argument to a string first
+      def certificate=(new_certificate)
+        @certificate = new_certificate.to_s
       end
 
       # Generates a new salt (overwriting the old one, if any) and sets password
@@ -144,6 +332,35 @@ module Opscode
         @hashed_password = encrypt_password(unhashed_password)
       end
 
+      # Casts created_at to a Time object (if required) and returns it
+      def created_at
+        if @created_at && @created_at.kind_of?(String)
+          @created_at = Time.parse(@created_at)
+        else
+          @created_at
+        end
+      end
+
+      # Casts updated_at to a Time object (if required) and returns it
+      def updated_at
+        if @updated_at && @updated_at.kind_of?(String)
+          @updated_at = Time.parse(@updated_at)
+        else
+          @updated_at
+        end
+      end
+
+      # True if +candidate_password+'s hashed form matches the hashed_password,
+      # false otherwise.
+      def correct_password?(candidate_password)
+        hashed_candidate_password = encrypt_password(candidate_password)
+        (@hashed_password.to_s.hex ^ hashed_candidate_password.hex) == 0
+      end
+
+      # The User's public key. Derived from the certificate if the user has a
+      # certificate, or just returns the public key if the user has a public
+      # key. Users nowadays are created with certificates but some older users
+      # have public keys.
       def public_key
         if @public_key
           @public_key
@@ -154,10 +371,43 @@ module Opscode
         end
       end
 
+      # Sets the updated_at and created_at (if necessary) timestamps.
+      def update_timestamps!
+        now = Time.now.utc
+        @created_at ||= now
+        @updated_at = now
+      end
+
+      # Sets the last_updated_by attribute to +authz_updating_actor_id+,
+      # which should be the authz side id of the user/client making changes.
+      #
+      # NB: the last_updated_by is for diagnostic/troubleshooting use. Plz to
+      # not abuse its existence.
+      def last_updated_by!(authz_updating_actor_id)
+        @last_updated_by = authz_updating_actor_id
+      end
+
+      # Sets the database id of this object. Only meant to be used by the
+      # mapper layer when/if it generates an id for you.
+      def assign_id!(id)
+        @id = id
+      end
+
+      # Sets the authz side id of this object. Only meant to be used when
+      # creating this object in the database and authz.
+      def assign_authz_id!(new_authz_id)
+        @authz_id = new_authz_id
+      end
+
+      # Whether or not this object has been stored to/loaded from the database.
+      # In a rails form, this is used to determine whether the operation is a
+      # create or update so that the same form view can be used for both
+      # operations.
       def persisted?
         @persisted
       end
 
+      # Marks this object as persisted. Should only be called by the mapper layer.
       def persisted!
         @persisted = true
       end
@@ -166,54 +416,80 @@ module Opscode
         persisted? ? username : nil
       end
 
+      # Essentially the "natural key" of this object, if it has been persisted.
+      # In a rails app, this can be used to generate routes. For example, a
+      # Chef node has a URL +nodes/NODE_NAME+
       def to_key
         persisted? ? [username] : nil
       end
 
-      def for_json
-        # TODO!
-        #
-        # Example output from AuthZ::Models::User :
-        # =New style user w/ cert:
-        # {"salt"=>"41VUs96LS6fGYfWHNYibkyA5yPYlL9OHtTkvO7hj9fr4aSMEUXKna72a2-8q",
-        #  "city"=>nil,
-        #  "image_file_name"=>nil,
-        #  "twitter_account"=>nil,
-        #  "_rev"=>"3-3549bc41b3d0ab5eacfd1148b5cb2255",
-        #  "country"=>nil,
-        #  "certificate"=>"-----BEGIN CERTIFICATE-----\nMIIDODCCAqGgAwIBAgIEz5HZWDANBgkqhkiG9w0BAQUFADCBnjELMAkGA1UEBhMC\nVVMxEzARBgNVBAgMCldhc2hpbmd0b24xEDAOBgNVBAcMB1NlYXR0bGUxFjAUBgNV\nBAoMDU9wc2NvZGUsIEluYy4xHDAaBgNVBAsME0NlcnRpZmljYXRlIFNlcnZpY2Ux\nMjAwBgNVBAMMKW9wc2NvZGUuY29tL2VtYWlsQWRkcmVzcz1hdXRoQG9wc2NvZGUu\nY29tMCAXDTExMDcxOTIyNTY1MloYDzIxMDAwOTIwMjI1NjUyWjCBmzEQMA4GA1UE\nBxMHU2VhdHRsZTETMBEGA1UECBMKV2FzaGluZ3RvbjELMAkGA1UEBhMCVVMxHDAa\nBgNVBAsTE0NlcnRpZmljYXRlIFNlcnZpY2UxFjAUBgNVBAoTDU9wc2NvZGUsIElu\nYy4xLzAtBgNVBAMUJlVSSTpodHRwOi8vb3BzY29kZS5jb20vR1VJRFMvdXNlcl9n\ndWlkMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0NKi934E1BoX2PVP\nNlv+2rtdFervrNt5tK762QYFBlciwAdH0DIxcBsEpJyi/V/IAPi05LRoIs+a2qjN\nVD73YjxoKIVnm3wFOEHY6XKMN0NCzyhPPxGQqws9aSSOU1lGa72sOoPGH+1e46ni\n7adW1TMTNN8w8bYCXeL2dvyXAbzlTap+tLbkeKgjt9MvRwFQfQ8Im9KqfuHDbVJn\nEquRIx/0TbT+BF9jBg463GG0tMKySulqw4+CpAAh2BxdjvdcfIpXQNPJao3CgvGF\nxN+GlrHO5kIGNT0iie+Z02TUr8sIAhc6n21q/F06W7i7vY07WgiwT+iLJ+IG4ylQ\newAYtwIDAQABMA0GCSqGSIb3DQEBBQUAA4GBAGKC0q99xFwyrHZkKhrMOZSWLV/L\n9t4WWPdI+iGB6bG0sbUF+bWRIetPtUY5Ueqf7zLxkFBvFkC/ob4Kb5/S+81/jE0r\nh7zcu9piePUXRq+wzg6be6mTL/+YVFtowSeBR1sZbhjtNM8vv2fVq7OEkb7BYJ9l\nHYCz2siW4sVv9rca\n-----END CERTIFICATE-----\n",
-        #  "_id"=>"033b2bbea7551073dce3d52133aff8bd",
-        #  "username"=>"kallistec2",
-        #  "couchrest-type"=>"Mixlib::Authorization::Models::User",
-        #  "last_name"=>"deleo",
-        #  "display_name"=>"dan deleo",
-        #  "password"=>"ff99a4ed138363b4db3957366149dcf2d078a885",
-        #  "requester_id"=>"4920224947d7ed92e872e53b620e94b7",
-        #  "middle_name"=>"",
-        #  "first_name"=>"dan",
-        #  "email"=>"dan+trolol@opscode.com"}
-        #
-        # =Old style w/ pubkey:
-        # {"salt"=>"cdcb3129-3b54-aac3-f3c5-31c5cacdfdc4",
-        #  "public_key"=>"-----BEGIN RSA PUBLIC KEY-----\nMIIBCgKCAQEA3ml2+ld8kOcqFshKVHApLXgLpNYqLWrIfF3kogJLDWKYuW+sCZna\nbO1m7AKgM2vE87R1ASmepluUYafiztPl8ywYS06ZkgF/ihMnsINF0a2h1dz4YW83\npci5ZMbCPt7cU3D+3F3qLvefDLozHNteFndseA7xxTGGIZ6WN7on+wMPWCis1YR0\nM1CV69ySH3PS/E4slP/ClO3Tvn+P3a3UAyR+cL2lU5djDt+/p8TikJyTFaC9ABZR\nhtgQUPmE4p43S4/kogli7ST/pUOBHXMA69D9hhDqLLtAkknACVN4ZhRUxittdA1c\nhuOvPWgP1KG10DB08Wq2AyhMBEYKonf0rQIDAQAB\n-----END RSA PUBLIC KEY-----\n",
-        #  "_rev"=>"3-ea3490bfb7f783b7cae728261c5a34aa",
-        #  "_id"=>"bba1b4d7578ff21b1ac03a60194e8d69",
-        #  "username"=>"dan",
-        #  "last_name"=>"CommunitySite",
-        #  "couchrest-type"=>"Mixlib::Authorization::Models::User",
-        #  "display_name"=>"CommunitySite",
-        #  "password"=>"610615d59afa9717c30aed015bd3ee12723438e5",
-        #  "middle_name"=>"CommunitySite",
-        #  "requester_id"=>"4920224947d7ed92e872e53b620e94b7",
-        #  "email"=>"dan@opscode.com",
-        #  "first_name"=>"CommunitySite"}
-        #
+      # The debugging optimized representation of this object. All public and
+      # "protected" attributes are included, which means things like passwords
+      # can be disclosed. So don't use this in a way that will be logged in
+      # production.
+      def inspect
+        as_str = "#<#{self.class}:#{self.object_id.to_s(16)}"
+        self.class.model_attributes.merge(self.class.protected_model_attributes).each do |attr_name, ivar_name|
+          as_str << " #{attr_name}=#{instance_variable_get(ivar_name).inspect}"
+        end
+        as_str << ">"
       end
 
+      def pretty_print(pp)
+        data = for_db
+        pp.text("#{self.class.name}: #{data.delete(:username)} (0x#{object_id.to_s(16)})\n")
+        pp.text("database id: #{data.delete(:id)}\n")
+        pp.text("Authz id: #{data.delete(:authz_id)}\n")
+        pp.nest(2) do
+          data.each do |attr_name, value|
+            pp.text("#{attr_name}: #{value}")
+            pp.breakable
+          end
+        end
+      end
+
+      # A Hash representation of this object suitable for conversion to JSON
+      # for publishing via API. Protected attributes will not be included.
+      def for_json
+        hash_for_json = {}
+        self.class.model_attributes.each do |attr_name, ivar_name|
+          value = instance_variable_get(ivar_name)
+          hash_for_json[attr_name.to_sym] = value if value
+        end
+        hash_for_json[:password] = hash_for_json.delete(:hashed_password)
+        hash_for_json
+      end
+
+      # A Hash representation of this object suitable for persistence to the
+      # database.  Protected attributes will be included so don't send this to
+      # end users.
+      def for_db
+        hash_for_db = {}
+
+        self.class.model_attributes.each do |attr_name, ivar_name|
+          if value = instance_variable_get(ivar_name)
+            hash_for_db[attr_name.to_sym] = value
+          end
+        end
+
+        self.class.protected_model_attributes.each do |attr_name, ivar_name|
+          if value = instance_variable_get(ivar_name)
+            hash_for_db[attr_name.to_sym] = value
+          end
+        end
+
+        hash_for_db
+      end
+
+      # Adds a validation error if there is no certificate or public key,
+      # or else if *both* a certificate *and* a public_key are present (which
+      # is ambiguous)
       def certificate_or_pubkey_present
-        if certificate.nil? && public_key.nil?
+        # must use the @public_key instance var b/c the getter method will
+        # return the cert's public key for compat reasons
+        if certificate.nil? && @public_key.nil?
           errors.add(:credentials, "must have a certificate or public key")
-        elsif certificate && public_key # should never have BOTH
+        elsif certificate && @public_key # should never have BOTH
           errors.add(:credentials, "cannot have both a certificate and public key")
         end
       end
@@ -223,13 +499,15 @@ module Opscode
       # is here for the data access layer to add validation errors for invalid
       # email addrs.
       def email_not_unique!
-        errors.add(:email, "is already in use")
+        errors.add(:conflicts, "email")
+        errors.add(:email, "already exists.")
       end
 
       # Same deal as with email, these objects can't determine if their attrs
       # are globally unique or not, so the data layer calls this when a
       # uniqueness constraint is violated.
       def username_not_unique!
+        errors.add(:conflicts, "username")
         errors.add(:username, "is already taken")
       end
 

@@ -51,10 +51,16 @@ module Mixlib
           # set the organization database for use with global groups
           org_db = (orgname && database_from_orgname(orgname)) || database
 
-          actor_ids = actornames.uniq.inject([]) do |memo, actorname|
-            user = Mixlib::Authorization::Models::User.by_username(:key => actorname).first
-            user && (auth_join = AuthJoin.by_user_object_id(:key=>user.id).first) && (memo << auth_join.auth_object_id)
-            memo
+          if Opscode::DarkLaunch.is_feature_enabled?('sql_users', :GLOBALLY)
+            user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection, nil, 0)
+            users = user_mapper.find_all_for_authz_map(actornames)
+            actor_ids = users.map {|u| u.authz_id}
+          else
+            actor_ids = actornames.uniq.inject([]) do |memo, actorname|
+              user = Mixlib::Authorization::Models::User.by_username(:key => actorname).first
+              user && (auth_join = AuthJoin.by_user_object_id(:key=>user.id).first) && (memo << auth_join.auth_object_id)
+              memo
+            end
           end
 
           client_ids = clientnames.uniq.inject([]) do |memo, clientname|
@@ -75,8 +81,13 @@ module Mixlib
         end
 
         def add_actor(actorname, database)
+          Mixlib::Authorization::Log.debug { "Adding actor: #{actorname.inspect} in database #{database}\n#{caller(3)[0..3].map {|l| "\t#{l}"}.join("\n")}"}
           base_url = Mixlib::Authorization::Config.authorization_service_uri
-          actor_id = transform_actor_ids([actorname], database, :to_auth).first
+          if actor_id = transform_actor_ids([actorname], database, :to_auth).first
+            Mixlib::Authorization::Log.debug { "Found actor id #{actor_id.inspect} for #{actorname}"}
+          else
+            raise "No actor id fround by #transform_actor_ids for #{actorname} in database #{database}"
+          end
           group_auth_id =  AuthJoin.by_user_object_id(:key=>self["_id"]).first.auth_object_id
           url = [base_url,"groups",group_auth_id,"actors",actor_id].join("/")
           Mixlib::Authorization::Log.debug("Adding actor: #{actor_id}, url: #{url.inspect}")

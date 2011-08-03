@@ -37,7 +37,7 @@ module Opscode
       Mixlib::Authorization::Config
     end
 
-    # The information about this object that is required to create its AuthZ side counterpart.
+    # The information about this object that is required to initialize its AuthZ side counterpart.
     def authz_model_data_as(requesting_actor_id)
       { OBJECT_ID=>authz_id, REQUESTER_ID => requesting_actor_id}
     end
@@ -61,6 +61,8 @@ module Opscode
       assign_authz_id!(authz_model.identity["id"])
     end
 
+    # Updates the authz side model for this object on behalf of the actor given
+    # by +requesting_actor_id+
     def update_authz_object_as(requesting_actor_id)
       logger.debug { "#{call_info} updating authz model #{authz_model_class} #{self.inspect}" }
 
@@ -77,15 +79,8 @@ module Opscode
     # our reference to it. This is how it was in the previous CouchDB-based code.
     def destroy_authz_object_as(requesting_actor_id)
       if authz_id
-        # The actual destroy was removed from the original couchdb-based
-        # implementation at some point. We won't rock the boat by changing it.
-        #authz_model = authz_object_as(requesting_actor_id)
-        #logger.debug "#{call_info} removing reference to authz object: #{authz_model_class} #{authz_model}"
-        #authz_model.delete
-        #logger.debug "#{call_info}:destroyed authz model: #{authz_model.inspect}"
         assign_authz_id!(nil)
       else
-        #logger.debug "IN DELETE JOIN ACL: Cannot find join for #{self.id}"
         false
       end
     end

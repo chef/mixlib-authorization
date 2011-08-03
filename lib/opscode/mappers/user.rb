@@ -263,6 +263,17 @@ module Opscode
         end
       end
 
+      # Loads the entire set of users into memory. Don't do this in production code.
+      def find_all
+        benchmark_db(:read, :user) { table.map {|u| inflate_model(u) } }
+      end
+
+      # Loads the full objects for all of the users in the list of +usernames+
+      def find_all_by_username(usernames)
+        finder = table.where(:username => usernames)
+        benchmark_db(:read, :user) { finder.map {|u| inflate_model(u) } }
+      end
+
       # Finds the users by username, and returns it with the id, authz_id, and username set.
       def find_all_for_authz_map(usernames)
         return usernames if usernames.empty?

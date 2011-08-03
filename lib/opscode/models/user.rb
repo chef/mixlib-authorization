@@ -435,6 +435,19 @@ module Opscode
         as_str << ">"
       end
 
+      def pretty_print(pp)
+        data = for_db
+        pp.text("#{self.class.name}: #{data.delete(:username)} (0x#{object_id.to_s(16)})\n")
+        pp.text("database id: #{data.delete(:id)}\n")
+        pp.text("Authz id: #{data.delete(:authz_id)}\n")
+        pp.nest(2) do
+          data.each do |attr_name, value|
+            pp.text("#{attr_name}: #{value}")
+            pp.breakable
+          end
+        end
+      end
+
       # A Hash representation of this object suitable for conversion to JSON
       # for publishing via API. Protected attributes will not be included.
       def for_json

@@ -107,7 +107,7 @@ module Mixlib
         raise ArgumentError, "must supply actor" unless actor
 
         if true #DARKLAUNCH
-          user_mapper = Opscode::Mappers::User.new(Opscode::Models.default_connection, nil, 0)
+          user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection, nil, 0)
           if user = user_mapper.find_by_authz_id(actor)
             Mixlib::Authorization::Log.debug("actor to user: authz id: #{actor} is a user named #{user.username}")
           else
@@ -171,7 +171,7 @@ module Mixlib
       
       def user_or_client_by_name(ucname, org_database)
         if true #DARKLAUNCH
-          user_mapper = Opscode::Mappers::User.new(Opscode::Models.default_connection, nil, 0)
+          user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection, nil, 0)
           user = user_mapper.find_by_username(ucname)
         else
           user = Mixlib::Authorization::Models::User.on(org_database).by_username(:key => ucname).first
@@ -194,7 +194,7 @@ module Mixlib
         if true #DARKLAUNCH
           usernames = []
           # Find all the users in one query like a boss
-          user_mapper = Opscode::Mappers::User.new(Opscode::Models.default_connection, nil, 0)
+          user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection, nil, 0)
           users = user_mapper.find_all_by_authz_id(actors)
           remaining_actors = actors - users.map(&:authz_id)
           usernames.concat(users.map(&:username))
@@ -226,7 +226,7 @@ module Mixlib
         if true #DARKLAUNCH
           authz_ids = []
           #look up all the users with one query like a boss
-          user_mapper = Opscode::Mappers::User.new(Opscode::Models.default_connection, nil, 0)
+          user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection, nil, 0)
           users = user_mapper.find_all_for_authz_map(actors)
           authz_ids.concat(users.map(&:authz_id))
           actors -= users.map(&:username)

@@ -11,7 +11,7 @@ module Opscode
   #   This object can be passed to the initializer of the mapper classes.
   # * defines an after filter that writes the aggregate stats from the statsd
   #   wrapper to estatsd.
-  # * defines an attr_reader for db_stats to access the wrapped statsd client.
+  # * defines attr_reader +db_stats+ to access the wrapped statsd client.
   #
   #=== Contract:
   # This mixin requires:
@@ -53,6 +53,7 @@ module Opscode
         end
       end
 
+      # Writes the aggregate
       def write_request_summary
         @statsd_client.count("upstreamRequests.databaseCallsPerReq", @total_db_calls)
         @statsd_client.timing("upstreamRequests.databaseCalltimePerReq", @total_db_time)

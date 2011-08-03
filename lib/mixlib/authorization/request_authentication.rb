@@ -145,7 +145,7 @@ module Mixlib
       end
 
       def find_user_sql
-        user_mapper = Opscode::Mappers::User.new(Opscode::Models.default_connection,nil, 0)
+        user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection,nil, 0)
         if user = user_mapper.find_for_authentication(username)
           @actor_type = :user
           user

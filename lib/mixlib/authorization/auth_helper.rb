@@ -175,7 +175,7 @@ module Mixlib
           user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection, nil, 0)
           user = user_mapper.find_by_username(ucname)
         else
-          user = Mixlib::Authorization::Models::User.on(org_database).by_username(:key => ucname).first
+          user = Mixlib::Authorization::Models::User.by_username(:key => ucname).first
         end
         user ||= Mixlib::Authorization::Models::Client.on(org_database).by_clientname(:key=>ucname).first
         Mixlib::Authorization::Log.debug("user or client by name, name #{ucname}, org database, #{org_database}, user: #{user.class}, #{user.nil? ? nil : user.respond_to?(:username) ? user.username : user.clientname}")

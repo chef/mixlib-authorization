@@ -112,13 +112,13 @@ module Opscode
         # separately allows us to give a better experience in the common
         # non-race failure conditions.
         unless (user.username.nil? || user.username.empty?)
-          if benchmark_db(:validate, :user) { table.filter(:username => user.username).any? }
+          if execute_sql(:validate, :user) { table.filter(:username => user.username).any? }
             user.username_not_unique!
           end
         end
 
         unless (user.email.nil? || user.email.empty?)
-          if benchmark_db(:validate, :user) { table.filter(:email => user.email).any? }
+          if execute_sql(:validate, :user) { table.filter(:email => user.email).any? }
             user.email_not_unique!
           end
         end
@@ -140,7 +140,7 @@ module Opscode
       def user_side_create(user)
         user_data = user.for_db
         row_data = map_to_row!(user_data)
-        benchmark_db(:create, :user) { table.insert(row_data) }
+        execute_sql(:create, :user) { table.insert(row_data) }
       end
 
       # Updates the row in the database representing +user+ which should be a
@@ -155,7 +155,7 @@ module Opscode
 
         validate_before_update!(user)
 
-        benchmark_db(:update, :user) { table.filter(:id => user.id).update(map_to_row!(user.for_db)) }
+        execute_sql(:update, :user) { table.filter(:id => user.id).update(map_to_row!(user.for_db)) }
       rescue Sequel::DatabaseError => e
         log_exception("User update failed", e)
         self.class.query_failed!(e.message)
@@ -176,7 +176,7 @@ module Opscode
         # separately allows us to give a better experience in the common
         # non-race failure conditions.
         unless (user.username.nil? || user.username.empty?) # these are covered by other validations
-          existing_users_ids = benchmark_db(:validate, :user) do
+          existing_users_ids = execute_sql(:validate, :user) do
             table.select(:id).filter(:username => user.username).map {|u| u[:id]}
           end
           if existing_users_ids.any? {|id| id != user.id }
@@ -185,7 +185,7 @@ module Opscode
         end
 
         unless (user.email.nil? || user.email.empty?) # validated elsewhere
-          existing_users_ids = benchmark_db(:validate, :user) do
+          existing_users_ids = execute_sql(:validate, :user) do
             table.select(:id).filter(:email => user.email).map {|u| u[:id]}
           end
           if existing_users_ids.any? {|id| id != user.id }
@@ -207,11 +207,11 @@ module Opscode
           self.class.invalid_object!("Cannot save user #{user.username} without a valid id")
         end
 
-        unless benchmark_db(:validate, :user) { table.filter(:id => user.id).any? }
+        unless execute_sql(:validate, :user) { table.filter(:id => user.id).any? }
           raise RecordNotFound, "Can't delete user #{user.username} because it doesn't exist"
         end
 
-        benchmark_db(:delete, :user) { table.filter(:id => user.id).delete }
+        execute_sql(:delete, :user) { table.filter(:id => user.id).delete }
       end
 
       # Returns a Models::User object containing *only* enough data to
@@ -226,7 +226,7 @@ module Opscode
       # shouldn't be used to modify the user object.
       def find_for_authentication(username)
         finder = table.select(:id,:authz_id,:username, :pubkey_version,:public_key).where(:username => username)
-        if user_data = benchmark_db(:read, :user) { finder.first }
+        if user_data = execute_sql(:read, :user) { finder.first }
           inflate_model(user_data)
         else
           nil
@@ -236,7 +236,7 @@ module Opscode
       # Returns a Models::User object with all properties set.
       def find_by_username(username)
         finder = table.where(:username => username)
-        if user_data = benchmark_db(:read, :user) { finder.first }
+        if user_data = execute_sql(:read, :user) { finder.first }
           inflate_model(user_data)
         else
           nil
@@ -246,7 +246,7 @@ module Opscode
       # Finds the user with +user_id+ and returns it with all properties
       def find_by_id(user_id)
         finder = table.where(:id => user_id)
-        if user_data = benchmark_db(:read, :user) { finder.first }
+        if user_data = execute_sql(:read, :user) { finder.first }
           inflate_model(user_data)
         else
           nil
@@ -256,7 +256,7 @@ module Opscode
       # Finds the user by the given +authz_id+ and returns it with the id, authz_id and username set.
       def find_by_authz_id(authz_id)
         finder = table.select(:id,:authz_id,:username).where(:authz_id => authz_id)
-        if user_data = benchmark_db(:read, :user) { finder.first }
+        if user_data = execute_sql(:read, :user) { finder.first }
           inflate_model(user_data)
         else
           nil
@@ -265,37 +265,37 @@ module Opscode
 
       # Loads the entire set of users into memory. Don't do this in production code.
       def find_all
-        benchmark_db(:read, :user) { table.map {|u| inflate_model(u) } }
+        execute_sql(:read, :user) { table.map {|u| inflate_model(u) } }
       end
 
       # Loads the full objects for all of the users in the list of +usernames+
       def find_all_by_username(usernames)
         finder = table.where(:username => usernames)
-        benchmark_db(:read, :user) { finder.map {|u| inflate_model(u) } }
+        execute_sql(:read, :user) { finder.map {|u| inflate_model(u) } }
       end
 
       # Finds the users by username, and returns it with the id, authz_id, and username set.
       def find_all_for_authz_map(usernames)
         return usernames if usernames.empty?
         finder = table.select(:id,:authz_id,:username).where(:username => usernames)
-        benchmark_db(:read, :user) { finder.map {|u| inflate_model(u)}}
+        execute_sql(:read, :user) { finder.map {|u| inflate_model(u)}}
       end
 
       def find_all_by_authz_id(authz_ids)
         return authz_ids if authz_ids.empty?
         finder = table.select(:id,:authz_id,:username).where(:authz_id => authz_ids)
-        benchmark_db(:read, :user) { finder.map {|u| inflate_model(u)}}
+        execute_sql(:read, :user) { finder.map {|u| inflate_model(u)}}
       end
 
       def find_all_by_id(ids)
         return ids if ids.empty?
         finder = table.select(:id,:authz_id,:username).where(:id => ids)
-        benchmark_db(:read, :user) { finder.map {|u| inflate_model(u)}}
+        execute_sql(:read, :user) { finder.map {|u| inflate_model(u)}}
       end
 
       # Returns a list of all usernames in the database as strings.
       def find_all_usernames
-        benchmark_db(:read, :user) do
+        execute_sql(:read, :user) do
           table.select(:username).map do |row|
             row[:username]
           end
@@ -306,7 +306,7 @@ module Opscode
       # The objects are "partially inflated" and contain the username, first
       # name, last name, and email address
       def find_all_for_support_ui
-        benchmark_db(:read, :user) do
+        execute_sql(:read, :user) do
           table.select(:username, :email, :serialized_object).map do |row|
             inflate_model(row)
           end
@@ -372,6 +372,23 @@ module Opscode
         end
 
         model_data
+      end
+
+
+      # Wraps the sql executing code in the given block with a single retry and
+      # runs it. Also benchmarks the call. crud_operation and model are not yet
+      # used, they're intended for future stats keeping.
+      #
+      # NB: This will break any transactions that are initiated outside of this
+      # call if the operation fails and is retried.
+      def execute_sql(crud_operation, model, should_retry=true, &sql_code)
+        benchmark_db(crud_operation, model, &sql_code)
+      rescue Sequel::DatabaseConnectionError
+        if should_retry
+          execute_sql(crud_operation, model, false, &sql_code)
+        else
+          raise
+        end
       end
 
       # Benchmark the database operation done in the given block.

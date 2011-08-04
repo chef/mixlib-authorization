@@ -11,35 +11,6 @@ module Opscode
     class InvalidConfig < StandardError
     end
 
-    #== Opscode::Mappers::ConnectionVerification
-    # A mixin for a Merb controller to verify database connections.
-    #
-    #=== Provides:
-    # Defines a before filter that will check the database connection and reset
-    # it if it has died (but the database is now available).
-    #
-    #=== Contract:
-    # * The including class should respond to the class method +before+ to
-    #   define a before filter
-    # * The database should be correctly configured via
-    #   Opscode::Mappers.connection_string=() or else every request will fail.
-    module ConnectionVerification
-      def self.included(including_class)
-        including_class.class_eval do
-          before(:verify_db_connection)
-        end
-      end
-
-      def verify_db_connection
-        Opscode::Mappers.cleanup_dead_connections
-      end
-
-    end
-
-    # A more or less no-op query that's used to make sure the database
-    # connection isn't dead.
-    SELECT_1 = "SELECT 1;".freeze
-
     # A connection string passed to Sequel.connect()
     #
     # Examples:
@@ -65,19 +36,6 @@ module Opscode
     # database via callbacks, which they can only do via de facto globals.
     def self.default_connection
       @database ||= Sequel.connect(connection_string)
-    end
-
-    # Sequel will reestablish connections to the database, but only after one
-    # failed query. Since unicorn is pre-forking, that means we'll have a lot
-    # of unicorn processes with dead connections to clear out after a
-    # connection drop event. This method is a mitigation strategy for that
-    # problem, where we issue a query at the beginning of a request to ensure a
-    # valid connection.
-    def self.cleanup_dead_connections(should_retry=true)
-      default_connection.run(SELECT_1)
-    rescue Sequel::DatabaseConnectionError
-      raise unless should_retry
-      cleanup_dead_connections(false)
     end
 
     #== Opscode::Mappers::Base

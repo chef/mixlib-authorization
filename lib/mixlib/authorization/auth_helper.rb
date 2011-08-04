@@ -112,8 +112,8 @@ module Mixlib
             Mixlib::Authorization::Log.debug("actor to user: authz id: #{actor} is a user named #{user.username}")
           else
             begin
-              client_id = AuthJoin.by_auth_object_id(:key=>actor).first
-              user = Mixlib::Authorization::Models::Client.on(org_database).get(user_object.user_object_id)
+              client_join_entry = AuthJoin.by_auth_object_id(:key=>actor).first
+              user = Mixlib::Authorization::Models::Client.on(org_database).get(client_join_entry.user_object_id)
               Mixlib::Authorization::Log.debug("actor to user: authz id: #{actor} is a client named #{client.clientname}")
             rescue StandardError=>se
               # BUGBUG: why rescue?
@@ -123,6 +123,7 @@ module Mixlib
           end
           user
         else
+          user_object = AuthJoin.by_auth_object_id(:key=>actor).first
           user = begin
                    user_object && Mixlib::Authorization::Models::User.get(user_object.user_object_id)
                  rescue RestClient::ResourceNotFound

@@ -20,6 +20,8 @@ module Opscode
     #
     # See also: http://sequel.rubyforge.org/rdoc/files/doc/opening_databases_rdoc.html
     def self.connection_string=(sequel_connection_string)
+      @database.disconnect if @database.respond_to?(:disconnect)
+      @database = nil
       @connection_string = sequel_connection_string
     end
 

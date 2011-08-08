@@ -21,6 +21,7 @@ Gem::Specification.new do |s|
 
   s.add_dependency "sequel"
   s.add_dependency "activemodel"
+  s.add_dependency "bcrypt-ruby"
 
   s.require_path = 'lib'
   s.files = %w(LICENSE README.rdoc Rakefile NOTICE) + Dir.glob("{lib,spec,features}/**/*")

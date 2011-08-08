@@ -67,7 +67,7 @@ namespace :db do
       logger = Logger.new(STDOUT)
       migrate_dir = File.expand_path("../db/migrate", __FILE__)
 
-      connection_string = "mysql2://root:%s@localhost/opscode_chef_whatevs"
+      connection_string = "mysql2://root:%s@localhost/opscode_chef"
       puts "** MIGRATING PRODUCTION **"
       puts connection_string % "PASSWORD"
 

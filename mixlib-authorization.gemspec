@@ -1,8 +1,9 @@
-MIXLIB_AUTHORIZATION_VERSION = "1.2.1"
+$:.unshift(File.expand_path("../lib", __FILE__))
+require 'mixlib/authorization/version'
 
 Gem::Specification.new do |s|
   s.name = "mixlib-authorization"
-  s.version = MIXLIB_AUTHORIZATION_VERSION
+  s.version = Mixlib::Authorization::VERSION
   s.platform = Gem::Platform::RUBY
   s.has_rdoc = true
   s.extra_rdoc_files = ["README.rdoc", "LICENSE", 'NOTICE']
@@ -18,7 +19,6 @@ Gem::Specification.new do |s|
   s.add_dependency "mixlib-config"
 
   s.add_dependency "sequel"
-  s.add_dependency "mysql2"
   s.add_dependency "activemodel"
 
   s.require_path = 'lib'

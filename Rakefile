@@ -27,7 +27,7 @@ end
 
 desc "install the gem locally"
 task :install => [:package] do
-  sh %{gem install pkg/mixlib-authorization-#{MIXLIB_AUTHORIZATION_VERSION}}
+  sh %{gem install pkg/mixlib-authorization-#{Mixlib::Authorization::VERSION}}
 end
 
 desc "remove build files"
@@ -50,6 +50,36 @@ namespace :db do
     sh("sequel -m db/migrate mysql2://root@localhost/opscode_chef_test -M 0")
     sh("sequel -m db/migrate mysql2://root@localhost/opscode_chef_test")
   end
+
+  namespace :production do
+    desc "MIGRATE PRODUCTION"
+    task :migrate do
+      # NOTE: For production we do the migration manually instead of shelling
+      # out to `sequel -m` so that we never enter the root database password in
+      # the argv of a command (where it could be seen in `ps`).
+      #
+      # This code duplicates the functionality of bin/sequel in the sequel gem.
+
+      require 'sequel'
+      require 'mysql2'
+      require 'highline'
+      require 'logger'
+      logger = Logger.new(STDOUT)
+      migrate_dir = File.expand_path("../db/migrate", __FILE__)
+
+      connection_string = "mysql2://root:%s@localhost/opscode_chef_whatevs"
+      puts "** MIGRATING PRODUCTION **"
+      puts connection_string % "PASSWORD"
+
+      root_passwd = HighLine.new.ask("Database root password: ") {|q| q.echo = false}
+      db = Sequel.connect(connection_string % root_passwd, :loggers => [logger])
+
+      Sequel.extension :migration
+      Sequel::Migrator.apply(db, migrate_dir, nil)
+
+    end
+  end
+
 end
 
 

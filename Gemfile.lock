@@ -29,6 +29,14 @@ GIT
       mime-types (>= 1.15)
       rest-client (>= 0.5)
 
+GIT
+  remote: git@github.com:opscode/opscode-shared
+  revision: fb8b74258efea8b79985c4a5071b2eb14b424191
+  branch: master
+  specs:
+    opscode-dark-launch (0.0.3)
+      chef
+
 PATH
   remote: .
   specs:
@@ -104,5 +112,6 @@ DEPENDENCIES
   highline
   mixlib-authorization!
   mysql2
+  opscode-dark-launch!
   rake
   rspec

@@ -12,6 +12,9 @@ require 'mixlib/authentication/signatureverification'
 require 'mixlib/authorization/models'
 require 'pp'
 require 'stringio'
+require 'opscode/dark_launch'
+require 'opscode/models/user'
+require 'opscode/mappers/user'
 
 module Mixlib
   module Authorization

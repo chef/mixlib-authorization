@@ -17,6 +17,7 @@ Gem::Specification.new do |s|
   s.add_dependency "mixlib-authentication"
   s.add_dependency "mixlib-log"
   s.add_dependency "mixlib-config"
+  s.add_dependency "rest-client"
 
   s.add_dependency "sequel"
   s.add_dependency "activemodel"

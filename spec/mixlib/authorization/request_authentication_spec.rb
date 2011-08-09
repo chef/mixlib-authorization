@@ -8,26 +8,39 @@ class Struct::MockAuthModelsClient
   end
 end
 Struct.new("MockAuthModelsActor", :auth_object_id)
-Struct.new("MockMerbReqest", :env)
+class MockMerbReqest < Struct.new(:env, :params, :method, :path)
+  def raw_post
+    ""
+  end
+end
 
 # Uncomment for verbose test debugging.
 #Mixlib::Authorization::Log.level = :debug
+#Mixlib::Authentication::Log.level = :debug
 
 describe RequestAuthentication do
+  before(:all) do
+    Opscode::Mappers.connection_string = "mysql2://root@localhost/opscode_chef_test"
+  end
+
   before do
+    Opscode::Mappers.default_connection[:users].truncate
+    # Turn on SQL users regardless of what the dark launch file says
+    Opscode::DarkLaunch.stub!(:is_feature_enabled?).and_return(true)
     @user_class     = Struct::MockAuthModelsUser
     @client_class   = Struct::MockAuthModelsClient
     @actor_class    = Struct::MockAuthModelsActor
-    @request_class  = Struct::MockMerbReqest
+    @request_class  = MockMerbReqest
 
-    @req = @request_class.new
-    @req.env = { 'HTTP_X-OPS-SIGN' => 'not-used=but-required', 'HTTP_X-OPS-TIMESTAMP' => Time.new.rfc2822,
-                 'HTTP_HOST' => 'host.example.com', 'HTTP_X-OPS-CONTENT-HASH' => '12345'}
+
+    @user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection, nil, 0)
+
   end
 
   describe "when given a request missing the required headers" do
     before do
-      @req.env.clear
+      @req = @request_class.new
+      @req.env = {}
       @request_auth = Mixlib::Authorization::RequestAuthentication.new(@req, {})
     end
 
@@ -42,59 +55,80 @@ describe RequestAuthentication do
 
   describe "when authenticating a request from a user" do
     before do
-      @req.env["HTTP_X-OPS-USERID"] = "MCChris"
-      @mc_chris_auth_object = @actor_class.new("mc_chris_auth_object_id")
-      @mc_chris = @user_class.new("mc_chris_user_id", "MC Chris' Username", "mc_chris_public_key")
+      # Create the user
+      @user_data = {  :username => "mc-chris",
+                      :password => "password",
+                      :email => "mc.chris@example.com",
+                      :first_name => "MC",
+                      :last_name => "Chris",
+                      :display_name => "MC CHRIS",
+                      :certificate => AuthzFixtures::CERT}
+      @user = Opscode::Models::User.new(@user_data)
+      @user_mapper.create(@user)
+
+      # Generate the request data/signature
+      @client_side_data = {:http_method => "GET", :path => "/testing", :body => "", :host => 'mixlib-authz.example.com', :timestamp => Time.now.to_s, :user_id => 'mc-chris'}
+      @user_rsa_key = OpenSSL::PKey::RSA.new(AuthzFixtures::PRIVKEY)
+      @signature_creator = Mixlib::Authentication::SignedHeaderAuth.signing_object(@client_side_data)
+      @client_side_headers = @signature_creator.sign(@user_rsa_key)
+      @server_side_headers = {}
+      @client_side_headers.each do |header, value|
+        key = header[/^X/] ? "HTTP_#{header}" : header
+        @server_side_headers[key] = value
+      end
+      @server_side_headers['HTTP_HOST'] = 'mixlib-authz.example.com'
+
+      # Create request object (implements contract of object returned by #request in a merb controller)
+      @req = @request_class.new(@server_side_headers, {}, "GET", "/testing")
+      @req.env = @server_side_headers
       @params = {}
 
       @request_auth =  Mixlib::Authorization::RequestAuthentication.new(@req, @params)
 
-      Mixlib::Authorization::Models::User.stub!(:find).with("MCChris").and_return(@mc_chris)
-      @request_auth.stub!(:user_to_actor).with("mc_chris_user_id").and_return(@mc_chris_auth_object)
-
-      OpenSSL::PKey::RSA.stub!(:new).with("mc_chris_public_key").and_return(:mc_chris_pub_key_rsaified)
     end
 
     it "fails if the user is not valid, i.e. can't be found in the database" do
-      Mixlib::Authorization::Models::User.stub!(:find).with("MCChris").and_raise(ArgumentError)
+      @user_mapper.destroy(@user)
       @request_auth.should_not be_a_valid_request
     end
 
-    it "fails if the user is valid but authenticator returns a falsey value for :authenticate_user_request" do
-      @request_auth.authenticator.should_receive(:authenticate_request).with(:mc_chris_pub_key_rsaified).and_return(nil)
+    it "fails if the user's certificate does not match the key used to sign the request" do
+      @user.certificate = AuthzFixtures::WRONG_CERT
+      @user_mapper.update(@user)
       @request_auth.should_not be_a_valid_request
     end
 
     it "succeeds when the user is valid and the request signature can be verified with the user's public key" do
-      @request_auth.authenticator.should_receive(:authenticate_request).with(:mc_chris_pub_key_rsaified).and_return(:a_successful_auth)
       @request_auth.should be_a_valid_request
     end
 
-    it "sets the requesting actor's id in the params in a successful request" do
-      pending "users of this class should not be depending on this shit"
-      @request_auth.authenticator.should_receive(:authenticate_request).with(:mc_chris_pub_key_rsaified).and_return(:a_successful_auth)
-      @request_auth.should be_a_valid_request
-      @params[:requesting_actor_id].should == "mc_chris_auth_object_id"
-    end
   end
 
   describe "when authenticating a request from an api client" do
     before do
-      @req.env["HTTP_X-OPS-USERID"] = "a_knife_client"
-      @knife_client_auth_obj = @actor_class.new("knife_client_actor_id")
-      @knife_client = @client_class.new("knife_client_id", "knife_client_name", "knife_client_public_key")
-      @params = {:organization_id => "the_pushers_union"}
+      # Client Data
+      @client_data = {:clientname => "a_knife_client", :orgname => "example-org", :certificate => AuthzFixtures::CERT}
+      @client = Mixlib::Authorization::Models::Client.new(@client_data)
+      @client.stub!(:authz_id).and_return("123abc")
 
-      Mixlib::Authorization::Models::User.stub!(:find).and_raise(ArgumentError)
-      @the_pushers_couchdb = mock("the-orgdb-for-the-pushers-union")
-      @the_pushers_couchdb.stub!(:by_clientname).with(:key => "a_knife_client").and_return([@knife_client])
-      Mixlib::Authorization::Models::Client.stub!(:on).with(:the_pushers_database).and_return(@the_pushers_couchdb)
+      # Generate the request data/signature
+      @client_side_data = {:http_method => "GET", :path => "/testing", :body => "", :host => 'mixlib-authz.example.com', :timestamp => Time.now.to_s, :user_id => 'a_knife_client'}
+      @client_rsa_key = OpenSSL::PKey::RSA.new(AuthzFixtures::PRIVKEY)
+      @signature_creator = Mixlib::Authentication::SignedHeaderAuth.signing_object(@client_side_data)
+      @client_side_headers = @signature_creator.sign(@client_rsa_key)
+      @server_side_headers = {}
+      @client_side_headers.each do |header, value|
+        key = header[/^X/] ? "HTTP_#{header}" : header
+        @server_side_headers[key] = value
+      end
+      @server_side_headers['HTTP_HOST'] = 'mixlib-authz.example.com'
 
+      # Create request object (implements contract of object returned by #request in a merb controller)
+      @req = @request_class.new(@server_side_headers, {}, "GET", "/testing")
+      @params = {:organization_id => "example-org"}
       @request_auth = Mixlib::Authorization::RequestAuthentication.new(@req, @params)
-      @request_auth.stub!(:user_to_actor).with("knife_client_id").and_return(@knife_client_auth_obj)
-      @request_auth.stub!(:database_from_orgname).and_return(:the_pushers_database)
+      @request_auth.stub!(:database_from_orgname).and_return(:couchrest_db_for_example_org)
 
-      OpenSSL::PKey::RSA.stub!(:new).with("knife_client_public_key").and_return(:knife_client_pub_key_rsaified)
     end
 
     it "extracts the API client id from the headers" do
@@ -102,112 +136,122 @@ describe RequestAuthentication do
     end
 
     it "extracts the orgname from the params hash" do
-      @request_auth.orgname.should == 'the_pushers_union'
+      @request_auth.orgname.should == 'example-org'
     end
 
-    it "fetches the client from the database" do
-      @request_auth.requesting_entity.should == @knife_client
+    describe "and the client does not exist in the database" do
+      before do
+        @org_scoped_client_model = mock("CouchDB Client model for example-org", :by_clientname => [ ])
+        Mixlib::Authorization::Models::Client.stub!(:on).with(:couchrest_db_for_example_org).and_return(@org_scoped_client_model)
+      end
+
+      it "fails authentication" do
+        @request_auth.should_not be_a_valid_request
+      end
+
     end
 
-    it "loads the public key for the client" do
-      @request_auth.user_key.should == :knife_client_pub_key_rsaified
-    end
+    describe "and the client exists in the database" do
+      before do
+        # Wire up the layers of proxies and such for CouchREST
+        @org_scoped_client_model = mock("CouchDB Client model for example-org", :by_clientname => [ @client ])
+        Mixlib::Authorization::Models::Client.stub!(:on).with(:couchrest_db_for_example_org).and_return(@org_scoped_client_model)
+      end
 
-    it "succeeds when the client is valid and the request signature can be verified with the client's public key" do
-      @request_auth.authenticator.should_receive(:authenticate_request).with(:knife_client_pub_key_rsaified).and_return(:a_successful_auth)
-      @request_auth.should be_a_valid_request
-    end
+      it "fetches the client from the database" do
+        @request_auth.requesting_entity.should == @client
+      end
 
-    it "fails when the client is not valid (can't be found in the org's db)" do
-      @the_pushers_couchdb.stub!(:by_clientname).with(:key => "a_knife_client").and_return([])
-      @request_auth.should_not be_a_valid_request
-    end
+      it "loads the public key for the client" do
+        @request_auth.user_key.to_s.should == @client.public_key.to_s
+      end
 
-    it "fails when the client is valid but the request signature can't be verified" do
-      @request_auth.authenticator.should_receive(:authenticate_request).with(:knife_client_pub_key_rsaified).and_return(nil)
-      @request_auth.should_not be_a_valid_request
-    end
+      it "succeeds when the client is valid and the request signature can be verified with the client's public key" do
+        @request_auth.should be_a_valid_request
+      end
 
-    it "sets the requesting actor's id in the params in a successful request" do
-      pending "users of this class should not be depending on this shit"
-      @request_auth.authenticator.should_receive(:authenticate_request).with(:knife_client_pub_key_rsaified).and_return(:a_successful_auth)
-      @request_auth.authenticate
-      @params[:requesting_actor_id].should == "knife_client_actor_id"
-    end
 
-    it "determines that the request is not from a validator when the requesting entity is not a validator" do
-      @request_auth.request_from_validator?.should be_false
-    end
+      it "fails when the client is valid but the request signature can't be verified" do
+        @client.certificate = AuthzFixtures::WRONG_CERT
+        @request_auth.should_not be_a_valid_request
+      end
 
-    it "determines that the request is from a validator when the requesting entity is a validator" do
-      @knife_client.validator = true
-      @request_auth.request_from_validator?.should be_true
-    end
+      it "determines that the request is not from a validator when the requesting entity is not a validator" do
+        @request_auth.request_from_validator?.should be_false
+      end
 
-    it "sets params[:request_from_validator] to false when the requesting client is not a validator" do
-      pending "users of this class should not be depending on this shit"
-      @request_auth.authenticator.should_receive(:authenticate_request).with(:knife_client_pub_key_rsaified).and_return(:a_successful_auth)
-      @request_auth.authenticate
-      @params[:request_from_validator].should be_false
-    end
+      it "determines that the request is from a validator when the requesting entity is a validator" do
+        @client.validator = true
+        @request_auth.request_from_validator?.should be_true
+      end
 
-    it "sets params[:request_from_validator] to true when the requesting client *is* a validator" do
-      pending "users of this class should not be depending on this shit"
-      @knife_client.validator = true
-      @request_auth.authenticator.should_receive(:authenticate_request).with(:knife_client_pub_key_rsaified).and_return(:a_successful_auth)
-      @request_auth.authenticate
-      @params[:request_from_validator].should be_true
-    end
+      it "determines the request is not from the webui " do
+        @request_auth.should_not be_request_from_webui
+      end
 
-    it "determines the request is not from the webui " do
-      @request_auth.should_not be_request_from_webui
-    end
+      it "extracts the requesting actor id" do
+        @request_auth.requesting_actor_id.should == "123abc"
+      end
 
-    it "extracts the requesting actor id" do
-      @knife_client_auth_obj.auth_object_id.should == "knife_client_actor_id"
-      @request_auth.requesting_actor_id.should == "knife_client_actor_id"
-    end
+      it "says that the actor exists" do
+        @request_auth.actor_exists?.should be_true
+      end
 
-    it "says that the actor exists" do
-      @request_auth.actor_exists?.should be_true
-    end
-
-    it "queries the authenticator object to determine if the request's timestamp is valid" do
-      @request_auth.authenticator.should_receive(:authenticate_request).with(:knife_client_pub_key_rsaified).and_return(:a_successful_auth)
-      @request_auth.should be_a_valid_request
-      # boo for message expectations but we stubbed the crap out of mixlib authn so whatever.
-      @request_auth.authenticator.should_receive(:valid_timestamp?).and_return(true)
-      @request_auth.valid_timestamp?.should be_true
-      @request_auth.authenticator.should_receive(:valid_timestamp?).and_return(false)
-      @request_auth.valid_timestamp?.should be_false
+      it "queries the authenticator object to determine if the request's timestamp is valid" do
+        @request_auth.should be_a_valid_request
+        # TODO: craft an actual unauthorized request w/ bad timestamp instead.
+        @request_auth.authenticator.should_receive(:valid_timestamp?).and_return(true)
+        @request_auth.valid_timestamp?.should be_true
+        @request_auth.authenticator.should_receive(:valid_timestamp?).and_return(false)
+        @request_auth.valid_timestamp?.should be_false
+      end
     end
 
   end
 
   describe "when authenticating a request from the Web UI" do
     before do
-      @req.env['HTTP_X-OPS-REQUEST-SOURCE'] = 'web'
-      @req.env["HTTP_X-OPS-USERID"] = "MCChris"
-      @mc_chris_auth_object = @actor_class.new("mc_chris_auth_object_id")
-      @mc_chris = @user_class.new("mc_chris_user_id", "MC Chris' Username", "mc_chris_public_key")
+      @user_data = {  :username => "mc-chris",
+                      :password => "password",
+                      :email => "mc.chris@example.com",
+                      :first_name => "MC",
+                      :last_name => "Chris",
+                      :display_name => "MC CHRIS",
+                      :certificate => AuthzFixtures::CERT}
+      @user = Opscode::Models::User.new(@user_data)
+      @user_mapper.create(@user)
+
+      # Generate the request data/signature
+      @client_side_data = {:http_method => "GET", :path => "/testing", :body => "", :host => 'mixlib-authz.example.com', :timestamp => Time.now.to_s, :user_id => 'mc-chris'}
+      @user_rsa_key = OpenSSL::PKey::RSA.new(AuthzFixtures::PRIVKEY2)
+      @signature_creator = Mixlib::Authentication::SignedHeaderAuth.signing_object(@client_side_data)
+      @client_side_headers = @signature_creator.sign(@user_rsa_key)
+      @server_side_headers = {}
+      @client_side_headers.each do |header, value|
+        key = header[/^X/] ? "HTTP_#{header}" : header
+        @server_side_headers[key] = value
+      end
+      @server_side_headers['HTTP_HOST'] = 'mixlib-authz.example.com'
+      @server_side_headers['HTTP_X-OPS-REQUEST-SOURCE'] = 'web'
+      @server_side_headers["HTTP_X-OPS-USERID"] = "mc-chris"
+
+      @req = @request_class.new(@server_side_headers, {}, "GET", "/testing")
+      @req.env = @server_side_headers
       @params = {}
 
-      Mixlib::Authorization::Config[:web_ui_public_key] = "webui_public_key"
+      Mixlib::Authorization::Config[:web_ui_public_key] = OpenSSL::PKey::RSA.new(AuthzFixtures::PUBKEY2.strip)
 
       @request_auth =  Mixlib::Authorization::RequestAuthentication.new(@req, @params)
 
-      Mixlib::Authorization::Models::User.stub!(:find).with("MCChris").and_return(@mc_chris)
-      @request_auth.stub!(:user_to_actor).with("mc_chris_user_id").and_return(@mc_chris_auth_object)
-
-      OpenSSL::PKey::RSA.stub!(:new).with("webui_public_key").and_return(:webui_public_key_rsaified)
     end
 
     it "uses the webui public key as the user key" do
-      @request_auth.user_key.should == :webui_public_key_rsaified
+      @request_auth.send(:webui_public_key).to_s.should == AuthzFixtures::PUBKEY2.to_s
+      @request_auth.user_key.to_s.should == AuthzFixtures::PUBKEY2.to_s
     end
 
     it "uses the webui public key when validating the request" do
-      @request_auth.authenticator.should_receive(:authenticate_request).with(:webui_public_key_rsaified).and_return(:a_successful_auth)
+      #@request_auth.authenticator.should_receive(:authenticate_request).with(:webui_public_key_rsaified).and_return(:a_successful_auth)
       @request_auth.should be_a_valid_request
     end
 

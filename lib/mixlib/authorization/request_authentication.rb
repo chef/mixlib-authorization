@@ -76,7 +76,8 @@ module Mixlib
 
       def requesting_entity_exists?
         !!requesting_entity
-      rescue AuthorizationError
+      rescue AuthorizationError => e
+        Log.debug("Error loading requesting entity: #{e}")
         false
       end
 
@@ -114,7 +115,7 @@ module Mixlib
       def authentic_request?
         authenticator.authenticate_request(user_key)
       rescue StandardError => se
-        Chef::Log.debug "Authentication failed: #{se}, #{se.backtrace.join("\n")}"
+        Log.debug "Authentication failed: #{se}, #{se.backtrace.join("\n")}"
         false
       end
 
@@ -150,6 +151,7 @@ module Mixlib
       def find_user_sql
         user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection,nil, 0)
         if user = user_mapper.find_for_authentication(username)
+          Log.debug("Found user for #{username}")
           @actor_type = :user
           user
         else
@@ -162,6 +164,7 @@ module Mixlib
         if orgname && (db = database_from_orgname(orgname))
           Log.debug "checking for client #{username}"
           client = Models::Client.on(db).by_clientname(:key=>username).first
+          Log.debug "Found client for #{username}"
           @actor_type = :client
           client
         else

@@ -107,6 +107,10 @@ describe Opscode::Models::User do
       @user.salt.should be_nil
     end
 
+    it "has no password version" do
+      @user.password_version.should be_nil
+    end
+
     it "has no image file" do
       @user.image_file_name.should be_nil
     end
@@ -214,13 +218,16 @@ describe Opscode::Models::User do
         @user.password = 'p@ssw0rd1'
       end
 
-      it "generates a random salt" do
-        @user.salt.should match(/[\w\-_]{60}/)
+      it "not have a salt" do
+        @user.salt.should be_nil
       end
 
       it "sets the hashed password" do
-        expected_passwd = Digest::SHA1.hexdigest("#{@user.salt}--p@ssw0rd1--")
-        @user.hashed_password.should == expected_passwd
+        @user.hashed_password.should == 'p@ssw0rd1'
+      end
+
+      it "sets the password version" do
+        @user.password_version.should == 2
       end
 
       it "has a valid password" do
@@ -517,8 +524,9 @@ describe Opscode::Models::User do
 
     it "generates a hashed password and salt" do
       @user.password.should == "p@ssw0rd1"
-      @user.salt.should_not be_nil
+      @user.salt.should be_nil
       @user.hashed_password.should_not be_nil
+      @user.password_version.should == 2
       @user.should be_correct_password('p@ssw0rd1')
     end
 

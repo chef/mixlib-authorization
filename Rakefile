@@ -35,7 +35,7 @@ task :clean do
 end
 
 desc "Run the specs and functional specs"
-task :test => [ :fucntional, :spec ]
+task :test => [ :functional, :spec ]
 
 namespace :db do
   desc "Effectively drop the db and then migrate it to current"

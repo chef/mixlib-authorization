@@ -2,6 +2,7 @@
 # ^^ is needed for the email address regex to work properly
 require 'openssl'
 require 'digest/sha2'
+require 'bcrypt'
 require 'active_model'
 require 'active_model/validations'
 
@@ -174,6 +175,7 @@ module Opscode
 
       ro_attribute :hashed_password
       ro_attribute :salt
+      ro_attribute :password_version # 1=SHA1, 2=BCrypt
 
       protected_attribute :id
       protected_attribute :authz_id
@@ -201,7 +203,6 @@ module Opscode
       validates_presence_of :password, :unless => :persisted?
 
       validates_presence_of :hashed_password
-      validates_presence_of :salt
 
       validates_format_of :username, :with => /^[a-z0-9\-_]+$/, :message => "has an invalid format (valid characters are a-z, 0-9, hyphen and underscore)"
       validates_format_of :email, :with => EmailAddress, :message => "has an invalid format"
@@ -307,13 +308,15 @@ module Opscode
       # on the timestamps.
       def ==(other)
         return false unless other.kind_of?(self.class)
+        self_data = for_db
         other_data = other.for_db
-        for_db.inject(true) do |matches, (attr_name, value)|
+
+        (self_data.keys | other_data.keys).inject(true) do |matches, attr_name|
           matches && case attr_name
           when :created_at, :updated_at, CREATED_AT, UPDATED_AT
             send(attr_name).to_i == other.send(attr_name).to_i
           else
-            value == other_data[attr_name]
+            self_data[attr_name] == other_data[attr_name]
           end
         end
       end
@@ -328,8 +331,9 @@ module Opscode
       # to the salted digest of +unhashed_password+
       def password=(unhashed_password)
         @password = unhashed_password
-        generate_salt!
-        @hashed_password = encrypt_password(unhashed_password)
+        @hashed_password = BCrypt::Password.create(unhashed_password)
+        @salt = nil
+        @password_version = 2
       end
 
       # Casts created_at to a Time object (if required) and returns it
@@ -353,8 +357,17 @@ module Opscode
       # True if +candidate_password+'s hashed form matches the hashed_password,
       # false otherwise.
       def correct_password?(candidate_password)
-        hashed_candidate_password = encrypt_password(candidate_password)
-        (@hashed_password.to_s.hex ^ hashed_candidate_password.hex) == 0
+        if (@password_version || 1) == 1
+          hashed_candidate_password = encrypt_password(candidate_password)
+          ret = (@hashed_password.to_s.hex ^ hashed_candidate_password.hex) == 0
+          if ret
+            # Trigger a password hash upgrade to the latest version
+            self.password = candidate_password
+          end
+          ret
+        else
+          BCrypt::Password.new(@hashed_password) == candidate_password
+        end
       end
 
       # The User's public key. Derived from the certificate if the user has a

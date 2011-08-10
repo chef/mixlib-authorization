@@ -42,11 +42,10 @@ describe Opscode::Models::User do
       :country => "USA",
       :twitter_account => "moonpolysoft",
       :hashed_password => "some hex bits",
-      :salt => "some random bits",
+      :password_version => 2,
       :image_file_name => 'current_status.png',
       :created_at => @now.utc.to_s,
       :updated_at => @now.utc.to_s
-
     }
   end
 
@@ -105,6 +104,10 @@ describe Opscode::Models::User do
 
     it "has no salt" do
       @user.salt.should be_nil
+    end
+
+    it "has no password version" do
+      @user.password_version.should be_nil
     end
 
     it "has no image file" do
@@ -214,13 +217,16 @@ describe Opscode::Models::User do
         @user.password = 'p@ssw0rd1'
       end
 
-      it "generates a random salt" do
-        @user.salt.should match(/[\w\-_]{60}/)
+      it "not have a salt" do
+        @user.salt.should be_nil
       end
 
       it "sets the hashed password" do
-        expected_passwd = Digest::SHA1.hexdigest("#{@user.salt}--p@ssw0rd1--")
-        @user.hashed_password.should == expected_passwd
+        @user.hashed_password.should == 'p@ssw0rd1'
+      end
+
+      it "sets the password version to 2" do
+        @user.password_version.should == 2
       end
 
       it "has a valid password" do
@@ -408,8 +414,12 @@ describe Opscode::Models::User do
       @user.hashed_password.should == "some hex bits"
     end
 
-    it "has a password salt" do
-      @user.salt.should == "some random bits"
+    it "has no password salt" do
+      @user.salt.should be_nil
+    end
+
+    it "has password version 2" do
+      @user.password_version.should == 2
     end
 
     it "has an image file" do
@@ -447,6 +457,7 @@ describe Opscode::Models::User do
     it "is not == to another user object if any of the data is different" do
       [:id, :authz_id, :first_name, :middle_name, :last_name, :username, :display_name, :hashed_password, :salt, :twitter_account].each do |attr_name|
         not_quite_data = @db_data.dup
+        not_quite_data[attr_name] ||= ""
         not_quite_data[attr_name] += "nope"
         not_quite = Opscode::Models::User.load(not_quite_data)
         @user.should_not == not_quite
@@ -457,9 +468,10 @@ describe Opscode::Models::User do
       user_as_a_hash = @user.for_json
       user_as_a_hash.should be_a_kind_of(Hash)
       user_as_a_hash[:city].should == "Fremont"
-      user_as_a_hash[:salt].should == "some random bits"
+      user_as_a_hash.should_not have_key(:salt)
       # existing systems expect hashed password under the key "password"
       user_as_a_hash[:password].should == "some hex bits"
+      user_as_a_hash[:password_version].should == 2
       user_as_a_hash[:image_file_name].should == "current_status.png"
       user_as_a_hash[:twitter_account].should == 'moonpolysoft'
       user_as_a_hash[:country].should == 'USA'
@@ -472,7 +484,7 @@ describe Opscode::Models::User do
       user_as_a_hash[:email].should == 'trolol@example.com'
       user_as_a_hash.should_not have_key(:public_key)
 
-      expected_keys = [ :city, :salt, :password, :twitter_account,
+      expected_keys = [ :city, :password, :password_version, :twitter_account,
                         :country, :certificate, :username,
                         :first_name, :last_name, :display_name, :middle_name,
                         :email, :image_file_name]
@@ -517,8 +529,9 @@ describe Opscode::Models::User do
 
     it "generates a hashed password and salt" do
       @user.password.should == "p@ssw0rd1"
-      @user.salt.should_not be_nil
+      @user.salt.should be_nil
       @user.hashed_password.should_not be_nil
+      @user.password_version.should == 2
       @user.should be_correct_password('p@ssw0rd1')
     end
 
@@ -665,5 +678,130 @@ describe Opscode::Models::User do
 
   end
 
+  describe "when loading a user with a version 0 password" do
+    before do
+      v0_db_data = @db_data.clone.update({
+        :salt => "salty bits",
+        :hashed_password => Digest::SHA1.hexdigest("salty bits--password--"),
+      })
+      v0_db_data.delete :password_version
+      @user = Opscode::Models::User.load(v0_db_data)
+    end
+
+    it "should have no password version" do
+      @user.password_version.should be_nil
+    end
+
+    describe "and the password has been set" do
+      before do
+        @user.password = "password"
+      end
+
+      it "should have password version 2" do
+        @user.password_version.should == 2
+      end
+
+      it "should be checkable" do
+        @user.should be_correct_password "password"
+      end
+
+      it "should have no salt" do
+        @user.salt.should be_nil
+      end
+
+    end
+
+    it "should be checkable" do
+      @user.should be_correct_password "password"
+    end
+
+    describe "and the password is checked" do
+      before do
+        @user.correct_password? "password"
+      end
+
+      it "should have password version 2" do
+        @user.password_version.should == 2
+      end
+
+      it "should be checkable" do
+        @user.should be_correct_password "password"
+      end
+
+      it "should have no salt" do
+        @user.salt.should be_nil
+      end
+
+    end
+
+    it "should not upgrade is checked incorrectly" do
+      @user.should_not be_correct_password "foobar"
+      @user.password_version.should be_nil
+    end
+
+  end
+
+  describe "when loading a user with a version 1 password" do
+    before do
+      v1_db_data = @db_data.clone.update({
+        :salt => "salty bits",
+        :hashed_password => Digest::SHA1.hexdigest("salty bits--password--"),
+        :password_version => 1,
+      })
+      @user = Opscode::Models::User.load(v1_db_data)
+    end
+
+    it "should have no password version" do
+      @user.password_version.should == 1
+    end
+
+    describe "and the password has been set" do
+      before do
+        @user.password = "password"
+      end
+
+      it "should have password version 2" do
+        @user.password_version.should == 2
+      end
+
+      it "should be checkable" do
+        @user.should be_correct_password "password"
+      end
+
+      it "should have no salt" do
+        @user.salt.should be_nil
+      end
+
+    end
+
+    it "should be checkable" do
+      @user.should be_correct_password "password"
+    end
+
+    describe "and the password is checked" do
+      before do
+        @user.correct_password? "password"
+      end
+
+      it "should have password version 2" do
+        @user.password_version.should == 2
+      end
+
+      it "should be checkable" do
+        @user.should be_correct_password "password"
+      end
+
+      it "should have no salt" do
+        @user.salt.should be_nil
+      end
+
+    end
+
+    it "should not upgrade is checked incorrectly" do
+      @user.should_not be_correct_password "foobar"
+      @user.password_version.should == 1
+    end
+
+  end
 
 end

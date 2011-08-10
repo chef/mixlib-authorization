@@ -308,13 +308,15 @@ module Opscode
       # on the timestamps.
       def ==(other)
         return false unless other.kind_of?(self.class)
+        self_data = for_db
         other_data = other.for_db
-        for_db.inject(true) do |matches, (attr_name, value)|
+
+        (self_data.keys | other_data.keys).inject(true) do |matches, attr_name|
           matches && case attr_name
           when :created_at, :updated_at, CREATED_AT, UPDATED_AT
             send(attr_name).to_i == other.send(attr_name).to_i
           else
-            value == other_data[attr_name]
+            self_data[attr_name] == other_data[attr_name]
           end
         end
       end

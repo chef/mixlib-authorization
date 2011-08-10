@@ -734,7 +734,7 @@ describe Opscode::Models::User do
 
     end
 
-    it "should not upgrade is checked incorrectly" do
+    it "should not upgrade if checked incorrectly" do
       @user.should_not be_correct_password "foobar"
       @user.password_version.should be_nil
     end
@@ -797,7 +797,7 @@ describe Opscode::Models::User do
 
     end
 
-    it "should not upgrade is checked incorrectly" do
+    it "should not upgrade if checked incorrectly" do
       @user.should_not be_correct_password "foobar"
       @user.password_version.should == User::PASSWORD_VERSION_SHA1
     end

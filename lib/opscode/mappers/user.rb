@@ -112,13 +112,13 @@ module Opscode
         # separately allows us to give a better experience in the common
         # non-race failure conditions.
         unless (user.username.nil? || user.username.empty?)
-          if execute_sql(:validate, :user) { table.filter(:username => user.username).any? }
+          if execute_sql(:validate, :user) { table.select(:username).filter(:username => user.username).any? }
             user.username_not_unique!
           end
         end
 
         unless (user.email.nil? || user.email.empty?)
-          if execute_sql(:validate, :user) { table.filter(:email => user.email).any? }
+          if execute_sql(:validate, :user) { table.select(:email).filter(:email => user.email).any? }
             user.email_not_unique!
           end
         end
@@ -207,7 +207,7 @@ module Opscode
           self.class.invalid_object!("Cannot save user #{user.username} without a valid id")
         end
 
-        unless execute_sql(:validate, :user) { table.filter(:id => user.id).any? }
+        unless execute_sql(:validate, :user) { table.select(:id).filter(:id => user.id).any? }
           raise RecordNotFound, "Can't delete user #{user.username} because it doesn't exist"
         end
 

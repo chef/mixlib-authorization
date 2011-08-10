@@ -47,12 +47,6 @@ describe Opscode::Models::User do
       :created_at => @now.utc.to_s,
       :updated_at => @now.utc.to_s
     }
-    @v1_db_data = @db_data.clone.update({
-      :password_version => 1,
-      :salt => "salty bits",
-    })
-    @v0_db_data = @v1_db_data.clone
-    @v0_db_data.delete :password_version
   end
 
   describe "when created without any data" do
@@ -684,5 +678,130 @@ describe Opscode::Models::User do
 
   end
 
+  describe "when loading a user with a version 0 password" do
+    before do
+      v0_db_data = @db_data.clone.update({
+        :salt => "salty bits",
+        :hashed_password => Digest::SHA1.hexdigest("salty bits--password--"),
+      })
+      v0_db_data.delete :password_version
+      @user = Opscode::Models::User.load(v0_db_data)
+    end
+
+    it "should have no password version" do
+      @user.password_version.should be_nil
+    end
+
+    describe "and the password has been set" do
+      before do
+        @user.password = "password"
+      end
+
+      it "should have password version 2" do
+        @user.password_version.should == 2
+      end
+
+      it "should be checkable" do
+        @user.should be_correct_password "password"
+      end
+
+      it "should have no salt" do
+        @user.salt.should be_nil
+      end
+
+    end
+
+    it "should be checkable" do
+      @user.should be_correct_password "password"
+    end
+
+    describe "and the password is checked" do
+      before do
+        @user.correct_password? "password"
+      end
+
+      it "should have password version 2" do
+        @user.password_version.should == 2
+      end
+
+      it "should be checkable" do
+        @user.should be_correct_password "password"
+      end
+
+      it "should have no salt" do
+        @user.salt.should be_nil
+      end
+
+    end
+
+    it "should not upgrade is checked incorrectly" do
+      @user.should_not be_correct_password "foobar"
+      @user.password_version.should be_nil
+    end
+
+  end
+
+  describe "when loading a user with a version 1 password" do
+    before do
+      v1_db_data = @db_data.clone.update({
+        :salt => "salty bits",
+        :hashed_password => Digest::SHA1.hexdigest("salty bits--password--"),
+        :password_version => 1,
+      })
+      @user = Opscode::Models::User.load(v1_db_data)
+    end
+
+    it "should have no password version" do
+      @user.password_version.should == 1
+    end
+
+    describe "and the password has been set" do
+      before do
+        @user.password = "password"
+      end
+
+      it "should have password version 2" do
+        @user.password_version.should == 2
+      end
+
+      it "should be checkable" do
+        @user.should be_correct_password "password"
+      end
+
+      it "should have no salt" do
+        @user.salt.should be_nil
+      end
+
+    end
+
+    it "should be checkable" do
+      @user.should be_correct_password "password"
+    end
+
+    describe "and the password is checked" do
+      before do
+        @user.correct_password? "password"
+      end
+
+      it "should have password version 2" do
+        @user.password_version.should == 2
+      end
+
+      it "should be checkable" do
+        @user.should be_correct_password "password"
+      end
+
+      it "should have no salt" do
+        @user.salt.should be_nil
+      end
+
+    end
+
+    it "should not upgrade is checked incorrectly" do
+      @user.should_not be_correct_password "foobar"
+      @user.password_version.should == 1
+    end
+
+  end
 
 end

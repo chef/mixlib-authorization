@@ -42,12 +42,17 @@ describe Opscode::Models::User do
       :country => "USA",
       :twitter_account => "moonpolysoft",
       :hashed_password => "some hex bits",
-      :salt => "some random bits",
+      :password_version => 2,
       :image_file_name => 'current_status.png',
       :created_at => @now.utc.to_s,
       :updated_at => @now.utc.to_s
-
     }
+    @v1_db_data = @db_data.clone.update({
+      :password_version => 1,
+      :salt => "salty bits",
+    })
+    @v0_db_data = @v1_db_data.clone
+    @v0_db_data.delete :password_version
   end
 
   describe "when created without any data" do
@@ -226,7 +231,7 @@ describe Opscode::Models::User do
         @user.hashed_password.should == 'p@ssw0rd1'
       end
 
-      it "sets the password version" do
+      it "sets the password version to 2" do
         @user.password_version.should == 2
       end
 
@@ -415,8 +420,12 @@ describe Opscode::Models::User do
       @user.hashed_password.should == "some hex bits"
     end
 
-    it "has a password salt" do
-      @user.salt.should == "some random bits"
+    it "has no password salt" do
+      @user.salt.should be_nil
+    end
+
+    it "has password version 2" do
+      @user.password_version.should == 2
     end
 
     it "has an image file" do
@@ -454,6 +463,7 @@ describe Opscode::Models::User do
     it "is not == to another user object if any of the data is different" do
       [:id, :authz_id, :first_name, :middle_name, :last_name, :username, :display_name, :hashed_password, :salt, :twitter_account].each do |attr_name|
         not_quite_data = @db_data.dup
+        not_quite_data[attr_name] ||= ""
         not_quite_data[attr_name] += "nope"
         not_quite = Opscode::Models::User.load(not_quite_data)
         @user.should_not == not_quite
@@ -464,9 +474,10 @@ describe Opscode::Models::User do
       user_as_a_hash = @user.for_json
       user_as_a_hash.should be_a_kind_of(Hash)
       user_as_a_hash[:city].should == "Fremont"
-      user_as_a_hash[:salt].should == "some random bits"
+      user_as_a_hash.should_not have_key(:salt)
       # existing systems expect hashed password under the key "password"
       user_as_a_hash[:password].should == "some hex bits"
+      user_as_a_hash[:password_version].should == 2
       user_as_a_hash[:image_file_name].should == "current_status.png"
       user_as_a_hash[:twitter_account].should == 'moonpolysoft'
       user_as_a_hash[:country].should == 'USA'
@@ -479,7 +490,7 @@ describe Opscode::Models::User do
       user_as_a_hash[:email].should == 'trolol@example.com'
       user_as_a_hash.should_not have_key(:public_key)
 
-      expected_keys = [ :city, :salt, :password, :twitter_account,
+      expected_keys = [ :city, :password, :password_version, :twitter_account,
                         :country, :certificate, :username,
                         :first_name, :last_name, :display_name, :middle_name,
                         :email, :image_file_name]

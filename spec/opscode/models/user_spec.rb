@@ -678,7 +678,7 @@ describe Opscode::Models::User do
 
   end
 
-  describe "when loading a user with a version 0 password" do
+  describe "when loading a user with no password version" do
     before do
       v0_db_data = @db_data.clone.update({
         :salt => "salty bits",
@@ -697,8 +697,8 @@ describe Opscode::Models::User do
         @user.password = "password"
       end
 
-      it "should have password version 2" do
-        @user.password_version.should == 2
+      it "should have password version bcrypt" do
+        @user.password_version.should == User::PASSWORD_VERSION_BCRYPT
       end
 
       it "should be checkable" do
@@ -721,7 +721,7 @@ describe Opscode::Models::User do
       end
 
       it "should have password version 2" do
-        @user.password_version.should == 2
+        @user.password_version.should == User::PASSWORD_VERSION_BCRYPT
       end
 
       it "should be checkable" do
@@ -741,7 +741,7 @@ describe Opscode::Models::User do
 
   end
 
-  describe "when loading a user with a version 1 password" do
+  describe "when loading a user with a SHA1 version password" do
     before do
       v1_db_data = @db_data.clone.update({
         :salt => "salty bits",
@@ -752,7 +752,7 @@ describe Opscode::Models::User do
     end
 
     it "should have no password version" do
-      @user.password_version.should == 1
+      @user.password_version.should == User::PASSWORD_VERSION_SHA1
     end
 
     describe "and the password has been set" do
@@ -761,7 +761,7 @@ describe Opscode::Models::User do
       end
 
       it "should have password version 2" do
-        @user.password_version.should == 2
+        @user.password_version.should == User::PASSWORD_VERSION_BCRYPT
       end
 
       it "should be checkable" do
@@ -784,7 +784,7 @@ describe Opscode::Models::User do
       end
 
       it "should have password version 2" do
-        @user.password_version.should == 2
+        @user.password_version.should == User::PASSWORD_VERSION_BCRYPT
       end
 
       it "should be checkable" do
@@ -799,7 +799,7 @@ describe Opscode::Models::User do
 
     it "should not upgrade is checked incorrectly" do
       @user.should_not be_correct_password "foobar"
-      @user.password_version.should == 1
+      @user.password_version.should == User::PASSWORD_VERSION_SHA1
     end
 
   end

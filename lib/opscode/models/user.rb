@@ -175,7 +175,9 @@ module Opscode
 
       ro_attribute :hashed_password
       ro_attribute :salt
-      ro_attribute :password_version # 1=SHA1, 2=BCrypt
+      ro_attribute :password_version
+      PASSWORD_VERSION_SHA1 = 1
+      PASSWORD_VERSION_BCRYPT = 2
 
       protected_attribute :id
       protected_attribute :authz_id
@@ -333,7 +335,7 @@ module Opscode
         @password = unhashed_password
         @hashed_password = BCrypt::Password.create(unhashed_password)
         @salt = nil
-        @password_version = 2
+        @password_version = PASSWORD_VERSION_BCRYPT
       end
 
       # Casts created_at to a Time object (if required) and returns it
@@ -357,7 +359,7 @@ module Opscode
       # True if +candidate_password+'s hashed form matches the hashed_password,
       # false otherwise.
       def correct_password?(candidate_password)
-        if (@password_version || 1) == 1
+        if (@password_version || PASSWORD_VERSION_SHA1) == PASSWORD_VERSION_SHA1
           hashed_candidate_password = encrypt_password(candidate_password)
           ret = (@hashed_password.to_s.hex ^ hashed_candidate_password.hex) == 0
           if ret

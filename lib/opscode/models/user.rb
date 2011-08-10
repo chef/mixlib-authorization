@@ -361,7 +361,8 @@ module Opscode
           hashed_candidate_password = encrypt_password(candidate_password)
           ret = (@hashed_password.to_s.hex ^ hashed_candidate_password.hex) == 0
           if ret
-            password = candidate_password
+            # Trigger a password hash upgrade to the latest version
+            self.password = candidate_password
           end
           ret
         else

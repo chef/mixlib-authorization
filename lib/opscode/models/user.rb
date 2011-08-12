@@ -206,7 +206,7 @@ module Opscode
       validates_format_of :username, :with => /^[a-z0-9\-_]+$/, :message => "has an invalid format (valid characters are a-z, 0-9, hyphen and underscore)"
       validates_format_of :email, :with => EmailAddress, :message => "has an invalid format"
 
-      validates_length_of :password, :within => 6..50, :message => 'must be between 6 and 50 characters'
+      validates_length_of :password, :within => 6..50, :message => 'must be between 6 and 50 characters', :if => :updating_password?
       validates_length_of :username, :within => 1..50
 
       validate :certificate_or_pubkey_present
@@ -397,6 +397,13 @@ module Opscode
       # Marks this object as persisted. Should only be called by the mapper layer.
       def persisted!
         @persisted = true
+      end
+
+      # Is the password being updated? This is always true when creating a new
+      # user. Also true when the password field is set on an existing user.
+      # Used to trigger validation of the password format.
+      def updating_password?
+        (!persisted?) || (!password.nil?)
       end
 
       def to_param

@@ -498,18 +498,23 @@ describe Opscode::Models::User do
   describe "when updating informational fields with valid form data" do
     before do
       @user = Opscode::Models::User.load(@db_data)
+
+#{"city"=>"", "twitter_account"=>"", "image_file_name"=>nil, "format"=>nil, "country"=>"", "requesting_user"=>"pivotal", "request_from_validator"=>false, "username"=>"dan-123", "action"=>"update", "id"=>"dan-123", "orgname"=>"dan-123", "last_name"=>"deleoRules", "requesting_entity"=>#<Opscode::Models::User:-2549fd50 public_key="-----BEGIN RSA PUBLIC KEY-----\nMIIBCgKCAQEAsZLZ7EMfzy/YYMpRMRH5bS0BZI2pRDNOJMDuJzyE50S0Uq4TTspq\nDcF4gztsAUiUTNR8cCJp0vfONr5l8moETVQQprw3KPwa2mRQBBBKZrXIhh8IRZBY\noG7TI/R2Rqhv4EfnlgK5rgpBQ/3rcheaLxg+tk5XnSh5HwBvhbB8MLYqLJUjzC9U\nh/zz/LvbHoQM1Rnt4XXrbDUEm24YKyGWQJyG8b5m4FEK/vYqhRXHCt3rmOhVQkde\nUJsfgzezuIFC4kmvtp5m7KQtRq2KXHRtl39PGFwMrwfrxXEc4vIGE8xK6Wnz3q9U\n4ihDVm0uIsj79gNP7LJ6uo3AMxI6XoKJAQIDAQAB\n-----END RSA PUBLIC KEY-----\n" city=nil salt=nil created_at=nil twitter_account=nil image_file_name=nil country=nil updated_at=nil certificate=nil username="pivotal" hashed_password=nil id="fa281061b0591e548a8a0822cf285815" last_name=nil last_updated_by=nil display_name=nil aut
+#2011-08-12T22:37:12.905931+00:00 account-rspreprod-i-7e80a213 [opscode-account]: hz_id="4920224947d7ed92e872e53b620e94b7" first_name=nil middle_name=nil email=nil>, "display_name"=>"dan deleoRules", "controller"=>"users", "requesting_actor_type"=>:user, "requesting_actor_id"=>"4920224947d7ed92e872e53b620e94b7", "first_name"=>"dan", "middle_name"=>"", "email"=>"dan+test123@opscode.com"}
+
       @form_data = {
-        :first_name => 'UpdatedFirstName',
-        :last_name => "UpdatedLastName",
-        :middle_name => "UpdatedMiddleName",
-        :display_name => "UpdatedDisplayName",
-        :email => 'updated@example.com',
-        :username => 'trolol',
-        :city => "UpdatedCity",
-        :country => "USA-updated",
-        :twitter_account => "updated_twits",
-        :image_file_name => 'updated_status.png'
+        'first_name' => 'UpdatedFirstName',
+        'last_name' => "UpdatedLastName",
+        'middle_name' => "UpdatedMiddleName",
+        'display_name' => "UpdatedDisplayName",
+        'email' => 'updated@example.com',
+        'username' => 'trolol',
+        'city' => "UpdatedCity",
+        'country' => "USA-updated",
+        'twitter_account' => "updated_twits",
+        'image_file_name' => 'updated_status.png'
       }
+      @user.persisted!
       @user.update_from_params(@form_data)
     end
 
@@ -543,6 +548,44 @@ describe Opscode::Models::User do
 
     it "updates the image file name" do
       @user.image_file_name.should == "updated_status.png"
+    end
+
+    it "does not update the password" do
+      @user.hashed_password.should == "some hex bits"
+    end
+
+    it "does not update the salt" do
+      @user.salt.should == "some random bits"
+    end
+
+    it "is marked as having been persisted" do
+      @user.should be_persisted
+    end
+
+    it "is not marked as updating the password" do
+      @user.should_not be_updating_password
+    end
+
+    it "is valid to be saved again" do
+      @user.should be_valid
+    end
+
+    describe "and the password is being updated" do
+      it "is invalid when the password is too short" do
+        @form_data["password"] = "2shrt"
+        @user.update_from_params(@form_data)
+        @user.should_not be_valid
+        @user.errors.should have_key(:password)
+      end
+
+      it "is valid when updated with a valid password" do
+        @form_data["password"] = "valid-password"
+        @user.update_from_params(@form_data)
+        @user.should be_valid
+        @user.salt.should_not == "some random bits"
+        @user.hashed_password.should_not == "some hex bits"
+        @user.should be_a_correct_password("valid-password")
+      end
     end
 
   end

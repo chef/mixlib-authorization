@@ -495,6 +495,109 @@ describe Opscode::Models::User do
 
   end
 
+  describe "when updating informational fields with valid form data" do
+    before do
+      @user = Opscode::Models::User.load(@db_data)
+      @form_data = {
+        :first_name => 'UpdatedFirstName',
+        :last_name => "UpdatedLastName",
+        :middle_name => "UpdatedMiddleName",
+        :display_name => "UpdatedDisplayName",
+        :email => 'updated@example.com',
+        :username => 'trolol',
+        :city => "UpdatedCity",
+        :country => "USA-updated",
+        :twitter_account => "updated_twits",
+        :image_file_name => 'updated_status.png'
+      }
+      @user.update_from_params(@form_data)
+    end
+
+    it "updates the first name" do
+      @user.first_name.should == "UpdatedFirstName"
+    end
+
+    it "updates the last name" do
+      @user.last_name.should == "UpdatedLastName"
+    end
+
+    it "updates the middle name" do
+      @user.middle_name.should == "UpdatedMiddleName"
+    end
+
+    it "updates the email address" do
+      @user.email.should == "updated@example.com"
+    end
+
+    it "updates the City" do
+      @user.city.should == "UpdatedCity"
+    end
+
+    it "updates the country" do
+      @user.country.should == "USA-updated"
+    end
+
+    it "updates the twitter account" do
+      @user.twitter_account.should == "updated_twits"
+    end
+
+    it "updates the image file name" do
+      @user.image_file_name.should == "updated_status.png"
+    end
+
+  end
+
+  describe "when updating with incomplete form data" do
+    before do
+      @user = Opscode::Models::User.load(@db_data)
+      @form_data = {
+        :first_name => nil,
+        :last_name => nil,
+        :middle_name => nil,
+        :display_name => nil,
+        :email => nil,
+        :username => 'trolol',
+        :city => nil,
+        :country => nil,
+        :twitter_account => nil,
+        :image_file_name => nil
+      }
+      @user.update_from_params(@form_data)
+    end
+
+    it "sets the first name nil" do
+      @user.first_name.should be_nil
+    end
+
+    it "sets the last name to nil" do
+      @user.last_name.should be_nil
+    end
+
+    it "sets the middle name to nil" do
+      @user.middle_name.should be_nil
+    end
+
+    it "sets the display name to nil" do
+      @user.display_name.should be_nil
+    end
+
+    it "sets the email address to nil" do
+      @user.email.should be_nil
+    end
+
+    it "sets the city to nil" do
+      @user.city.should be_nil
+    end
+
+    it "sets the twitter account to nil" do
+      @user.twitter_account.should be_nil
+    end
+
+    it "sets the image file to nil" do
+      @user.image_file_name.should be_nil
+    end
+  end
+
   describe "when created from form data" do
     before do
       @form_data = {

@@ -263,23 +263,10 @@ module Opscode
         end
       end
 
-      # The previous implementation required that these attributes *always* be
-      # given when updating a user. It's not entirely clear why.
-      BASE_PARAMS_FOR_UPDATE = { :username        => nil,
-                                 :first_name      => nil,
-                                 :middle_name     => nil,
-                                 :last_name       => nil,
-                                 :display_name    => nil,
-                                 :email           => nil,
-                                 :city            => nil,
-                                 :country         => nil,
-                                 :twitter_account => nil,
-                                 :image_file_name => nil}
 
       # Updates this User from the given params
       def update_from_params(params)
-        params = BASE_PARAMS_FOR_UPDATE.merge(params)
-        assign_ivars_from_params!(params)
+        assign_ivars_from_params!(params.dup)
       end
 
       # Sets protected instance variables from the given +params+. This should

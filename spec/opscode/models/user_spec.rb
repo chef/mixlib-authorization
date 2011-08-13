@@ -275,7 +275,7 @@ describe Opscode::Models::User do
     describe "if both the certificate and public key are set" do
       before do
         @user.certificate = "an RSA cert"
-        @user.public_key = "an RSA pubkey"
+        @user.instance_variable_set(:@public_key, "an RSA pubkey")
       end
 
       it "has invalid authentication credentials" do
@@ -288,7 +288,7 @@ describe Opscode::Models::User do
     # in the cert). Some older users have a pubkey. They should still work correctly.
     describe "when it has a public key and no certificate (old, 'deprecated' style)" do
       before do
-        @user.public_key = "an RSA pubkey"
+        @user = Opscode::Models::User.load(:public_key => "an RSA pubkey")
       end
 
       it "has valid authentication credentials" do
@@ -457,13 +457,9 @@ describe Opscode::Models::User do
       user_as_a_hash = @user.for_json
       user_as_a_hash.should be_a_kind_of(Hash)
       user_as_a_hash[:city].should == "Fremont"
-      user_as_a_hash[:salt].should == "some random bits"
-      # existing systems expect hashed password under the key "password"
-      user_as_a_hash[:password].should == "some hex bits"
       user_as_a_hash[:image_file_name].should == "current_status.png"
       user_as_a_hash[:twitter_account].should == 'moonpolysoft'
       user_as_a_hash[:country].should == 'USA'
-      user_as_a_hash[:certificate].should == SAMPLE_CERT
       user_as_a_hash[:username].should == "trolol"
       user_as_a_hash[:first_name].should == "moon"
       user_as_a_hash[:last_name].should == "polysoft"
@@ -472,10 +468,17 @@ describe Opscode::Models::User do
       user_as_a_hash[:email].should == 'trolol@example.com'
       user_as_a_hash.should_not have_key(:public_key)
 
-      expected_keys = [ :city, :salt, :password, :twitter_account,
-                        :country, :certificate, :username,
-                        :first_name, :last_name, :display_name, :middle_name,
-                        :email, :image_file_name]
+      # The API only ever shows the public key; the controller handles adding
+      # it to the output.
+      user_as_a_hash[:certificate].should be_nil
+
+      # These are no longer shown in API output
+      user_as_a_hash[:salt].should be_nil
+      user_as_a_hash[:password].should be_nil
+
+      expected_keys = [ :city, :twitter_account, :country, :username,
+        :first_name, :last_name, :display_name, :middle_name, :email,
+        :image_file_name]
 
 
       user_as_a_hash.keys.should =~ expected_keys

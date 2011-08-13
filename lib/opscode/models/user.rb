@@ -165,21 +165,29 @@ module Opscode
       rw_attribute :display_name
       rw_attribute :email
       rw_attribute :username
-      rw_attribute :public_key
-      rw_attribute :certificate
       rw_attribute :city
       rw_attribute :country
       rw_attribute :twitter_account
       rw_attribute :image_file_name
 
-      ro_attribute :hashed_password
-      ro_attribute :salt
+      # We now have a password checker API endpoint, so these should not appear
+      # in API output. They are also not directly settable.
+      protected_attribute :hashed_password
+      protected_attribute :salt
 
       protected_attribute :id
       protected_attribute :authz_id
       protected_attribute :created_at #custom reader method
       protected_attribute :updated_at #custom reader method
       protected_attribute :last_updated_by
+
+      # Public key is shown in API output, this is handled in the controller.
+      # We want to make sure to ignore this when passed in from API input.
+      # BUGBUG: we _could_ decide it's a good idea to let users set their own
+      # keys. But in that case we should require that they provide a
+      # certificate.
+      protected_attribute :public_key
+      protected_attribute :certificate
 
       attr_reader :password # with a custom setter below
 
@@ -450,7 +458,6 @@ module Opscode
           value = instance_variable_get(ivar_name)
           hash_for_json[attr_name.to_sym] = value if value
         end
-        hash_for_json[:password] = hash_for_json.delete(:hashed_password)
         hash_for_json
       end
 

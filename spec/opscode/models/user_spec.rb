@@ -301,6 +301,14 @@ describe Opscode::Models::User do
       it "gives the public key as the public key" do
         @user.public_key.should == "an RSA pubkey"
       end
+
+      it "nullifies the public key when a new cert is set" do
+        @user.certificate = SAMPLE_CERT
+        @user.instance_variable_get(:@public_key).should be_nil
+        @user.public_key.to_s.should == SAMPLE_CERT_KEY
+        @user.valid?
+        @user.errors[:credentials].should be_empty
+      end
     end
 
     describe "when it has a certificate (i.e. 'new style')" do

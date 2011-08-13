@@ -316,6 +316,8 @@ module Opscode
       # Like a regular attribute setter, except that it forcibly casts the
       # argument to a string first
       def certificate=(new_certificate)
+        # if the user *had* a public key, nuke it.
+        @public_key = nil
         @certificate = new_certificate.to_s
       end
 

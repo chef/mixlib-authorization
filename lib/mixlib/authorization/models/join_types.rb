@@ -18,13 +18,25 @@ module Mixlib
             add_groups        
           end
 
+          # update the actors and groups for a group
+          #
+          # the order of operations for the update has been changed in
+          # order to add the new actors and groups to a group before
+          # removing the ones that should no longer exist. with the
+          # old order, we could get ourselves into a situation where
+          # removing the actors for a group would also remove the
+          # all permissions on that group, and disallow us from
+          # updating the actors and groups afterwards. adding the new
+          # members before removing the old members prevents this
+          # situation.
+          #
           def update
             Mixlib::Authorization::Log.debug "UPDATING GROUP #{self.inspect}"
             fetch
-            remove_current_actors
-            remove_current_groups
             add_actors
             add_groups
+            remove_current_actors
+            remove_current_groups
           end
 
           def request_helper(http_method, request_path, options={})

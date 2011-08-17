@@ -3,82 +3,12 @@ require 'opscode/models/user'
 
 module Opscode
   module Mappers
-
-    class InvalidRecord < ArgumentError
-    end
-
-    class RecordNotFound < ArgumentError
-    end
-
-    class User
-
-      # Specify the Exception class to raise when an invalid object is given
-      # for create/update. Defaults to RuntimeError
-      def self.raise_on_invalid(exception_class)
-        @invalid_object_exception = exception_class
-      end
-
-      # Specify the Exception class to raise when a database error occurs.
-      # Defaults to ArgumentError
-      def self.raise_on_error(exception_class)
-        @db_error_exception = exception_class
-      end
-
-      # Set the default exception classes
-      raise_on_invalid(InvalidRecord)
-      raise_on_error(RuntimeError)
-
-      # Raise an error in response to an error from the database. By default,
-      # this error is RuntimeError, but it can be customized, e.g., to raise a
-      # Merb InternalServerError exception.
-      def self.query_failed!(*args)
-        raise @db_error_exception, *args
-      end
-
-      # Raise an error in response to an error from the database. By default,
-      # this is an Opscode::Mappers::InvalidRecord error. Though it _can_ be
-      # customized, the current implementation of opscode account returns a 400
-      # or 409 depending on how the model object is invalid...
-      def self.invalid_object!(*args)
-        raise @invalid_object_exception, *args
-      end
+    class User < Base
 
       # These properties of a Model::User have their own columns in the
       # database. There are also columns for cert/private key but these are
       # mapped in a special way.
       BREAKOUT_COLUMNS = [:id, :authz_id, :username, :email, :created_at, :updated_at, :last_updated_by]
-
-      # A Sequel Collection object representing the table
-      attr_reader :table
-
-      # A Sequel Database object
-      attr_reader :connection
-
-      # The Authorization side ID of the person making this request.
-      # Recorded for debug/audit purposes.
-      attr_reader :requester_authz_id
-
-      # Create a new Mapper:
-      # * database_connection::: A kind of Sequel::Database, as returned by
-      #   Sequel.connect
-      # * stats_client::: a Statsd::Client object, or nil for no stats. In
-      #   general you should supply stats for production code, unless you have
-      #   to workaround inflexible code.
-      # * requester_authz_id::: The authz id of the actor making requests. This
-      #   will be used when create/update/delete needs to make requests to
-      #   authz--authz has its own internal authorization for requests. You can
-      #   give 0 if you're only reading.
-      def initialize(database_connection, stats_client, requester_authz_id)
-        @connection = database_connection
-        @table = @connection[:users]
-        @stats_client = stats_client
-        @requester_authz_id = requester_authz_id
-      end
-
-      def logger
-        # TODO: less ghetto.
-        @logger ||= Logger.new('/dev/null')
-      end
 
       # Create a record in the database representing +user+ which is expected
       # to be a Models::User object.
@@ -375,33 +305,6 @@ module Opscode
       end
 
 
-      # Wraps the sql executing code in the given block with a single retry and
-      # runs it. Also benchmarks the call. crud_operation and model are not yet
-      # used, they're intended for future stats keeping.
-      #
-      # NB: This will break any transactions that are initiated outside of this
-      # call if the operation fails and is retried.
-      def execute_sql(crud_operation, model, should_retry=true, &sql_code)
-        benchmark_db(crud_operation, model, &sql_code)
-      rescue Sequel::DatabaseConnectionError
-        if should_retry
-          execute_sql(crud_operation, model, false, &sql_code)
-        else
-          raise
-        end
-      end
-
-      # Benchmark the database operation done in the given block.
-      # +crud_operation+ and +tags+ can be used to classify the operation.
-      # +crud_operation+ should be one of :create, :read, :update, :delete
-      def benchmark_db(crud_operation, model)
-        if @stats_client
-          @stats_client.db_call { yield }
-        else
-          yield
-        end
-      end
-
       private
 
       # Parse the portion of the object that's stored as a blob o' JSON
@@ -412,17 +315,6 @@ module Opscode
       # Encode the portion of the object that's stored as a blob o' JSON
       def as_json(data)
         Yajl::Encoder.encode(data)
-      end
-
-      # Log an exception. +where+ should be a descriptive message about which
-      # operation failed, and +e+ is the actual exception object.
-      def log_exception(where, e)
-        logger.error "#{where}: #{e.class}: #{e.message}\n#{e.backtrace.join("\n")}"
-      end
-
-      # Generate a new UUID. Currently uses the v1 UUID scheme.
-      def new_uuid
-        UUIDTools::UUID.timestamp_create.hexdigest
       end
 
     end

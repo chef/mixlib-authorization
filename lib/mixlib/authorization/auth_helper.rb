@@ -114,7 +114,7 @@ module Mixlib
             begin
               client_join_entry = AuthJoin.by_auth_object_id(:key=>actor).first
               user = Mixlib::Authorization::Models::Client.on(org_database).get(client_join_entry.user_object_id)
-              Mixlib::Authorization::Log.debug("actor to user: authz id: #{actor} is a client named #{client.clientname}")
+              Mixlib::Authorization::Log.debug("actor to user: authz id: #{actor} is a client named #{user.clientname}")
             rescue StandardError=>se
               # BUGBUG: why rescue?
               Mixlib::Authorization::Log.error "Failed to turn actor #{actor} into a user or client: #{se}"

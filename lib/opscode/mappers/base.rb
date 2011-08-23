@@ -37,7 +37,7 @@ module Opscode
     # NB: At the time of writing, some CouchRest based models access the
     # database via callbacks, which they can only do via de facto globals.
     def self.default_connection
-      @database ||= Sequel.connect(connection_string)
+      @database ||= Sequel.connect(connection_string, :max_connections => 2)
     end
 
     #== Opscode::Mappers::Base

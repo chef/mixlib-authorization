@@ -25,8 +25,6 @@ describe RequestAuthentication do
 
   before do
     Opscode::Mappers.default_connection[:users].truncate
-    # Turn on SQL users regardless of what the dark launch file says
-    Opscode::DarkLaunch.stub!(:is_feature_enabled?).and_return(true)
     @user_class     = Struct::MockAuthModelsUser
     @client_class   = Struct::MockAuthModelsClient
     @actor_class    = Struct::MockAuthModelsActor

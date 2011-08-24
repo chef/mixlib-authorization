@@ -132,20 +132,7 @@ module Mixlib
 
       def find_user
         Log.debug "Authentication: trying to find user: #{username}"
-        if Opscode::DarkLaunch.is_feature_enabled?('sql_users', :GLOBALLY)
-          find_user_sql
-        else
-          find_user_couchdb
-        end
-      end
-
-      def find_user_couchdb
-        user = Models::User.find(username)
-        @actor_type = :user
-        user
-      rescue ArgumentError
-        Log.debug "No user found for username: #{username}"
-        nil
+        find_user_sql
       end
 
       def find_user_sql

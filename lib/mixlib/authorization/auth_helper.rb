@@ -106,35 +106,21 @@ module Mixlib
       def actor_to_user(actor, org_database)
         raise ArgumentError, "must supply actor" unless actor
 
-        if Opscode::DarkLaunch.is_feature_enabled?('sql_users', :GLOBALLY)
-          user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection, nil, 0)
-          if user = user_mapper.find_by_authz_id(actor)
-            Mixlib::Authorization::Log.debug("actor to user: authz id: #{actor} is a user named #{user.username}")
-          else
-            begin
-              client_join_entry = AuthJoin.by_auth_object_id(:key=>actor).first
-              user = Mixlib::Authorization::Models::Client.on(org_database).get(client_join_entry.user_object_id)
-              Mixlib::Authorization::Log.debug("actor to user: authz id: #{actor} is a client named #{user.clientname}")
-            rescue StandardError=>se
-              # BUGBUG: why rescue?
-              Mixlib::Authorization::Log.error "Failed to turn actor #{actor} into a user or client: #{se}"
-              nil
-            end
-          end
-          user
+        user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection, nil, 0)
+        if user = user_mapper.find_by_authz_id(actor)
+          Mixlib::Authorization::Log.debug("actor to user: authz id: #{actor} is a user named #{user.username}")
         else
-          user_object = AuthJoin.by_auth_object_id(:key=>actor).first
-          user = begin
-                   user_object && Mixlib::Authorization::Models::User.get(user_object.user_object_id)
-                 rescue RestClient::ResourceNotFound
-                   Mixlib::Authorization::Models::Client.on(org_database).get(user_object.user_object_id)
-                 rescue StandardError=>se
-                   Mixlib::Authorization::Log.error "Failed to turn actor #{actor} into a user or client: #{se}"
-                   nil
-                 end
-          Mixlib::Authorization::Log.debug("actor to user: actor: #{actor}, user or client name #{user.nil? ? nil : user.respond_to?(:username) ? user.username : user.clientname}")
-          user
+          begin
+            client_join_entry = AuthJoin.by_auth_object_id(:key=>actor).first
+            user = Mixlib::Authorization::Models::Client.on(org_database).get(client_join_entry.user_object_id)
+            Mixlib::Authorization::Log.debug("actor to user: authz id: #{actor} is a client named #{user.clientname}")
+          rescue StandardError=>se
+            # BUGBUG: why rescue?
+            Mixlib::Authorization::Log.error "Failed to turn actor #{actor} into a user or client: #{se}"
+            nil
+          end
         end
+        user
       end
 
       def auth_group_to_user_group(group_id, org_database)
@@ -171,12 +157,8 @@ module Mixlib
       end
       
       def user_or_client_by_name(ucname, org_database)
-        if Opscode::DarkLaunch.is_feature_enabled?('sql_users', :GLOBALLY)
-          user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection, nil, 0)
-          user = user_mapper.find_by_username(ucname)
-        else
-          user = Mixlib::Authorization::Models::User.by_username(:key => ucname).first
-        end
+        user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection, nil, 0)
+        user = user_mapper.find_by_username(ucname)
         user ||= Mixlib::Authorization::Models::Client.on(org_database).by_clientname(:key=>ucname).first
         Mixlib::Authorization::Log.debug("user or client by name, name #{ucname}, org database, #{org_database}, user: #{user.class}, #{user.nil? ? nil : user.respond_to?(:username) ? user.username : user.clientname}")
         user
@@ -192,65 +174,48 @@ module Mixlib
       end
 
       def lookup_usernames_for_authz_ids(actors, org_database)
-        if Opscode::DarkLaunch.is_feature_enabled?('sql_users', :GLOBALLY)
-          usernames = []
-          # Find all the users in one query like a boss
-          user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection, nil, 0)
-          users = user_mapper.find_all_by_authz_id(actors)
-          remaining_actors = actors - users.map(&:authz_id)
-          usernames.concat(users.map(&:username))
-          Mixlib::Authorization::Log.debug { "Found #{users.size} users in actors list: #{actors.inspect} users: #{usernames}" }
+        usernames = []
+        # Find all the users in one query like a boss
+        user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection, nil, 0)
+        users = user_mapper.find_all_by_authz_id(actors)
+        remaining_actors = actors - users.map(&:authz_id)
+        usernames.concat(users.map(&:username))
+        Mixlib::Authorization::Log.debug { "Found #{users.size} users in actors list: #{actors.inspect} users: #{usernames}" }
 
-          # 2*N requests to couch for the clients :(
-          actor_names = remaining_actors.inject(usernames) do |clientnames, actor_id|
-            if client = actor_to_user(actor_id, org_database)
-              Mixlib::Authorization::Log.debug { "incoming_actor: #{actor_id} is a client named #{client.clientname}" }
-              clientnames << client.clientname
-            else
-              Mixlib::Authorization::Log.debug { "incoming_actor: #{actor_id} is not a recognized user or client!" }
-              clientnames
-            end
-          end
-          Mixlib::Authorization::Log.debug { "Mapped actors #{actors.inspect} to users #{actor_names}" }
-          actor_names
-
-        else
-          actors.inject([]) do |outgoing_actors, incoming_actor|
-            actor = (user_or_client = actor_to_user(incoming_actor, org_database)) && ((user_or_client.respond_to?(:username) && user_or_client.username) || user_or_client.clientname )
-            Mixlib::Authorization::Log.debug "incoming_actor: #{incoming_actor} is not a recognized user or client!" if actor.nil?
-            (actor.nil? ? outgoing_actors : outgoing_actors << actor)
+        # 2*N requests to couch for the clients :(
+        actor_names = remaining_actors.inject(usernames) do |clientnames, actor_id|
+          if client = actor_to_user(actor_id, org_database)
+            Mixlib::Authorization::Log.debug { "incoming_actor: #{actor_id} is a client named #{client.clientname}" }
+            clientnames << client.clientname
+          else
+            Mixlib::Authorization::Log.debug { "incoming_actor: #{actor_id} is not a recognized user or client!" }
+            clientnames
           end
         end
+        Mixlib::Authorization::Log.debug { "Mapped actors #{actors.inspect} to users #{actor_names}" }
+        actor_names
       end
 
       def lookup_authz_side_ids_for(actors, org_database)
-        if Opscode::DarkLaunch.is_feature_enabled?('sql_users', :GLOBALLY)
-          authz_ids = []
-          #look up all the users with one query like a boss
-          user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection, nil, 0)
-          users = user_mapper.find_all_for_authz_map(actors)
-          authz_ids.concat(users.map(&:authz_id))
-          actors -= users.map(&:username)
+        authz_ids = []
+        #look up all the users with one query like a boss
+        user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection, nil, 0)
+        users = user_mapper.find_all_for_authz_map(actors)
+        authz_ids.concat(users.map(&:authz_id))
+        actors -= users.map(&:username)
 
-          # 2*N requests to couch for the clients :'(
-          transformed_ids = actors.inject(authz_ids) do |client_authz_ids, clientname|
-            if client = Mixlib::Authorization::Models::Client.on(org_database).by_clientname(:key=>clientname).first
-              Mixlib::Authorization::Log.debug { "incoming actor: #{clientname} is a client with authz_id #{client.authz_id.inspect}" }
-              client_authz_ids << client.authz_id
-            else
-              Mixlib::Authorization::Log.debug "incoming_actor: #{clientname} is not a recognized user or client!"
-              client_authz_ids
-            end
-          end
-          Mixlib::Authorization::Log.debug { "mapped actors: #{actors.inspect} to auth ids: #{transformed_ids.inspect}"}
-          transformed_ids
-        else
-          actors.inject([]) do |outgoing_actors, incoming_actor|
-            actor = (user = user_or_client_by_name(incoming_actor,org_database)) && user.authz_id
-            Mixlib::Authorization::Log.debug "incoming_actor: #{incoming_actor} is not a recognized user or client!" if actor.nil?
-            (actor.nil? ? outgoing_actors : outgoing_actors << actor)
+        # 2*N requests to couch for the clients :'(
+        transformed_ids = actors.inject(authz_ids) do |client_authz_ids, clientname|
+          if client = Mixlib::Authorization::Models::Client.on(org_database).by_clientname(:key=>clientname).first
+            Mixlib::Authorization::Log.debug { "incoming actor: #{clientname} is a client with authz_id #{client.authz_id.inspect}" }
+            client_authz_ids << client.authz_id
+          else
+            Mixlib::Authorization::Log.debug "incoming_actor: #{clientname} is not a recognized user or client!"
+            client_authz_ids
           end
         end
+        Mixlib::Authorization::Log.debug { "mapped actors: #{actors.inspect} to auth ids: #{transformed_ids.inspect}"}
+        transformed_ids
       end
 
       def transform_group_ids(incoming_groups, org_database, direction)

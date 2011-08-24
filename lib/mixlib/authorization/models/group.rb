@@ -51,17 +51,9 @@ module Mixlib
           # set the organization database for use with global groups
           org_db = (orgname && database_from_orgname(orgname)) || database
 
-          if Opscode::DarkLaunch.is_feature_enabled?('sql_users', :GLOBALLY)
-            user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection, nil, 0)
-            users = user_mapper.find_all_for_authz_map(actornames)
-            actor_ids = users.map {|u| u.authz_id}
-          else
-            actor_ids = actornames.uniq.inject([]) do |memo, actorname|
-              user = Mixlib::Authorization::Models::User.by_username(:key => actorname).first
-              user && (auth_join = AuthJoin.by_user_object_id(:key=>user.id).first) && (memo << auth_join.auth_object_id)
-              memo
-            end
-          end
+          user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection, nil, 0)
+          users = user_mapper.find_all_for_authz_map(actornames)
+          actor_ids = users.map {|u| u.authz_id}
 
           client_ids = clientnames.uniq.inject([]) do |memo, clientname|
             client = Mixlib::Authorization::Models::Client.on(org_db).by_clientname(:key=>clientname).first

@@ -1,6 +1,11 @@
 require File.expand_path('../../../spec_helper', __FILE__)
 
 describe Acl do
+  before do
+    # TODO: This class should not even talk to the database at all.
+    Opscode::Mappers.connection_string = "mysql2://root@localhost/opscode_chef_test"
+  end
+
   describe "in the constructor" do
     it "initializes itself with a default list of ACEs when none are supplied" do
       acl = Acl.new

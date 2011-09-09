@@ -5,3 +5,8 @@ Cheat Sheet:
     bin/sequel -m chef-server-api/db/migrate mysql2://root@localhost/opscode_chef
 
 Read moar: <http://sequel.rubyforge.org/rdoc/files/doc/migration_rdoc.html>
+
+# Modifying Schema #
+
+Read here first:
+https://wiki.corp.opscode.com/display/CORP/Chef+SQL+Schema

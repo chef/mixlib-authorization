@@ -9,7 +9,7 @@ Sequel.migration do
       String(:org_id, :null => false, :index => true, :fixed => true, :size => 32)
       String(:name, :null => false) # index is handled with unique index on org/name combo
       String(:environment, :null => false)
-      blob(:serialized_object)
+      mediumblob(:serialized_object)
       String(:last_updated_by, :null => false, :fixed => true, :size => 32)
       DateTime(:created_at, :null => false)
       DateTime(:updated_at, :null => false)

@@ -4,7 +4,11 @@ require 'rubygems'
 $:.unshift File.expand_path("../../../lib/", __FILE__)
 
 require 'opscode/models/user'
+require 'opscode/models/client'
 require 'opscode/mappers/user'
+
+$:.unshift File.expand_path('../', __FILE__)
+require 'behaviors/active_model_behavior'
 
 Mixlib::Authorization::Config.authorization_service_uri = "http://localhost:5959"
 

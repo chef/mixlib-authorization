@@ -3,6 +3,10 @@ require 'opscode/authorizable'
 
 module Opscode
   module Models
+
+    class InvalidParameters < ArgumentError
+    end
+
     class Base
 
       include Opscode::Authorizable

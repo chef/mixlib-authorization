@@ -6,11 +6,26 @@ $:.unshift File.expand_path("../../../lib/", __FILE__)
 require 'opscode/models/user'
 require 'opscode/models/client'
 require 'opscode/mappers/user'
+require 'opscode/mappers/client'
 
 $:.unshift File.expand_path('../', __FILE__)
 require 'behaviors/active_model_behavior'
 
 Mixlib::Authorization::Config.authorization_service_uri = "http://localhost:5959"
+
+class TestingStatsClient
+  attr_reader :times_called
+
+  def initialize
+    @times_called = 0
+  end
+
+  def db_call
+    @times_called += 1
+    yield
+  end
+end
+
 
 module Fixtures
 

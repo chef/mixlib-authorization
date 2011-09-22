@@ -119,6 +119,10 @@ describe Opscode::Models::Client do
       @client.public_key.to_s.should == SAMPLE_CERT_KEY
     end
 
+    it "is not a validator" do
+      @client.should_not be_a_validator
+    end
+
     describe "with an old-style public key" do
       before do
         @db_values.delete(:certificate)
@@ -140,6 +144,30 @@ describe Opscode::Models::Client do
     end
   end
 
+  describe "when created as a validator for an org" do
+    before do
+      @client = Opscode::Models::Client.new_validator_for_org("derporg")
+    end
+
+    it "is named orgname-validator" do
+      @client.name.should == "derporg-validator"
+    end
+
+    it "is a validator" do
+      @client.should be_a_validator
+    end
+  end
+
+  describe "when created as a validator" do
+    before do
+      @client = Opscode::Models::Client.new(:name => "secondary-validator")
+      @client.validator!
+    end
+
+    it "is a validator" do
+      @client.should be_a_validator
+    end
+  end
 
   describe "after required attributes are set" do
     before do

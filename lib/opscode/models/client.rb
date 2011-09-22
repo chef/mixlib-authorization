@@ -20,13 +20,22 @@ module Opscode
       protected_attribute :org_id
       protected_attribute :public_key # custom getter below
       protected_attribute :certificate
+
+      # We might want to make this settable from user data, but that's a
+      # behavior change we should carefully consider before opting in to.
       protected_attribute :validator
+      alias :validator? :validator
 
       protected_attribute :created_at #custom reader method
       protected_attribute :updated_at #custom reader method
 
       validates_presence_of :name, :message => "must not be blank"
       validates_format_of   :name, :with => /\A([a-zA-Z0-9\-_\.])*\z/, :message => "has an invalid format"
+
+      def self.new_validator_for_org(orgname)
+        name = CGI.escape("#{orgname}-validator")
+        load(:name => name, :validator => true)
+      end
 
       # This will be necessary to generate URLs from the client objects if we wish to do that...
       #protected_attribute :orgname
@@ -35,6 +44,15 @@ module Opscode
       # accidentally allow users to change the org_id of a client.
       def assign_org_id!(new_org_id)
         @org_id = new_org_id
+      end
+
+      # Mark this client as a validator
+      #--
+      # This method can go away if we make validator-ness a user-settable
+      # property; in that case you could just add `:validator => true` in the
+      # constructor.
+      def validator!
+        @validator = true
       end
 
       # overrides attr_reader to use custom reader in superclass
@@ -47,9 +65,6 @@ module Opscode
         super
       end
 
-      def validator?
-        false
-      end
 
       # Like a regular attribute setter, except that it forcibly casts the
       # argument to a string first. Note that this attribute is protected which

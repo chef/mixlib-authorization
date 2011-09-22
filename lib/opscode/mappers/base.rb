@@ -1,6 +1,7 @@
 require 'sequel'
 require 'yajl'
 require 'uuidtools'
+require 'opscode/mappers/amqp_client_ext.rb'
 
 # UTC4Life plz:
 Sequel.default_timezone = :utc

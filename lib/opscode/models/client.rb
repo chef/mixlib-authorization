@@ -25,6 +25,9 @@ module Opscode
       protected_attribute :created_at #custom reader method
       protected_attribute :updated_at #custom reader method
 
+      validates_presence_of :name, :message => "must not be blank"
+      validates_format_of   :name, :with => /\A([a-zA-Z0-9\-_\.])*\z/, :message => "has an invalid format"
+
       # This will be necessary to generate URLs from the client objects if we wish to do that...
       #protected_attribute :orgname
 

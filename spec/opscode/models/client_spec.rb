@@ -46,6 +46,36 @@ describe Opscode::Models::Client do
       @client.should_not be_a_validator
     end
 
+    it "is not valid" do
+      @client.should_not be_valid
+    end
+
+    it "has an invalid name" do
+      @client.valid?
+      @client.errors[:name].should include("must not be blank")
+    end
+
+    # validates_format :clientname, :with => /\A([a-zA-Z0-9\-_\.])*\z/
+    describe "when validating the name field" do
+      it "does not accept names with non alphanumeric characters" do
+        @client.name = "@$%thisissomeperl"
+        @client.should_not be_valid
+        @client.errors[:name].should include("has an invalid format")
+      end
+
+      it "does not accept an empty string as the name" do
+        @client.name = ""
+        @client.should_not be_valid
+        @client.errors[:name].should include("must not be blank")
+      end
+
+      it "accepts names with alphanumeric, underscore and period" do
+        @client.name = "FOObar123_."
+        @client.should be_valid
+      end
+
+    end
+
   end
 
   describe "when created with values from the database" do

@@ -4,6 +4,9 @@ module Opscode
   module Mappers
     class Client < Base
 
+      class CannotDeleteValidator < ArgumentError
+      end
+
       # Convenience class for initializing Mappers::Client objects:
       # * db::: Sequel database connection
       # * amqp::: Chef AMQP client
@@ -144,7 +147,7 @@ module Opscode
         # Detect if we're updating the name to a value that's already in use:
         unless client.name.nil? || client.name.empty?
           existing_ids = execute_sql(:validate, :client) do
-            finder = table.select(:id).filter(:name => client.name, :org_id => client.org_id)
+            finder = table.select(:id).filter(:name => client.name)
             finder.map {|row| row[:id]}
           end
           if existing_ids.any? {|id| id != client.id}
@@ -162,16 +165,19 @@ module Opscode
       end
 
       def destroy(client)
-        raise "TODO"
         unless client.id
           self.class.invalid_object!("Cannot destroy client #{client.name} without a valid id")
+        end
+
+        if client.validator? && (validator_count <= 1)
+          raise CannotDeleteValidator, "#{client.name} is the only validator in this organization, not deleting it."
         end
 
         unless execute_sql(:validate, :client) { table.select(:id).filter(:id => client.id).any? }
           raise RecordNotFound, "Can't delete client #{client.name} because it doesn't exist"
         end
 
-        execute_sql(:delete, :client) { table.filter(:id => user.id).delete }
+        execute_sql(:delete, :client) { table.filter(:id => client.id).delete }
       end
 
       def list
@@ -221,7 +227,7 @@ module Opscode
 
       def existing_client?(client)
         execute_sql(:validate, :client) do
-          table.select(:name).filter(:name => client.name, :org_id => client.org_id).any?
+          table.select(:name).filter(:name => client.name).any?
         end
       end
 
@@ -234,6 +240,10 @@ module Opscode
         end
 
         true
+      end
+
+      def validator_count
+        execute_sql(:validate, :client) { table.filter(:validator => true).count }
       end
 
     end

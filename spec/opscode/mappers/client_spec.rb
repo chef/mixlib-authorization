@@ -104,11 +104,30 @@ describe Opscode::Mappers::User do
     end
 
     it "grants the client read and create permissions on the clients container" do
-      #pp :authz_id => @client.authz_id
-      #pp @container_authz_model.fetch_acl
       container_acl = @container_authz_model.fetch_acl
       container_acl["create"]["actors"].should include(@client.authz_id)
       container_acl["read"]["actors"].should include(@client.authz_id)
+    end
+
+    it "refuses to delete the last validator in an organization" do
+      lambda { @mapper.destroy(@client) }.should raise_error(Opscode::Mappers::Client::CannotDeleteValidator)
+    end
+
+    describe "and creating another validator" do
+      before do
+        @queue = mock("AMQP Queue")
+        @amqp_client.should_receive(:transaction).and_yield
+        @amqp_client.should_receive(:queue_for_object).and_yield(@queue)
+        @queue.should_receive(:publish)
+        @alt_validator = Opscode::Models::Client.load(:name => "derp-validator-two",
+                                               :validator => true,
+                                               :certificate => SAMPLE_CERT )
+        @mapper.create(@alt_validator, @clients_container)
+      end
+
+      it "allows one of the validators to be deleted" do
+        @mapper.destroy(@client) #should_not raise_error
+      end
     end
   end
 
@@ -272,6 +291,16 @@ describe Opscode::Mappers::User do
     it "adds the client to the search index" do
       # this is tested by the mocks for amqp_client and queue.
       # leaving this here just to be explicit
+    end
+
+    describe "and then destroying it" do
+      before do
+        @mapper.destroy(@client)
+      end
+
+      it "does not find the client in the database" do
+        @db[:clients].filter(:id => @client.id).all.should be_empty
+      end
     end
 
   end

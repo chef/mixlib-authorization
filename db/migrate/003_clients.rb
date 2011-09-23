@@ -19,7 +19,13 @@ Sequel.migration do
       DateTime(:created_at, :null => false)
       DateTime(:updated_at, :null => false)
 
-      unique([:org_id, :name]) # org+name is unique and indexed
+      unique([:org_id, :name],:name => :org_id_name_unique) # org+name is unique and indexed
+
+      # Notice: before deleting a validator client, we count the number of
+      # validators in the org. It seems like this query would benefit from an
+      # index on [:org_id, :validator], but I could not get the query planner
+      # to use such an index in my tests.
+      # index([:org_id, :validator], :name => :org_id_validator)
     end
 
   end

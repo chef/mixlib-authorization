@@ -14,9 +14,6 @@ module Opscode
       # * stats_client::: statsd client
       # * authz_id::: AuthZ id of the actor making the request
       class MapperConfig < Struct.new(:db, :amqp, :org_id, :stats_client, :authz_id)
-        def valid?
-          not values.any?(&:nil?)
-        end
       end
 
       attr_reader :amqp_connection
@@ -36,9 +33,6 @@ module Opscode
         conf = MapperConfig.new
         if block_given?
           yield conf
-        end
-        unless conf.valid?
-          raise ArgumentError, "You must set all of #{conf.members.join(',')} via a block."
         end
 
         super(conf.db, conf.stats_client, conf.authz_id)

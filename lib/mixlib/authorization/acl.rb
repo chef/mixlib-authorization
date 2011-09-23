@@ -6,6 +6,8 @@
 # All rights reserved - do not redistribute
 #
 
+require 'mixlib/authorization/auth_helper'
+
 module Mixlib
   module Authorization
 

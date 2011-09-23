@@ -175,13 +175,13 @@ module Mixlib
 
         # Create a RestClient::Resource for the given path components. See also: #url_for
         def resource_for(*paths)
-          RestClient::Resource.new(url_for(*paths),:headers=>headers, :timeout=>10, :open_timeout=>5)
+          RestClient::Resource.new(url_for(*paths),:headers=>headers, :timeout=>5, :open_timeout=>1)
         end
 
         # Generate the URL for the given path components. If no components are
         # given, it returns the base URL for the resource type (e.g., http://authz:2345/clients)
         def url_for(*paths)
-          paths.inject("#{base_url}/#{resource}") {|url, component| url << FSLASH << component}
+          paths.inject("#{base_url}/#{resource}") {|url, component| url << FSLASH << component.to_s}
         end
 
       end

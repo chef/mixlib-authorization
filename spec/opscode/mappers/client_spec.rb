@@ -1,4 +1,10 @@
 require File.expand_path('../../spec_helper', __FILE__)
+require 'mixlib/authorization/models/join_document'
+require 'mixlib/authorization/models/join_types'
+require 'mixlib/authorization/acl'
+
+
+AuthzModels = Mixlib::Authorization::Models
 
 describe Opscode::Mappers::User do
   include Fixtures
@@ -21,7 +27,7 @@ describe Opscode::Mappers::User do
       m.amqp = @amqp_client
       m.org_id = @org_id
       m.stats_client = @stats_client
-      m.authz_id = "an_authz_id"
+      m.authz_id = "0"
     end
 
     @container_acl = {  "delete" => {"groups"=>[], "actors"=>[]},
@@ -30,8 +36,15 @@ describe Opscode::Mappers::User do
                         "create" => {"groups"=>[], "actors"=>[]},
                         "update" => {"groups"=>[], "actors"=>[]} }
 
+    @authz_server = Mixlib::Authorization::Config.authorization_service_uri
+    @container_authz_model = AuthzModels::JoinTypes::Container.new(@authz_server,
+                                                                   "requester_id" => "0")
+    @sentinel_actor_id = "86"
 
-    @clients_container = mock("ClientsContainer", :fetch_join_acl => @container_acl)
+    @container_authz_model.save
+    @container_authz_model.grant_permission_to_actor("grant", @sentinel_actor_id)
+
+    @clients_container = mock("ClientsContainer", :fetch_join => @container_authz_model)
   end
 
   describe "when there are no clients in the database" do
@@ -55,73 +68,211 @@ describe Opscode::Mappers::User do
   end
 
   describe "when there are clients of other orgs in the database" do
-    it "does not list any clients"
+    before do
+      client = {:id => "222", :org_id => "222", :name => "otherguy",
+                :pubkey_version => 1, :public_key => SAMPLE_CERT,
+                :validator => false, :last_updated_by => "0",
+                :created_at => Time.now, :updated_at => Time.now}
+      @db[:clients].insert(client)
+    end
+    it "does not list any clients" do
+      @mapper.list.should == []
+    end
 
-    it "does not find a client by name"
+    it "does not find a client by name" do
+      @mapper.find_by_name("otherguy").should be_nil
+    end
 
-    it "does not find a client for authentication"
   end
 
   describe "after creating a validator client" do
-    # NOTE: this should be written as a create_validator method;
-    # set the correct authz permissions on the container:
-    #   auth_acl_data = container.fetch_join_acl
-    #   acl = Mixlib::Authorization::Acl.new(auth_acl_data)
-    #   ["create","read"].each do |ace|
-    #     container_ace = acl.aces[ace].to_user(org_db)
-    #     container_ace.add_actor(clientname)
-    #     container.update_join_ace(ace, container_ace.to_auth(org_db).ace)
-    #   end
-    #
+    before do
+      @queue = mock("AMQP Queue")
+      @amqp_client.should_receive(:transaction).and_yield
+      @amqp_client.should_receive(:queue_for_object).and_yield(@queue)
+      @queue.should_receive(:publish)
+      @client = Opscode::Models::Client.load(:name => "derp-validator",
+                                             :validator => true,
+                                             :certificate => SAMPLE_CERT )
+      @mapper.create(@client, @clients_container)
 
-    it "saves the client as a validator"
+    end
+
+    it "saves the client as a validator" do
+      client = @mapper.find_by_name("derp-validator")
+      client.should be_a_validator
+    end
+
+    it "grants the client read and create permissions on the clients container" do
+      #pp :authz_id => @client.authz_id
+      #pp @container_authz_model.fetch_acl
+      container_acl = @container_authz_model.fetch_acl
+      container_acl["create"]["actors"].should include(@client.authz_id)
+      container_acl["read"]["actors"].should include(@client.authz_id)
+    end
   end
 
   describe "after creating a client with the id and authz_id already set" do
-    it "includes the client in the list of all clients"
+    before do
+      @client = Opscode::Models::Client.load(:name => "derp",
+                                             :validator => false,
+                                             :certificate => SAMPLE_CERT,
+                                             :id => '1' * 32,
+                                             :authz_id => '2' * 32)
 
-    it "loads the client for authentication"
+      @queue = mock("AMQP Queue")
+      @amqp_client.should_receive(:transaction).and_yield
+      @amqp_client.should_receive(:queue_for_object).and_yield(@queue)
+      @queue.should_receive(:publish)
 
-    it "finds the client by name"
+      @mapper.create(@client, @clients_container)
+    end
 
-    it "sets timestamps on the client"
+    it "includes the client in the list of all clients" do
+      @mapper.list.should == %w{derp}
+    end
+
+    it "loads the client for authentication" do
+      @mapper.find_for_authentication("derp").should == @client
+    end
+
+    it "finds the client by name" do
+      @mapper.find_by_name("derp").should == @client
+    end
+
+    it "sets timestamps on the client" do
+      client = @mapper.find_by_name("derp")
+      client.created_at.to_i.should be_within(1).of(Time.now.to_i)
+      client.updated_at.to_i.should be_within(1).of(Time.now.to_i)
+    end
 
     describe "and another client is created" do
+      before do
+        @amqp_client.should_receive(:transaction).and_yield
+        @amqp_client.should_receive(:queue_for_object).and_yield(@queue)
+        @queue.should_receive(:publish)
 
-      it "lists all clients"
+        @other_client = Opscode::Models::Client.load(:name => "herp",
+                                                     :validator => false,
+                                                     :certificate => SAMPLE_CERT )
+        @mapper.create(@other_client, @clients_container)
+      end
+
+      it "lists all clients" do
+        @mapper.list.should =~ %w{herp derp}
+      end
 
     end
 
     describe "and updating the client's certificate" do
+      before do
+        @amqp_client.should_receive(:transaction).and_yield
+        @amqp_client.should_receive(:queue_for_object).and_yield(@queue)
+        @queue.should_receive(:publish)
 
-      it "saves the updated cert"
+        @client = @mapper.find_by_name("derp")
+        @client.certificate = ALTERNATE_CERT
+        @mapper.update(@client)
+      end
+
+      it "saves the updated cert" do
+        client = @mapper.find_by_name("derp")
+        client.certificate.to_s.should == ALTERNATE_CERT
+      end
 
     end
 
     describe "and updating the client's name" do
-      it "saves the updated client name"
+      before do
+        @amqp_client.should_receive(:transaction).and_yield
+        @amqp_client.should_receive(:queue_for_object).and_yield(@queue)
+        @queue.should_receive(:publish)
+
+        @client = @mapper.find_by_name("derp")
+        @client.name = "herpderp"
+
+        @mapper.update(@client)
+      end
+
+      it "saves the updated client name" do
+        @mapper.find_by_name("derp").should be_nil
+        @mapper.find_by_name("herpderp").should == @client
+      end
     end
 
     describe "when trying to create a duplicate client" do
-      it "raises an invalid record exception"
+      it "raises an invalid record exception" do
+        lambda { @mapper.create(@client, @clients_container) }.should raise_error(Opscode::Mappers::InvalidRecord)
+      end
 
-      it "marks the model object invalid"
+      it "marks the model object invalid" do
+        lambda { @mapper.create(@client, @clients_container) }.should raise_error
+        @client.errors.should have_key(:name)
+      end
+
+    end
+
+    describe "when attempting to rename a client with the name of an existing client" do
+      before do
+        @amqp_client.should_receive(:transaction).and_yield
+        @amqp_client.should_receive(:queue_for_object).and_yield(@queue)
+        @queue.should_receive(:publish)
+
+        @other_client = Opscode::Models::Client.load(:name => "herpderp",
+                                                     :certificate => SAMPLE_CERT,
+                                                     :validator => false)
+        @mapper.create(@other_client, @clients_container)
+      end
+
+      it "marks the object invalid and raises an error" do
+        @client.name = "herpderp"
+        lambda { @mapper.update(@client) }.should raise_error(Opscode::Mappers::InvalidRecord)
+        @client.errors.should have_key(:name)
+      end
+
     end
   end
 
   describe "after creating a client without an id or authz_id" do
+    before do
+      @queue = mock("AMQP Queue")
+      @amqp_client.should_receive(:transaction).and_yield
+      @amqp_client.should_receive(:queue_for_object).and_yield(@queue)
+      @queue.should_receive(:publish)
 
-    it "generates an id"
+      @client = Opscode::Models::Client.new(:name => "herpderp")
+      @client.certificate = SAMPLE_CERT
+      @mapper.create(@client, @clients_container)
+    end
 
-    it "generates an authz_id"
+    it "generates an id" do
+      @client.id.should match(/^[0-9a-f]{32}$/)
+      row_data = @db[:clients].filter(:id => @client.id).first
+      row_data.should_not be_nil
+      row_data[:name].should == "herpderp"
+    end
 
-    it "updates the ACL with ACEs inherited from the container"
+    it "generates an authz_id" do
+      @client.authz_id.should match(/^[0-9a-f]{32}$/)
+      row_data = @db[:clients].filter(:authz_id => @client.authz_id).first
+      row_data.should_not be_nil
+      row_data[:name].should == "herpderp"
+    end
 
-    it "creates a corresponding actor object in authz"
+    it "creates a corresponding actor object in authz" do
+      authz_data = @client.authz_object_as("0").fetch
+      authz_data["id"].should == @client.authz_id
+    end
 
-    it "adds the client to the search index"
+    it "updates the ACL with ACEs inherited from the container" do
+      acl = @client.authz_object_as("0").fetch_acl
+      acl["grant"]["actors"].should include(@sentinel_actor_id)
+    end
 
-    it "sets timestamps on the client"
+    it "adds the client to the search index" do
+      # this is tested by the mocks for amqp_client and queue.
+      # leaving this here just to be explicit
+    end
 
   end
 

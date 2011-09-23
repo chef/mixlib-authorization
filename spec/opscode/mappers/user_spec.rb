@@ -1,18 +1,5 @@
 require File.expand_path('../../spec_helper', __FILE__)
 
-class TestingStatsClient
-  attr_reader :times_called
-
-  def initialize
-    @times_called = 0
-  end
-
-  def db_call
-    @times_called += 1
-    yield
-  end
-end
-
 describe Opscode::Mappers::User do
   include Fixtures
 

@@ -48,16 +48,23 @@ module Opscode
 
       # Does all the work of creating a client: generates ids for it, updates the timestamps, creates the object in authz, and 
       def create(client, container)
-        raise "TODO"
         # If the caller has already set an id, trust it.
         client.assign_id!(new_uuid) unless client.id
         client.assign_org_id!(@org_id)
         client.update_timestamps!
         client.last_updated_by!(requester_authz_id)
 
+        validate_before_create!(client)
+
         unless client.authz_id
-          client.create_authz_object_as(requester_authz_id) 
-          client.authz_object_as(requester_authz_id).apply_container_acl(container)
+          client.create_authz_object_as(requester_authz_id)
+          # Do the container inheritance dance.
+          # we have to use #fetch_join instead of the newer
+          # APIs because we rely on spoofing the request for the container's
+          # ACLs as pivotal.
+          container_authz_doc = container.fetch_join
+          client.authz_object_as(requester_authz_id).apply_parent_acl(container_authz_doc)
+          grant_validator_permissions(client, container) if client.validator?
         end
 
         user_side_create(client) do
@@ -66,6 +73,27 @@ module Opscode
 
         client.persisted!
         client
+      end
+
+      def validate_before_create!(client)
+        client.valid?
+        unless client.name.nil? || client.name.empty?
+          if existing_client?(client)
+            client.name_not_unique!
+          end
+        end
+
+        unless client.errors.empty?
+          self.class.invalid_object!(client.errors.full_messages.join(", "))
+        end
+      end
+
+      def grant_validator_permissions(client, container)
+        # Add validator to the ACES on "clients" container
+        container_authz_doc = container.fetch_join
+        container_authz_doc.grant_permission_to_actor("create", client.authz_id)
+        container_authz_doc.grant_permission_to_actor("read", client.authz_id)
+        true
       end
 
       # Creates +client+ in the user side database. **DOES NOT** submit +client+
@@ -78,36 +106,59 @@ module Opscode
       # this to abort creation if the +client+ cannot be added to the search
       # index.
       def user_side_create(client)
-        raise "TODO"
         client_hash = client.for_db
+        client_row = map_to_row!(client_hash)
 
         execute_sql(:create, :client) do
           @connection.transaction do
             yield if block_given?
-            table.insert(client_hash)
+            table.insert(client_row)
           end
         end
       end
 
       def update(client)
-        raise "TODO"
         unless client.id
           self.class.invalid_object!("Cannot save client #{client.name} without a valid id")
         end
 
-        client.update_timestamps!
-        client_hash = client.for_db
-        client_hash.delete(:client_data)
-        client_hash[:serialized_object] ||= client.for_json
+        validate_before_update!(client)
 
-        execute_sql(:update, :client) { table.filter(:id => client.id).update(client_hash) }
+        client.update_timestamps!
+        row_data = map_to_row!(client.for_db)
+
+        execute_sql(:update, :client) do
+          @connection.transaction do
+            update_index(client)
+            table.filter(:id => client.id).update(row_data)
+          end
+        end
       rescue Sequel::DatabaseError => e
         log_exception("User update failed", e)
         self.class.query_failed!(e.message)
       end
 
+      def validate_before_update!(client)
+        client.valid?
+
+        # Detect if we're updating the name to a value that's already in use:
+        unless client.name.nil? || client.name.empty?
+          existing_ids = execute_sql(:validate, :client) do
+            finder = table.select(:id).filter(:name => client.name, :org_id => client.org_id)
+            finder.map {|row| row[:id]}
+          end
+          if existing_ids.any? {|id| id != client.id}
+            client.name_not_unique!
+          end
+        end
+
+        unless client.errors.empty?
+          self.class.invalid_object!(client.errors.full_messages.join(", "))
+        end
+      end
+
       def update_index(client)
-        publish_object(client.id, client.for_indexing)
+        publish_object(client.id, client.for_index)
       end
 
       def destroy(client)
@@ -129,7 +180,37 @@ module Opscode
       end
 
       def find_by_name(name)
-        nil
+        row = execute_sql(:read, :client) { table.filter(:name => name).first }
+        row && inflate_model(row)
+      end
+
+      def inflate_model(row_data)
+        client = Models::Client.load(map_from_row!(row_data))
+        client.persisted!
+        client
+      end
+
+      def map_from_row!(row_data)
+        case row_data.delete(:pubkey_version)
+        when 1
+          row_data[:certificate] = row_data.delete(:public_key)
+        when 0
+          # leave it
+        else
+          raise "Invalid Client data!: #{row_data.inspect}"
+        end
+
+        row_data
+      end
+
+      def map_to_row!(model_data)
+        if certificate = model_data.delete(:certificate)
+          model_data[:pubkey_version] = 1
+          model_data[:public_key] = certificate
+        else
+          model_data[:pubkey_version] = 0
+        end
+        model_data
       end
 
       # Client doesn't have a lot of extra marginally useful data,
@@ -137,6 +218,12 @@ module Opscode
       alias :find_for_authentication :find_by_name
 
       private
+
+      def existing_client?(client)
+        execute_sql(:validate, :client) do
+          table.select(:name).filter(:name => client.name, :org_id => client.org_id).any?
+        end
+      end
 
       # Uses the amqp_client to update the object's queue. Hard codes use of AMQP transactions.
       def publish_object(object_id, object)

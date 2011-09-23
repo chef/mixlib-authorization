@@ -305,18 +305,6 @@ module Opscode
       end
 
 
-      private
-
-      # Parse the portion of the object that's stored as a blob o' JSON
-      def from_json(serialized_data)
-        Yajl::Parser.parse(serialized_data, :symbolize_keys => true)
-      end
-
-      # Encode the portion of the object that's stored as a blob o' JSON
-      def as_json(data)
-        Yajl::Encoder.encode(data)
-      end
-
     end
   end
 end

@@ -20,6 +20,7 @@ module Opscode
       protected_attribute :org_id
       protected_attribute :public_key # custom getter below
       protected_attribute :certificate
+      protected_attribute :last_updated_by
 
       # We might want to make this settable from user data, but that's a
       # behavior change we should carefully consider before opting in to.
@@ -44,6 +45,11 @@ module Opscode
       # accidentally allow users to change the org_id of a client.
       def assign_org_id!(new_org_id)
         @org_id = new_org_id
+      end
+
+      def name_not_unique!
+        errors.add(:conflicts, "name")
+        errors.add(:name, "already exists.")
       end
 
       # Mark this client as a validator

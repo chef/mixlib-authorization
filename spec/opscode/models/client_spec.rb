@@ -76,6 +76,18 @@ describe Opscode::Models::Client do
 
     end
 
+    describe "when the name is not unique" do
+      before do
+        @client.name = "derp"
+        @client.name_not_unique!
+      end
+
+      it "is invalid" do
+        @client.errors[:name].should include("already exists.")
+      end
+
+    end
+
   end
 
   describe "when created with values from the database" do
@@ -318,7 +330,6 @@ describe Opscode::Models::Client do
     before do
       @form_params = {:name => 'superderp'}
       @client = Opscode::Models::Client.new(@form_params)
-      #client = Mixlib::Authorization::Models::Client.on(database).new(:clientname => clientname, :certificate=>certificate, :orgname=>self.orgname)
     end
 
     it "has a name" do

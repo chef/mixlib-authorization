@@ -5,6 +5,10 @@
 #
 # All rights reserved - do not redistribute
 #
+require 'mixlib/authorization/auth_helper'
+require 'mixlib/authorization/join_helper'
+require 'mixlib/authorization/container_helper'
+require 'mixlib/authorization/id_mapping_helper'
 
 module Mixlib
   module Authorization
@@ -15,6 +19,7 @@ module Mixlib
         include Mixlib::Authorization::AuthHelper
         include Mixlib::Authorization::JoinHelper
         include Mixlib::Authorization::ContainerHelper
+        include Mixlib::Authorization::IDMappingHelper
         
         view_by :groupname
         view_by :orgname

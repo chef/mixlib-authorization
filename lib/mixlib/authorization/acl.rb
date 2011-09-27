@@ -7,13 +7,16 @@
 #
 
 require 'mixlib/authorization/auth_helper'
+require 'mixlib/authorization/id_mapping_helper'
 
 module Mixlib
   module Authorization
 
     class Acl
       include Mixlib::Authorization::AuthHelper
-      
+      include Mixlib::Authorization::IDMappingHelper
+
+
       ACES = ["create","read","update","delete","grant"]
       attr_reader :aces
       
@@ -65,6 +68,7 @@ module Mixlib
     
     class Ace
       include Mixlib::Authorization::AuthHelper
+      include Mixlib::Authorization::IDMappingHelper
 
       attr_reader :ace
       

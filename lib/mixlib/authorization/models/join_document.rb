@@ -6,6 +6,8 @@
 # All rights reserved - do not redistribute
 #
 
+require 'mixlib/authorization/authz_client'
+
 module Mixlib
   module Authorization
     module Models
@@ -27,21 +29,13 @@ module Mixlib
 
         alias :join_data :model_data
 
-        BASE_HEADERS = {:accept         => "application/json".freeze,
-                        :content_type   => "application/json".freeze,
-                        "X-Ops-User-Id".freeze => 'front-end-service'.freeze }.freeze
-
-        X_OPS_REQUESTING_ACTOR_ID = "X-Ops-Requesting-Actor-Id".freeze
-        REQUESTER_ID = "requester_id".freeze
-
-        FSLASH = "/".freeze
-
         ACL = "acl".freeze
         ACE = "ace".freeze
         ACTORS = "actors".freeze
         GROUPS = "groups".freeze
         OBJECT_ID = "object_id".freeze
         ID = "id"
+        REQUESTER_ID = "requester_id".freeze
 
         # Create a new Authz side model.
         # === Arguments
@@ -54,10 +48,12 @@ module Mixlib
           @base_url = base_url
           @model_data = model_data
 
+
           unless @requester_id = model_data[REQUESTER_ID]
             raise ArgumentError, "Cannot create a #{self.class} without a requester_id"
           end
 
+          @authz_client = AuthzClient.new(resource, @requester_id, base_url)
           @id = model_data[OBJECT_ID]
         end
 
@@ -70,35 +66,24 @@ module Mixlib
         end
 
         def save
-          Mixlib::Authorization::Log.debug "IN SAVE: model_data #{model_data.inspect}"
           rest = resource_for()
           @identity = JSON.parse(rest.post(model_data.to_json))
           @id = @identity[ID]
-          Mixlib::Authorization::Log.debug "IN SAVE: response: #{@identity.inspect}"
           @identity
         end
 
         def fetch
-          Mixlib::Authorization::Log.debug "IN FETCH: #{self.inspect}"
-
           rest = resource_for(id)
           @identity  = JSON.parse(rest.get).merge({ "id"=>id })
-          Mixlib::Authorization::Log.debug "IN FETCH: response #{@identity.inspect}"
           @identity
         end
 
         def update
-          Mixlib::Authorization::Log.debug "IN UPDATE: #{self.inspect}"
         end
 
         def fetch_acl
-          Mixlib::Authorization::Log.debug "IN FETCH ACL: #{self.inspect}"
-
           rest = resource_for(id, ACL)
-          @identity  = JSON.parse(rest.get)
-
-          Mixlib::Authorization::Log.debug "FETCH ACL: #{@identity.inspect}"
-          @identity
+          JSON.parse(rest.get)
         end
 
         def authorized?(actor, ace)
@@ -169,15 +154,9 @@ module Mixlib
           update_ace(ace_type, target_ace.ace)
         end
 
-        # Create a RestClient::Resource for the given path components. See also: #url_for
+        # Create a RestClient::Resource for the given path components. See also AuthzClient
         def resource_for(*paths)
-          RestClient::Resource.new(url_for(*paths),:headers=>headers, :timeout=>5, :open_timeout=>1)
-        end
-
-        # Generate the URL for the given path components. If no components are
-        # given, it returns the base URL for the resource type (e.g., http://authz:2345/clients)
-        def url_for(*paths)
-          paths.inject("#{base_url}/#{resource}") {|url, component| url << FSLASH << component.to_s}
+          @authz_client.resource(*paths)
         end
 
       end

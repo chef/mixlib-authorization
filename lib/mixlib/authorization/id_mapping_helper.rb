@@ -85,8 +85,8 @@ module Mixlib
                   when  :to_auth
                     user_group_to_auth_group(incoming_group, org_database)
                   end
-          Mixlib::Authorization::Log.debug "incoming_group: #{incoming_group} is not a recognized group!" if group.nil?          
-          group.nil? ? outgoing_groups : outgoing_groups << group 
+          Mixlib::Authorization::Log.debug "incoming_group: #{incoming_group} is not a recognized group!" if group.nil?
+          group.nil? ? outgoing_groups : outgoing_groups << group
         end
       end
 

@@ -80,7 +80,11 @@ module Opscode
       rw_attribute :middle_name
       rw_attribute :display_name
       rw_attribute :email
+
       rw_attribute :username
+      alias :name :username
+
+
       rw_attribute :city
       rw_attribute :country
       rw_attribute :twitter_account

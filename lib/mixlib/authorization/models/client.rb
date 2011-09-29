@@ -52,6 +52,8 @@ module Mixlib
         view_by :clientname
 
         property :clientname
+        alias :name :clientname
+
         property :orgname
         property :public_key
         property :certificate
@@ -226,7 +228,7 @@ module Mixlib
             # BUGBUG adding the client to the organization's "clients" group should probably be done by policy outside the service somewhere [cb]
             Merb.logger.debug { "Adding client #{clientname} to clients group" }
             clients_group = Mixlib::Authorization::Models::Group.on(database).by_groupname(:key=>"clients").first
-            clients_group.add_actor(clientname,database)
+            clients_group.add_actor(self)
           end
 
         rescue Exception => e

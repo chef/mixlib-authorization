@@ -6,7 +6,7 @@ require 'mixlib/authorization/acl'
 
 AuthzModels = Mixlib::Authorization::Models
 
-describe Opscode::Mappers::User do
+describe Opscode::Mappers::Client do
   include Fixtures
 
   before(:all) do
@@ -44,7 +44,8 @@ describe Opscode::Mappers::User do
     @container_authz_model.save
     @container_authz_model.grant_permission_to_actor("grant", @sentinel_actor_id)
 
-    @clients_container = mock("ClientsContainer", :fetch_join => @container_authz_model)
+    @clients_container = mock("ClientsContainer", :authz_object_as => @container_authz_model)
+    @clients_container.stub!(:[]).with(:requester_id).and_return("0")
   end
 
   describe "when there are no clients in the database" do

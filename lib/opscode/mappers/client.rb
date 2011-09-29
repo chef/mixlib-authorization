@@ -56,12 +56,12 @@ module Opscode
         unless client.authz_id
           client.create_authz_object_as(requester_authz_id)
           # Do the container inheritance dance.
-          # we have to use #fetch_join instead of the newer
-          # APIs because we rely on spoofing the request for the container's
-          # ACLs as pivotal.
-          container_authz_doc = container.fetch_join
+          # we rely on spoofing the request for the container's
+          # ACLs as pivotal until authz is updated to allow ACL reads
+          # to actors w/ create permissions.
+          container_authz_doc = container.authz_object_as(container[:requester_id])
           client.authz_object_as(requester_authz_id).apply_parent_acl(container_authz_doc)
-          grant_validator_permissions(client, container) if client.validator?
+          grant_validator_permissions(client, container_authz_doc) if client.validator?
         end
 
         user_side_create(client) do
@@ -85,9 +85,8 @@ module Opscode
         end
       end
 
-      def grant_validator_permissions(client, container)
+      def grant_validator_permissions(client, container_authz_doc)
         # Add validator to the ACES on "clients" container
-        container_authz_doc = container.fetch_join
         container_authz_doc.grant_permission_to_actor("create", client.authz_id)
         container_authz_doc.grant_permission_to_actor("read", client.authz_id)
         true

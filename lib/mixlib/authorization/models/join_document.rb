@@ -6,9 +6,6 @@
 # All rights reserved - do not redistribute
 #
 
-require 'mixlib/authentication/signedheaderauth'
-require 'openssl'
-
 module Mixlib
   module Authorization
     module Models
@@ -29,7 +26,6 @@ module Mixlib
         attr_reader :id
 
         alias :join_data :model_data
-
 
         BASE_HEADERS = {:accept         => "application/json".freeze,
                         :content_type   => "application/json".freeze,

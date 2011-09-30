@@ -104,9 +104,9 @@ module Mixlib
 
         join_properties :groupname, :actors, :groups, :requester_id
 
+        # This has to be a setter for ScopedGroup to correctly initialize a
+        # Group. Not meant to be set anywhere else.
         attr_accessor :authz_id_mapper
-
-        COUCH_ID = "_id".freeze
 
         def initialize(attributes={})
           # Remove deprecated user-side membership data--we rely exclusively on
@@ -119,14 +119,7 @@ module Mixlib
           @desired_actors = nil
           @desired_groups = nil
 
-
           super(attributes)
-
-          # Le sigh. For global groups, we create a CouchRest db object based on the orgname
-          # instead of using the actual database that this document belongs to.
-          #org_db = (orgname && database_from_orgname(orgname)) || database
-          #user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection, nil, 0)
-          #@authz_id_mapper = AuthzIDMapper.new(org_db, user_mapper, nil, nil)
         end
 
         def requester_id
@@ -143,6 +136,18 @@ module Mixlib
           @groups = nil
         end
 
+        # Override CouchRest's #save so that we can also deal with creating the
+        # authz side object (for creates) and add/remove group members from
+        # authz as required (without callbacks b/c it's difficult to tell in
+        # what order they occur and we have no means to pass arguments to them.
+        #
+        # On create, does:
+        # * create user-side doc in couch
+        # * create authz side object and authjoin
+        # * inherit the ACL from the container and save it
+        # * reconcile membership
+        # On update:
+        # * reconcile membership
         def save
           was_a_new_doc = new_record?
           result = super
@@ -152,7 +157,6 @@ module Mixlib
             reconcile_memberships
           elsif result
             reconcile_memberships
-            result = result && update_join
           end
           result
         end
@@ -167,6 +171,11 @@ module Mixlib
           @actor_and_group_names
         end
 
+        # Provides a "backdoor" means to add an actor to a group without going
+        # through a full GET-PUT cycle. Convenient because the other interface
+        # to setting membership requires users and clients to be listed
+        # separately, but Group provides no way to read the membership in that
+        # format.
         def add_actor(actor)
           reset!
           Mixlib::Authorization::Log.debug { "Adding actor: #{actor.inspect} to group #{self}"}
@@ -177,6 +186,26 @@ module Mixlib
           end
 
           authz_client.resource(authz_id, :actors, actor_id).put(nil)
+        end
+
+        # A backdoor to adding a group to this group without a full GET-PUT
+        # cycle. See comments for #add_actor.
+        def add_group(group)
+          reset!
+          unless group_authz_id = group.authz_id
+            raise ArgumentError, "No actor id for group #{group.inspect}"
+          end
+          authz_client.resource(authz_id, :groups, group_authz_id).put(nil)
+        end
+
+        # A backdoor to deleting a group from this group without a GET-PUT
+        # cycle. See comments for #add_actor
+        def delete_group(group)
+          reset!
+          unless group_authz_id = group.authz_id
+            raise ArgumentError, "No actor id for group #{group.inspect}"
+          end
+          authz_client.resource(authz_id, :groups, group_authz_id).delete
         end
 
         ACTORS = "actors".freeze

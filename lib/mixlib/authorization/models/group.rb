@@ -9,133 +9,68 @@ require 'mixlib/authorization/authz_client'
 require 'mixlib/authorization/auth_helper'
 require 'mixlib/authorization/join_helper'
 require 'mixlib/authorization/container_helper'
-require 'mixlib/authorization/id_mapping_helper'
+require 'mixlib/authorization/authz_id_mapper'
 
 module Mixlib
   module Authorization
-    class InvalidGroupMember < ArgumentError
-    end
 
     module Models
 
-      class AuthzIDMapper
-        COUCH_ID = '_id'.freeze
+      ROWS = "rows"
+      KEY = "key"
 
-        attr_reader :org_db
-        attr_reader :user_mapper
+      # == ScopedGroup
+      # Wraps up the access layers for the objects that groups interact with.
+      # Since groups keep their cannonical data in authz where everything is
+      # global, this has the effect of scoping groups to a particular
+      # organization.
+      #
+      # Groups created/loaded via ScopedGroup get an AuthzIDMapper configured
+      # with the right databases/mappers and Clients SQL migration status.
+      #--
+      # NB: The code here uses setter injection to set the AuthzIDMapper on the
+      # Group objects, which I'd rather not do, but we don't have control of
+      # the constructor for groups with couchrest :(
+      class ScopedGroup
+        attr_reader :group_db
+        attr_reader :authz_id_mapper
 
-        def initialize(org_db, user_mapper, clients_mapper=nil,clients_in_sql=false)
-          @group_authz_ids_by_name = {}
-          @group_names_by_authz_id = {}
-
-          @actor_authz_ids_by_name = {}
-          @actor_names_by_authz_id = {}
-
-          @org_db = org_db
-          @user_mapper = user_mapper
+        # Create a ScopedGroup
+        # === Arguments
+        # * group_db::: the CouchRest database this group should belong to
+        # * org_db::: the CouchRest database this group's members belong to.
+        #   For a global group, this is different than the group_db, otherwise
+        #   it's the same.
+        # * user_mapper::: An Opscode::Mappers::User object
+        # * client_mapper::: NOT IMPLEMENTED YET
+        # * clients_in_sql::: NOT IMPLEMENTED YET
+        def initialize(group_db, org_db, user_mapper, client_mapper=nil, clients_in_sql=false)
+          @group_db = group_db
+          @org_db = @org_db
+          @authz_id_mapper = AuthzIDMapper.new(org_db, user_mapper, client_mapper, clients_in_sql)
         end
 
-        def actor_authz_ids_to_names(actor_ids)
-          usernames = []
-          Mixlib::Authorization::Log.debug { "Found #{users.size} users in actors list: #{actor_ids.inspect} users: #{usernames}" }
-
-          users = users_by_authz_ids(actor_ids)
-          remaining_actors = actor_ids - users.map(&:authz_id)
-
-          usernames = users.map(&:username)
-          # 2*N requests to couch for the clients :(
-          actor_names = remaining_actors.inject(usernames) do |clientnames, actor_id|
-            if clientname = client_authz_id_to_name(actor_id)
-              clientnames << clientname
-            else
-              clientnames
-            end
-          end
-          Mixlib::Authorization::Log.debug { "Mapped actors #{actors.inspect} to users #{actor_names}" }
-          actor_names
+        # Lists all of the groups (just names) in +group_db+
+        def all
+          Group.on(group_db).by_groupname(:include_docs => false)[ROWS].map {|g| g[KEY]}
         end
 
-        def group_authz_ids_to_names(group_ids)
-          group_ids.map {|group_id| group_authz_id_to_name(group_id)}.compact
+        # Find a group in +group_db+ by its name (aka groupname).
+        def find_by_name(name)
+          group = Group.on(group_db).by_groupname(:key => name).first
+          group && group.database = group_db
+          group && group.authz_id_mapper = authz_id_mapper
+          group
         end
 
-        def client_names_to_authz_ids(client_names)
-          client_names.map do |clientname|
-            unless client = Client.on(org_db).by_clientname(:key=>clientname).first
-              raise InvalidGroupMember, "Client #{clientname} does not exist"
-            end
-            cache_actor_mapping(client.name, client.authz_id)
-            client.authz_id
-          end
-        end
-
-        def user_names_to_authz_ids(user_names)
-          users = user_mapper.find_all_for_authz_map(user_names)
-          unless users.size == user_names.size
-            missing_user_names = user_names.select {|name| !users.any? {|user| user.name == name}}
-            raise InvalidGroupMember, "Users #{missing_user_names.join(', ')} do not exist"
-          end
-          users.each {|u| cache_actor_mapping(u.name, u.authz_id) }
-          users.map {|u| u.authz_id}
-        end
-
-        def group_names_to_authz_ids(group_names)
-          group_names.map {|g| group_name_to_authz_id(g)}
-        end
-
-        private
-
-        def cache_actor_mapping(name, authz_id)
-          @actor_names_by_authz_id[authz_id] = name
-          @actor_authz_ids_by_name[name] = authz_id
-        end
-
-        def cache_group_mapping(name, authz_id)
-          @group_names_by_authz_id[authz_id] = name
-          @group_authz_ids_by_name[name] = authz_id
-        end
-
-        def users_by_authz_ids(authz_ids)
-          # Find all the users in one query like a boss
-          users = @user_mapper.find_all_by_authz_id(authz_ids)
-          users.each {|u| cache_actor_mapping(u.name, u.authz_id)}
-          users
-        end
-
-
-        def client_authz_id_to_name(client_authz_id)
-          if name = @actor_names_by_authz_id[client_authz_id]
-            name
-          elsif client_join_entry = AuthJoin.by_auth_object_id(:key=>client_authz_id).first
-            client = Mixlib::Authorization::Models::Client.on(org_db).get(client_join_entry.user_object_id)
-            cache_actor_mapping(client.name, client_authz_id)
-            client.name
-          else
-            nil
-          end
-        end
-
-        def group_name_to_authz_id(group_name)
-          if authz_id = @group_authz_ids_by_name[group_name]
-            authz_id
-          elsif group = Group.on(org_db).by_groupname(:key=>group_name).first
-            cache_group_mapping(group_name, group.authz_id)
-            group.authz_id
-          else
-            raise InvalidGroupMember, "group #{group_name} does not exist"
-          end
-        end
-
-        def group_authz_id_to_name(authz_id)
-          if name = @group_names_by_authz_id[authz_id]
-            name
-          elsif auth_join = AuthJoin.by_auth_object_id(:key=>authz_id).first
-            name = Mixlib::Authorization::Models::Group.on(org_db).get(auth_join.user_object_id).groupname
-            cache_group_mapping(name, authz_id)
-            name
-          else
-            nil
-          end
+        # Create/initialize a new Group with the given attributes.
+        def new(attrs={})
+          actor_and_group_names = attrs.delete(:actor_and_group_names) || attrs.delete("actor_and_group_names")
+          group = Group.on(group_db).new(attrs)
+          group.database = group_db
+          group.authz_id_mapper = authz_id_mapper
+          group.actor_and_group_names = actor_and_group_names if actor_and_group_names
+          group
         end
       end
 
@@ -146,7 +81,7 @@ module Mixlib
         include Mixlib::Authorization::AuthHelper
         include Mixlib::Authorization::JoinHelper
         include Mixlib::Authorization::ContainerHelper
-        include Mixlib::Authorization::IDMappingHelper
+        #include Mixlib::Authorization::IDMappingHelper
 
         view_by :groupname
         view_by :orgname
@@ -169,9 +104,14 @@ module Mixlib
 
         join_properties :groupname, :actors, :groups, :requester_id
 
+        attr_accessor :authz_id_mapper
+
         COUCH_ID = "_id".freeze
 
         def initialize(attributes={})
+          # Remove deprecated user-side membership data--we rely exclusively on
+          # authz for membership data now.
+          attributes.delete(:actor_and_group_names) || attributes.delete("actor_and_group_names")
           reset!
 
           @actor_and_group_names = {}
@@ -179,28 +119,14 @@ module Mixlib
           @desired_actors = nil
           @desired_groups = nil
 
-          actor_and_group_names = attributes.delete(:actor_and_group_names) || attributes.delete("actor_and_group_names") || {}
 
           super(attributes)
 
           # Le sigh. For global groups, we create a CouchRest db object based on the orgname
           # instead of using the actual database that this document belongs to.
-          org_db = (orgname && database_from_orgname(orgname)) || database
-          user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection, nil, 0)
-          @authz_id_mapper = AuthzIDMapper.new(org_db, user_mapper, nil, nil)
-
-          # if this is an existing document, the object gets created with the
-          # couch _id and _rev fields set. There may or may not be an
-          # actor_and_group_names entry in the existing couch doc, but this
-          # information is irrelevant, because authz is the cannonical source
-          # of group membership information. In the case of an existing
-          # document, we don't care to set the actor_and_group_names attribute.
-          #
-          # Also note, this must come after the call to super so that couchrest
-          # will set the database attribute
-          unless attributes.key?(COUCH_ID)
-            self.actor_and_group_names = actor_and_group_names
-          end
+          #org_db = (orgname && database_from_orgname(orgname)) || database
+          #user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection, nil, 0)
+          #@authz_id_mapper = AuthzIDMapper.new(org_db, user_mapper, nil, nil)
         end
 
         def requester_id

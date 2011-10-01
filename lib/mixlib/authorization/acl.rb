@@ -19,7 +19,7 @@ module Mixlib
 
       ACES = ["create","read","update","delete","grant"]
       attr_reader :aces
-      
+
       def initialize(aces_in=nil)
         @aces = if aces_in.nil?
                   ACES.inject({ }) { |memo, ace_name| memo[ace_name]=Ace.new; memo}
@@ -31,9 +31,17 @@ module Mixlib
                   end
                 end
       end
-      
+
       def ==(other)
         other.respond_to?(:for_json) && other.for_json == for_json
+      end
+
+      def each_ace(*aces_to_yield)
+        aces_to_yield = ACES if aces_to_yield.empty?
+        aces_to_yield.each do |ace|
+          ace_name = ace.to_s
+          yield [ace_name, @aces[ace_name]]
+        end
       end
 
       def add(ace_name, ace)
@@ -50,14 +58,16 @@ module Mixlib
       def to_user(org_database)
         Acl.new(@aces.inject({ }) { |memo, ace_tuple| memo[ace_tuple[0]] = ace_tuple[1].to_user(org_database).for_json; memo })
       end
-      
+
       def to_auth(org_database)
         Acl.new(@aces.inject({ }) { |memo, ace_tuple| memo[ace_tuple[0]] = ace_tuple[1].to_auth(org_database).for_json; memo })
       end
-      
+
       def for_json
         @aces.inject({ }) { |memo, ace_tuple| memo[ace_tuple[0]] = ace_tuple[1].for_json; memo}
       end
+
+      alias :to_hash :for_json
 
       def merge!(other_acl)
         ACES.each do |ace_name|
@@ -65,21 +75,21 @@ module Mixlib
         end
       end
     end
-    
+
     class Ace
       include Mixlib::Authorization::AuthHelper
       include Mixlib::Authorization::IDMappingHelper
 
       attr_reader :ace
-      
+
       def initialize(ace_data=nil)
         @ace = ace_data || { "actors"=>[], "groups"=>[] }
       end
-      
+
       def actors
         ace["actors"]
       end
-      
+
       def groups
         ace["groups"]
       end
@@ -88,12 +98,12 @@ module Mixlib
         @ace["actors"] << member
         self
       end
-      
+
       def add_group(member)
         @ace["groups"] << member
         self
       end
-      
+
       def remove_actor(member)
         @ace["actors"].delete(member)
         self
@@ -118,11 +128,13 @@ module Mixlib
         @ace
       end
 
+      alias :to_hash :for_json
+
       def merge!(other_ace)
         @ace["actors"].concat(other_ace.actors).uniq!
         @ace["groups"].concat(other_ace.groups).uniq!
       end
-      
+
       def ==(other)
         other.respond_to?(:ace) && other.ace == ace
       end
@@ -136,12 +148,12 @@ module Mixlib
 
     class UserAcl < Acl
       attr_reader :org_name
-      
+
       def initialize(orgname, acl_data)
         @org_name = orgname
         super(acl_data)
       end
-      
+
       def org_database
         @org_database ||= database_from_orgname(org_name)
       end
@@ -151,5 +163,5 @@ module Mixlib
       end
     end
   end
-  
+
 end

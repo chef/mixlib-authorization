@@ -15,7 +15,7 @@ module Mixlib
       attr_reader :org_db
       attr_reader :user_mapper
 
-      def initialize(org_db, user_mapper, clients_mapper=nil,clients_in_sql=false)
+      def initialize(org_db, user_mapper, client_mapper=nil, clients_in_sql=false)
         @group_authz_ids_by_name = {}
         @group_names_by_authz_id = {}
 
@@ -24,6 +24,8 @@ module Mixlib
 
         @org_db = org_db
         @user_mapper = user_mapper
+        @client_mapper = client_mapper
+        @clients_in_sql = clients_in_sql
       end
 
       def actor_authz_ids_to_names(actor_ids)
@@ -33,15 +35,8 @@ module Mixlib
         users = users_by_authz_ids(actor_ids)
         remaining_actors = actor_ids - users.map(&:authz_id)
 
-        usernames = users.map(&:username)
-        # 2*N requests to couch for the clients :(
-        actor_names = remaining_actors.inject(usernames) do |clientnames, actor_id|
-          if clientname = client_authz_id_to_name(actor_id)
-            clientnames << clientname
-          else
-            clientnames
-          end
-        end
+        clients = clients_by_authz_ids(remaining_actors)
+        actor_names = users.map(&:name) + clients.map(&:name)
         Mixlib::Authorization::Log.debug { "Mapped actors #{actors.inspect} to users #{actor_names}" }
         actor_names
       end
@@ -51,19 +46,29 @@ module Mixlib
       end
 
       def client_names_to_authz_ids(client_names)
-        client_names.map do |clientname|
-          unless client = Models::Client.on(org_db).by_clientname(:key=>clientname).first
-            raise InvalidGroupMember, "Client #{clientname} does not exist"
+        if clients_in_sql?
+          clients = client_mapper.find_all_for_authz_map(client_names)
+          unless clients.size == client_names.size
+            missing_client_names = client_names - clients.map(&:name)
+            raise InvalidGroupMember, "Users #{missing_user_names.join(', ')} do not exist"
           end
-          cache_actor_mapping(client.name, client.authz_id)
-          client.authz_id
+          clients.each {|c| cache_actor_mapping(c.name, c.authz_id)}
+          clients.map(&:authz_id)
+        else
+          client_names.map do |clientname|
+            unless client = Models::Client.on(org_db).by_clientname(:key=>clientname).first
+              raise InvalidGroupMember, "Client #{clientname} does not exist"
+            end
+            cache_actor_mapping(client.name, client.authz_id)
+            client.authz_id
+          end
         end
       end
 
       def user_names_to_authz_ids(user_names)
         users = user_mapper.find_all_for_authz_map(user_names)
         unless users.size == user_names.size
-          missing_user_names = user_names.select {|name| !users.any? {|user| user.name == name}}
+          missing_user_names = user_names - users.map(&:name)
           raise InvalidGroupMember, "Users #{missing_user_names.join(', ')} do not exist"
         end
         users.each {|u| cache_actor_mapping(u.name, u.authz_id) }
@@ -72,6 +77,10 @@ module Mixlib
 
       def group_names_to_authz_ids(group_names)
         group_names.map {|g| group_name_to_authz_id(g)}
+      end
+
+      def clients_in_sql?
+        @clients_in_sql
       end
 
       private
@@ -93,14 +102,23 @@ module Mixlib
         users
       end
 
+      def clients_by_authz_ids(authz_ids)
+        if clients_in_sql?
+          clients = @client_mapper.find_all_by_authz_id(authz_ids)
+          clients.each {|c| cache_actor_mapping(c.name, c.authz_id)}
+          clients
+        else
+          authz_ids.map {|authz_id| client_by_authz_id_sql(authz_id) }.compact
+        end
+      end
 
-      def client_authz_id_to_name(client_authz_id)
+      def client_by_authz_id_sql(client_authz_id)
         if name = @actor_names_by_authz_id[client_authz_id]
           name
         elsif client_join_entry = AuthJoin.by_auth_object_id(:key=>client_authz_id).first
           client = Mixlib::Authorization::Models::Client.on(org_db).get(client_join_entry.user_object_id)
           cache_actor_mapping(client.name, client_authz_id)
-          client.name
+          client
         else
           nil
         end

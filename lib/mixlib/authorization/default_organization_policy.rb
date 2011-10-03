@@ -5,12 +5,10 @@ require 'mixlib/authorization/org_auth_policy'
 # SEE ALSO: https://wiki.corp.opscode.com/display/CORP/Authorization+Matrix
 Mixlib::Authorization::OrgAuthPolicy.default do |org|
 
-  # Get the list of containers from the database
-  auth_db ||= CouchRest::Database.new(CouchRest::Server.new(Mixlib::Authorization::Config.couchdb_uri), "authorization")
-  default_containers ||= ContainersConfig.on(auth_db).get("containersets")["organizations_containerset"]
 
   debug("Creating Default Containers")
-  org.has_containers(default_containers)
+  org.has_containers( :clients, :groups, :cookbooks, :data, :containers,
+                      :nodes, :roles, :sandboxes, :environments)
 
   debug("Creating Default Groups")
   org.has_groups(:users, :clients, :admins, "billing-admins")
@@ -52,7 +50,7 @@ Mixlib::Authorization::OrgAuthPolicy.default do |org|
     end
 
     users.have_rights(:read) do |on|
-      on.containers(:search, :search_node, :search_role, :groups, :containers)
+      on.containers(:groups, :containers)
       on.organization
     end
 
@@ -67,8 +65,12 @@ Mixlib::Authorization::OrgAuthPolicy.default do |org|
       on.containers(:nodes)
     end
 
+    clients.have_rights(:create, :read, :update, :delete) do |on|
+      on.containers(:data)
+    end
+
     clients.have_rights(:read) do |on|
-      on.containers(:cookbooks, :data, :search, :search_node, :search_role, :environments)
+      on.containers(:cookbooks, :environments, :roles)
     end
   end
 

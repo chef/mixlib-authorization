@@ -6,9 +6,8 @@ module Mixlib
     EPIC_DEBUG = false
 
     DEFAULT_GROUPS =  ["users","clients","admins", "billing-admins"].freeze
-    CONTAINERS = ["clients", "groups", "cookbooks", "data", "search",
-                  "containers", "nodes", "roles", "search_node",
-                  "search_role", "sandboxes", "environments"]
+    CONTAINERS = [ "clients", "groups", "cookbooks", "data", "containers",
+                   "nodes", "roles", "sandboxes", "environments"]
 
     #==ActorDouble
     # A duck type for any model class where you only have and need the
@@ -248,12 +247,12 @@ module Mixlib
       ######################################################################
 
       # Create the given containers
-      def has_containers(container_paths_by_name)
-        container_paths_by_name.each do |org_container_name, org_container_path|
-        debug("* Creating #{org_container_name} container")
-          Models::Container.on(org_db).new(:containername=>org_container_name,
-                                   :containerpath=>org_container_path,
-                                   :requester_id=>requesting_actor_id).save
+      def has_containers(*containers)
+        containers.each do |container_name|
+        debug("* Creating #{container_name} container")
+          Models::Container.on(org_db).new( :containername => container_name,
+                                            :containerpath => container_name,
+                                            :requester_id  => requesting_actor_id).save
         end
       end
 

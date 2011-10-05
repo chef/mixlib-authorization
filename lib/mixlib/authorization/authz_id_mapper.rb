@@ -12,17 +12,31 @@ module Mixlib
     # representations (and the reverse).
     class AuthzIDMapper
 
-      attr_reader :org_db
+      attr_reader :couch_db
       attr_reader :user_mapper
 
-      def initialize(org_db, user_mapper, client_mapper=nil, clients_in_sql=false)
+      # Create a new AuthzIDMapper
+      #=== Arguments
+      # * couch_db::: A CouchRest database. When converting ids in the context
+      #   of an org, this will the the chef_guid db, for global objects (users,
+      #   global groups) this will be the opscode_account database
+      # * user_mapper::: An Opscode::Mappers::User object
+      # * client_mapper::: either an Opscode::Mappers::Client object, or nil
+      #   when mapping ids outside of the context of an org (where there will not
+      #   be any clients).
+      # * clients_in_sql::: boolean.
+      #--
+      # NB: The implementation here of ignoring clients for global objects is
+      # ugly; we need more clarity and explicitness around how we deal with
+      # global vs. non-global objects.
+      def initialize(couch_db, user_mapper, client_mapper=nil, clients_in_sql=false)
         @group_authz_ids_by_name = {}
         @group_names_by_authz_id = {}
 
         @actor_authz_ids_by_name = {}
         @actor_names_by_authz_id = {}
 
-        @org_db = org_db
+        @couch_db = couch_db
         @user_mapper = user_mapper
         @client_mapper = client_mapper
         @clients_in_sql = clients_in_sql
@@ -47,6 +61,8 @@ module Mixlib
 
       def client_names_to_authz_ids(client_names)
         if clients_in_sql?
+          return [] if @client_mapper.nil?
+
           clients = client_mapper.find_all_for_authz_map(client_names)
           unless clients.size == client_names.size
             missing_client_names = client_names - clients.map(&:name)
@@ -56,7 +72,7 @@ module Mixlib
           clients.map(&:authz_id)
         else
           client_names.map do |clientname|
-            unless client = Models::Client.on(org_db).by_clientname(:key=>clientname).first
+            unless client = Models::Client.on(couch_db).by_clientname(:key=>clientname).first
               raise InvalidGroupMember, "Client #{clientname} does not exist"
             end
             cache_actor_mapping(client.name, client.authz_id)
@@ -104,19 +120,20 @@ module Mixlib
 
       def clients_by_authz_ids(authz_ids)
         if clients_in_sql?
+          return [] if @client_mapper.nil?
           clients = @client_mapper.find_all_by_authz_id(authz_ids)
           clients.each {|c| cache_actor_mapping(c.name, c.authz_id)}
           clients
         else
-          authz_ids.map {|authz_id| client_by_authz_id_sql(authz_id) }.compact
+          authz_ids.map {|authz_id| client_by_authz_id_couch(authz_id) }.compact
         end
       end
 
-      def client_by_authz_id_sql(client_authz_id)
+      def client_by_authz_id_couch(client_authz_id)
         if name = @actor_names_by_authz_id[client_authz_id]
           name
         elsif client_join_entry = AuthJoin.by_auth_object_id(:key=>client_authz_id).first
-          client = Mixlib::Authorization::Models::Client.on(org_db).get(client_join_entry.user_object_id)
+          client = Mixlib::Authorization::Models::Client.on(couch_db).get(client_join_entry.user_object_id)
           cache_actor_mapping(client.name, client_authz_id)
           client
         else
@@ -127,7 +144,7 @@ module Mixlib
       def group_name_to_authz_id(group_name)
         if authz_id = @group_authz_ids_by_name[group_name]
           authz_id
-        elsif group = Models::Group.on(org_db).by_groupname(:key=>group_name).first
+        elsif group = Models::Group.on(couch_db).by_groupname(:key=>group_name).first
           cache_group_mapping(group_name, group.authz_id)
           group.authz_id
         else
@@ -139,7 +156,7 @@ module Mixlib
         if name = @group_names_by_authz_id[authz_id]
           name
         elsif auth_join = AuthJoin.by_auth_object_id(:key=>authz_id).first
-          name = Mixlib::Authorization::Models::Group.on(org_db).get(auth_join.user_object_id).groupname
+          name = Mixlib::Authorization::Models::Group.on(couch_db).get(auth_join.user_object_id).groupname
           cache_group_mapping(name, authz_id)
           name
         else

@@ -43,14 +43,11 @@ module Mixlib
       end
 
       def actor_authz_ids_to_names(actor_ids)
-        usernames = []
-        Mixlib::Authorization::Log.debug { "Found #{users.size} users in actors list: #{actor_ids.inspect} users: #{usernames}" }
-
         users = users_by_authz_ids(actor_ids)
         remaining_actors = actor_ids - users.map(&:authz_id)
 
         clients = clients_by_authz_ids(remaining_actors)
-        actor_names = users.map(&:name) + clients.map(&:name)
+        actor_names = {:users => users.map(&:name), :clients => clients.map(&:name)}
         Mixlib::Authorization::Log.debug { "Mapped actors #{actors.inspect} to users #{actor_names}" }
         actor_names
       end

@@ -131,9 +131,12 @@ module Mixlib
         end
 
         def reset!
-          @authz_document = nil
-          @actors = nil
-          @groups = nil
+          @authz_document  = nil
+          @actor_authz_ids = nil
+          @group_authz_ids = nil
+          @client_names = nil
+          @user_names   = nil
+          @group_names  = nil
         end
 
         # Override CouchRest's #save so that we can also deal with creating the
@@ -163,7 +166,7 @@ module Mixlib
 
         def actor_and_group_names=(new_actor_and_group_names)
           reset!
-          @desired_actors, @desired_groups = transform_ids(new_actor_and_group_names)
+          @desired_actors, @desired_groups = translate_ids_to_authz(new_actor_and_group_names)
           new_actor_and_group_names
         end
 
@@ -210,26 +213,50 @@ module Mixlib
 
         ACTORS = "actors".freeze
 
-        def actors
-          if @actors.nil?
-            @actors = authz_document[ACTORS]
+        def actor_authz_ids
+          if @actor_authz_ids.nil?
+            @actor_authz_ids = authz_document[ACTORS]
           end
-          @actors
+          @actor_authz_ids
         end
 
         GROUPS = "groups".freeze
 
-        def groups
-          if @groups.nil?
-            @groups = authz_document[GROUPS]
+        def group_authz_ids
+          if @group_authz_ids.nil?
+            @group_authz_ids = authz_document[GROUPS]
           end
-          @groups
+          @group_authz_ids
+        end
+
+        def client_names
+          if @client_names.nil?
+            translate_actors_to_user_side!
+          end
+          @client_names
+        end
+
+        def user_names
+          if @user_names.nil?
+            translate_actors_to_user_side!
+          end
+          @user_names
+        end
+
+        def actor_names
+          client_names + user_names
+        end
+
+        def group_names
+          @group_names ||= @authz_id_mapper.group_authz_ids_to_names(group_authz_ids)
         end
 
         def for_json
           as_hash = {
-            :actors => @authz_id_mapper.actor_authz_ids_to_names(actors),
-            :groups => @authz_id_mapper.group_authz_ids_to_names(groups)
+            :actors  => actor_names,
+            :users   => user_names,
+            :clients => client_names,
+            :groups  => group_names
           }
           as_hash[:orgname] = orgname
           as_hash[:name] = groupname
@@ -239,12 +266,19 @@ module Mixlib
 
         private
 
-        def reconcile_memberships
-          insert_actors(@desired_actors - actors) if @desired_actors
-          insert_groups(@desired_groups - groups) if @desired_groups
+        def translate_actors_to_user_side!
+          actor_names = @authz_id_mapper.actor_authz_ids_to_names(actor_authz_ids)
+          @user_names   = actor_names[:users]
+          @client_names = actor_names[:clients]
+          true
+        end
 
-          delete_actors(actors - @desired_actors) if @desired_actors
-          delete_groups(groups - @desired_groups) if @desired_groups
+        def reconcile_memberships
+          insert_actors(@desired_actors - actor_authz_ids) if @desired_actors
+          insert_groups(@desired_groups - group_authz_ids) if @desired_groups
+
+          delete_actors(actor_authz_ids - @desired_actors) if @desired_actors
+          delete_groups(group_authz_ids - @desired_groups) if @desired_groups
         end
 
         def insert_actors(actor_ids_to_add)
@@ -272,7 +306,7 @@ module Mixlib
           end
         end
 
-        def transform_ids(actor_and_group_names)
+        def translate_ids_to_authz(actor_and_group_names)
           usernames  = actor_and_group_names["users"]    || []
           clientnames = actor_and_group_names["clients"]  || []
           groupnames  = actor_and_group_names["groups"]   || []

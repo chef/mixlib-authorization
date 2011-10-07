@@ -188,7 +188,7 @@ module Mixlib
             raise "No actor id fround for #{actor.inspect}"
           end
 
-          authz_client.resource(authz_id, :actors, actor_id).put(nil)
+          authz_client.resource(authz_id, :actors, actor_id).put("")
         end
 
         # A backdoor to adding a group to this group without a full GET-PUT
@@ -198,7 +198,7 @@ module Mixlib
           unless group_authz_id = group.authz_id
             raise ArgumentError, "No actor id for group #{group.inspect}"
           end
-          authz_client.resource(authz_id, :groups, group_authz_id).put(nil)
+          authz_client.resource(authz_id, :groups, group_authz_id).put("")
         end
 
         # A backdoor to deleting a group from this group without a GET-PUT
@@ -284,13 +284,13 @@ module Mixlib
         def insert_actors(actor_ids_to_add)
           actor_ids_to_add.each do |actor_id|
             resource = authz_client.resource(authz_id, :actors, actor_id)
-            resource.put(nil)
+            resource.put("")
           end
         end
 
         def insert_groups(group_ids_to_add)
           group_ids_to_add.each do |group_id|
-            authz_client.resource(authz_id, :groups, group_id).put(nil)
+            authz_client.resource(authz_id, :groups, group_id).put("")
           end
         end
 

@@ -257,6 +257,32 @@ describe RequestAuthentication do
       @request_auth.should be_request_from_webui
     end
 
+    describe "using the multi webui keys feature" do
+      before do
+        # not sure what we'll use for the tags, maybe a datetime or something
+        Mixlib::Authorization::Config[:web_ui_public_keys] = {"some_tag" => OpenSSL::PKey::RSA.new(AuthzFixtures::PUBKEY3.strip) }
+        @server_side_headers["HTTP_X-OPS-WEBKEY-TAG"] = "some_tag"
+
+        @req = @request_class.new(@server_side_headers, {}, "GET", "/testing")
+        @req.env = @server_side_headers
+        @params = {}
+
+        Mixlib::Authorization::Config[:web_ui_public_key] = OpenSSL::PKey::RSA.new(AuthzFixtures::PUBKEY2.strip)
+
+        @request_auth =  Mixlib::Authorization::RequestAuthentication.new(@req, @params)
+      end
+
+      it "uses the webui public key specified in the tag as the user key" do
+        @request_auth.send(:webui_public_key).to_s.should == OpenSSL::PKey::RSA.new(AuthzFixtures::PUBKEY3.strip).to_s
+        @request_auth.user_key.to_s.should == AuthzFixtures::PUBKEY3.to_s
+      end
+
+      it "says the request is from the webui" do
+        @request_auth.should be_request_from_webui
+      end
+
+    end
+
   end
 
 end

@@ -115,7 +115,7 @@ module Mixlib
       def authentic_request?
         authenticator.authenticate_request(user_key)
       rescue StandardError => se
-        Log.debug "Authentication failed: #{se}, #{se.backtrace.join("\n")}"
+        Log.debug "Authent]cation failed: #{se}, #{se.backtrace.join("\n")}"
         false
       end
 
@@ -127,7 +127,13 @@ module Mixlib
       private
 
       def webui_public_key
-        Config[:web_ui_public_key]
+        if pubkey_tag = headers[:x_ops_webkey_tag]
+          Log.debug("Using webui key by tag #{pubkey_tag} (from x_ops_webkey_tag header)")
+          Config[:web_ui_public_keys][pubkey_tag] or
+            raise AuthorizationError, "Invalid webui key tag '#{pubkey_tag}'; Set the x_ops_webkey_tag header to a valid value."
+        else
+          Config[:web_ui_public_key]
+        end
       end
 
       def find_user

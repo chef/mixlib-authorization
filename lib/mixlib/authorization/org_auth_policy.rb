@@ -252,7 +252,7 @@ module Mixlib
         debug("* Creating #{container_name} container")
           Models::Container.on(org_db).new( :containername => container_name,
                                             :containerpath => container_name,
-                                            :requester_id  => requesting_actor_id).save
+                                            :requester_id  => requesting_actor_id).save!
         end
       end
 
@@ -263,7 +263,7 @@ module Mixlib
           @scoped_groups.new( :orgname                => org_name,
                               :groupname              => group_name,
                               :actor_and_group_names  => {},
-                              :requester_id           => requesting_actor_id).save
+                              :requester_id           => requesting_actor_id).save!
         end
       end
 
@@ -273,7 +273,7 @@ module Mixlib
         @global_groups.new(:groupname=> "#{org_name}_global_admins",
                            :orgname => org_name,
                            :actor_and_group_names=> { "groups" => ["admins"] },
-                           :requester_id=>requesting_actor_id).save
+                           :requester_id=>requesting_actor_id).save!
       end
 
       # Define a GroupAuthPolicy for the group +name+ via a block.

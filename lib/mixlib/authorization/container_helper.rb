@@ -28,7 +28,12 @@ module Mixlib
             begin
               container = Mixlib::Authorization::Models::Container.on(org_database).by_containername(:key => parent_name).first
               Mixlib::Authorization::Log.debug { "CALLING ACL MERGER: sender: #{sender.inspect}, parent_name: #{parent_name}, org_database: #{org_database}, container: #{container.inspect}" }
-              raise Mixlib::Authorization::AuthorizationError, "failed to find parent #{parent_name} for ACL inheritance" if container.nil?
+              if container.nil?
+                Mixlib::Authorization::Log.error "CALLING ACL MERGER: sender: #{sender.inspect}, parent_name: #{parent_name}, org_database: #{org_database}, container: #{container.inspect}"
+                try_again = Mixlib::Authorization::Models::Container.on(org_database).by_containername(:key => parent_name).first
+                Mixlib::Authorization::Log.error "Did a retry work? #{try_again.inspect}"
+                raise Mixlib::Authorization::AuthorizationError, "failed to find parent #{parent_name} for ACL inheritance"
+              end
               container_join_acl = container.fetch_join_acl
               cacl = Acl.new(container_join_acl)
               sacl = Acl.new(sender.fetch_join_acl)

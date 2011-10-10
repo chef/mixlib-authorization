@@ -250,8 +250,8 @@ module Mixlib
       def has_containers(*containers)
         containers.each do |container_name|
         debug("* Creating #{container_name} container")
-          Models::Container.on(org_db).new( :containername => container_name,
-                                            :containerpath => container_name,
+          Models::Container.on(org_db).new( :containername => container_name.to_s,
+                                            :containerpath => container_name.to_s,
                                             :requester_id  => requesting_actor_id).save!
         end
       end
@@ -261,7 +261,7 @@ module Mixlib
         groups.each do |group_name|
           debug("* Creating #{group_name} group")
           @scoped_groups.new( :orgname                => org_name,
-                              :groupname              => group_name,
+                              :groupname              => group_name.to_s,
                               :actor_and_group_names  => {},
                               :requester_id           => requesting_actor_id).save!
         end

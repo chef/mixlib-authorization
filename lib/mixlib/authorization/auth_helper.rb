@@ -19,8 +19,11 @@ module Mixlib
     module AuthHelper
 
       class OrgGuidMap
+        CACHE_TIMEOUT = 60.freeze
+
         def initialize
           @cached_map = {}
+          @cached_map_timestamp = {}
           @caching = false
         end
 
@@ -39,9 +42,13 @@ module Mixlib
         private
 
         def lookup_with_caching(orgname)
-          if guid = @cached_map[orgname]
+          # ignore what's in the cache if it's older than
+          # CACHE_TIMEOUT
+          now = Time.now.to_f
+          if (guid = @cached_map[orgname]) && (now - @cached_map_timestamp[orgname]) < CACHE_TIMEOUT
             guid
           else
+            @cached_map_timestamp[orgname] = now
             @cached_map[orgname] = lookup_without_caching(orgname)
           end
         end

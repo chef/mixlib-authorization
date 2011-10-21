@@ -55,12 +55,12 @@ module Mixlib
         @aces.delete(ace_name)
       end
 
-      def to_user(org_database)
-        Acl.new(@aces.inject({ }) { |memo, ace_tuple| memo[ace_tuple[0]] = ace_tuple[1].to_user(org_database).for_json; memo })
+      def to_user(authz_id_mapper)
+        Acl.new(@aces.inject({ }) { |memo, ace_tuple| memo[ace_tuple[0]] = ace_tuple[1].to_user(authz_id_mapper).for_json; memo })
       end
 
-      def to_auth(org_database)
-        Acl.new(@aces.inject({ }) { |memo, ace_tuple| memo[ace_tuple[0]] = ace_tuple[1].to_auth(org_database).for_json; memo })
+      def to_auth(authz_id_mapper)
+        Acl.new(@aces.inject({ }) { |memo, ace_tuple| memo[ace_tuple[0]] = ace_tuple[1].to_auth(authz_id_mapper).for_json; memo })
       end
 
       def for_json
@@ -114,14 +114,14 @@ module Mixlib
         self
       end
 
-      def to_auth(org_database)
-        Ace.new({ "actors" => transform_actor_ids(ace["actors"], org_database, :to_auth),
-                  "groups"=>transform_group_ids(ace["groups"], org_database, :to_auth)} )
+      def to_auth(authz_id_mapper)
+        Ace.new({ "actors" => authz_id_mapper.actor_names_to_authz_ids(ace["actors"]),
+                  "groups" => authz_id_mapper.group_names_to_authz_ids(ace["groups"])} )
       end
 
-      def to_user(org_database)
-        Ace.new({ "actors" => transform_actor_ids(ace["actors"], org_database, :to_user),
-                  "groups"=>transform_group_ids(ace["groups"], org_database, :to_user)} )
+      def to_user(authz_id_mapper)
+        Ace.new({ "actors" => authz_id_mapper.actor_authz_ids_to_names(ace["actors"]).values.inject(:+),
+                  "groups"=>authz_id_mapper.group_authz_ids_to_names(ace["groups"])} )
       end
 
       def for_json
@@ -138,6 +138,7 @@ module Mixlib
       def ==(other)
         other.respond_to?(:ace) && other.ace == ace
       end
+
     end
 
     class AuthAcl < Acl

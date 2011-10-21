@@ -14,6 +14,7 @@ module Mixlib
 
       attr_reader :couch_db
       attr_reader :user_mapper
+      attr_reader :client_mapper
 
       # Create a new AuthzIDMapper
       #=== Arguments
@@ -46,8 +47,10 @@ module Mixlib
         users = users_by_authz_ids(actor_ids)
         remaining_actors = actor_ids - users.map(&:authz_id)
 
-        clients = clients_by_authz_ids(remaining_actors)
-        actor_names = {:users => users.map(&:name), :clients => clients.map(&:name)}
+        # BUG/TODO: #clients_by_authz_ids should be updated to return the
+        # clients instead of just the names (after clients migrated to SQL).
+        client_names = clients_by_authz_ids(remaining_actors)
+        actor_names = {:users => users.map(&:name), :clients => client_names}
         Mixlib::Authorization::Log.debug { "Mapped actors #{actors.inspect} to users #{actor_names}" }
         actor_names
       end
@@ -56,6 +59,13 @@ module Mixlib
         group_ids.map {|group_id| group_authz_id_to_name(group_id)}.compact
       end
 
+      # Given a list of +client_names+, look up the AuthZ side IDs.
+      #
+      # This method is "strict" in that if any of the named clients do not
+      # exist, an InvalidGroupMember exception will be raised.
+      #--
+      # BUG: This class is supposed to be general purpose, so raising an
+      # exception named "InvalidGroupMember" is ugly abstraction leakage.
       def client_names_to_authz_ids(client_names)
         if clients_in_sql?
           return [] if @client_mapper.nil?
@@ -78,6 +88,14 @@ module Mixlib
         end
       end
 
+      # Given a list of +user_names+, finds the corresponding AuthZ side IDs.
+      #
+      # This method is "strict" in that if a user is missing, an
+      # InvalidGroupMember exception is raised.
+      #--
+      # BUG: same as with the client_names_to_authz_ids method, raising an
+      # exception named "InvalidGroupMember" is bad form for a general purpose
+      # class.
       def user_names_to_authz_ids(user_names)
         users = user_mapper.find_all_for_authz_map(user_names)
         unless users.size == user_names.size
@@ -86,6 +104,32 @@ module Mixlib
         end
         users.each {|u| cache_actor_mapping(u.name, u.authz_id) }
         users.map {|u| u.authz_id}
+      end
+
+      # Given a list of +actor_names+ (i.e., a mix of users and clients),
+      # finds the corresponding AuthZ side IDs.
+      def actor_names_to_authz_ids(actor_names)
+        #look up all the users with one query like a boss
+        user_mapper = Opscode::Mappers::User.new(Opscode::Mappers.default_connection, nil, 0)
+        users = user_mapper.find_all_for_authz_map(actor_names)
+        authz_ids = users.map(&:authz_id)
+        actor_names -= users.map(&:username)
+
+        if clients_in_sql?
+          clients = client_mapper.find_all_for_authz_map(actor_names)
+          authz_ids + clients.map(&:authz_id)
+        else
+          # 2*N requests to couch for the clients :'(
+          actor_names.inject(authz_ids) do |client_authz_ids, clientname|
+            if client = Mixlib::Authorization::Models::Client.on(couch_db).by_clientname(:key=>clientname).first
+              Mixlib::Authorization::Log.debug { "incoming actor: #{clientname} is a client with authz_id #{client.authz_id.inspect}" }
+              client_authz_ids << client.authz_id
+            else
+              Mixlib::Authorization::Log.debug "incoming_actor: #{clientname} is not a recognized user or client!"
+              client_authz_ids
+            end
+          end
+        end
       end
 
       def group_names_to_authz_ids(group_names)
@@ -115,12 +159,17 @@ module Mixlib
         users
       end
 
+      # Given the list of AuthZ side IDs, return the _names_ of the associated clients.
+      #--
+      # BUGBUG TODO: The counterpart for Users returns the actual user objects;
+      # this just returns the names as a way to maintain compat for both Couch
+      # and SQL implementations of clients.
       def clients_by_authz_ids(authz_ids)
         if clients_in_sql?
           return [] if @client_mapper.nil?
           clients = @client_mapper.find_all_by_authz_id(authz_ids)
           clients.each {|c| cache_actor_mapping(c.name, c.authz_id)}
-          clients
+          clients.map(&:name)
         else
           authz_ids.map {|authz_id| client_by_authz_id_couch(authz_id) }.compact
         end
@@ -132,7 +181,7 @@ module Mixlib
         elsif client_join_entry = AuthJoin.by_auth_object_id(:key=>client_authz_id).first
           client = Mixlib::Authorization::Models::Client.on(couch_db).get(client_join_entry.user_object_id)
           cache_actor_mapping(client.name, client_authz_id)
-          client
+          client.clientname
         else
           nil
         end

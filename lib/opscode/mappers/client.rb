@@ -157,6 +157,8 @@ module Opscode
         publish_object(client.id, client.for_index)
       end
 
+      # Delete the client from the database. Associated authorization data is
+      # not deleted.
       def destroy(client)
         unless client.id
           self.class.invalid_object!("Cannot destroy client #{client.name} without a valid id")
@@ -183,6 +185,19 @@ module Opscode
         row && inflate_model(row)
       end
 
+      def find_all_by_authz_id(authz_ids)
+        return authz_ids if authz_ids.empty?
+        finder = table.select(:id,:authz_id,:name).where(:authz_id => authz_ids)
+        execute_sql(:read, :client) { finder.map {|u| inflate_model(u)}}
+      end
+
+      # Finds the clients by name, and returns them with the id, authz_id, and name set.
+      def find_all_for_authz_map(names)
+        return names if names.empty?
+        finder = table.select(:id,:authz_id,:name).where(:name => names)
+        execute_sql(:read, :client) { finder.map {|u| inflate_model(u)}}
+      end
+
       def inflate_model(row_data)
         client = Models::Client.load(map_from_row!(row_data))
         client.persisted!
@@ -191,6 +206,8 @@ module Opscode
 
       def map_from_row!(row_data)
         case row_data.delete(:pubkey_version)
+        when nil
+          # loading the client without the cert, this is ok
         when 1
           row_data[:certificate] = row_data.delete(:public_key)
         when 0

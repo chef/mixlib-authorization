@@ -162,28 +162,21 @@ module Mixlib
 
         def save_inherited_acl_as(requesting_actor_id)
           org_database = database_from_orgname(self.orgname)
-          begin
-            container = Mixlib::Authorization::Models::Container.on(org_database).by_containername(:key => parent_container_name).first
-            Mixlib::Authorization::Log.debug "CALLING ACL MERGER: object: #{inspect}, parent_name: #{parent_container_name}, org_database: #{org_database}, container: #{container.inspect}"
-            raise Mixlib::Authorization::AuthorizationError, "failed to find parent #{parent_container_name} for ACL inheritance" if container.nil?
-            authz_object = authz_object_as(requesting_actor_id)
-            container_acl_data = container.fetch_join_acl
-            container_acl = Acl.new(container_acl_data)
-            self_acl = Acl.new(authz_object.fetch_acl)
-            Mixlib::Authorization::Log.debug "CONTAINER ACL: #{container_acl.to_user(org_database).inspect},\nCLIENT ACL: #{self_acl.to_user(org_database).inspect}"
-            self_acl.merge!(container_acl)
-            Mixlib::Authorization::Log.debug "MERGED CLIENT ACL: #{self_acl.to_user(org_database).inspect}"
-            # TODO: Y U NO HAVE BULK ACE UPDATE
-            self_acl.aces.each {  |ace_name,ace| authz_object.update_ace(ace_name, ace.ace) }
-          rescue => e
-            # 4/11/2011 nuo:
-            # This rescue block is generically rescuing all the exceptions occur in the block.
-            # But it's actually the right behavior.
-            # We want to throw :halt so .save returns false in the case of any error condition, no matter what.
-            # That prevents (or at least decrease) the opportunity that the actual object and auth document go out of sync.
-            Mixlib::Authorization::Log.error("Inheriting acl from parent container failed. \nERROR: #{e.message}\n#{e.backtrace.join("\n")}")
-            throw :halt
-          end
+
+          container = Mixlib::Authorization::Models::Container.on(org_database).by_containername(:key => parent_container_name).first
+          Mixlib::Authorization::Log.debug "CALLING ACL MERGER: object: #{inspect}, parent_name: #{parent_container_name}, org_database: #{org_database}, container: #{container.inspect}"
+          raise Mixlib::Authorization::AuthorizationError, "failed to find parent #{parent_container_name} for ACL inheritance" if container.nil?
+          authz_object = authz_object_as(requesting_actor_id)
+          container_acl_data = container.fetch_join_acl
+          container_acl = Acl.new(container_acl_data)
+          self_acl = Acl.new(authz_object.fetch_acl)
+          # debug logging shouldn't be making api calls
+          #Mixlib::Authorization::Log.debug "CONTAINER ACL: #{container_acl.to_user(org_database).inspect},\nCLIENT ACL: #{self_acl.to_user(org_database).inspect}"
+          self_acl.merge!(container_acl)
+          # debug logging shouldn't be making api calls
+          #Mixlib::Authorization::Log.debug "MERGED CLIENT ACL: #{self_acl.to_user(org_database).inspect}"
+          # TODO: Y U NO HAVE BULK ACE UPDATE
+          self_acl.aces.each {  |ace_name,ace| authz_object.update_ace(ace_name, ace.ace) }
 
           # In the case that no exception occurred, this doubld checks the acl is inherited correctly.
           # If it returns false, .save would return false as well.

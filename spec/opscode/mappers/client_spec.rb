@@ -117,9 +117,9 @@ describe Opscode::Mappers::Client do
     describe "and creating another validator" do
       before do
         @queue = mock("AMQP Queue")
-        @amqp_client.should_receive(:transaction).and_yield
-        @amqp_client.should_receive(:queue_for_object).and_yield(@queue)
-        @queue.should_receive(:publish)
+        @amqp_client.should_receive(:transaction).twice.and_yield
+        @amqp_client.should_receive(:queue_for_object).twice.and_yield(@queue)
+        @queue.should_receive(:publish).twice
         @alt_validator = Opscode::Models::Client.load(:name => "derp-validator-two",
                                                :validator => true,
                                                :certificate => SAMPLE_CERT )
@@ -296,6 +296,9 @@ describe Opscode::Mappers::Client do
 
     describe "and then destroying it" do
       before do
+        @amqp_client.should_receive(:transaction).and_yield
+        @amqp_client.should_receive(:queue_for_object).and_yield(@queue)
+        @queue.should_receive(:publish)
         @mapper.destroy(@client)
       end
 

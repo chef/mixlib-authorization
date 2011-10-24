@@ -154,7 +154,7 @@ module Opscode
       end
 
       def update_index(client)
-        publish_object(client.id, client.for_index)
+        publish_object(client.id, {:action => :add, :payload => client.for_index })
       end
 
       # Delete the client from the database. Associated authorization data is
@@ -172,7 +172,16 @@ module Opscode
           raise RecordNotFound, "Can't delete client #{client.name} because it doesn't exist"
         end
 
-        execute_sql(:delete, :client) { table.filter(:id => client.id).delete }
+        execute_sql(:delete, :client) do
+          @connection.transaction do
+            remove_index(client)
+            table.filter(:id => client.id).delete
+          end
+        end
+      end
+
+      def remove_index(client)
+        publish_object(client.id, {:action => :delete, :payload => client.for_index })
       end
 
       def list

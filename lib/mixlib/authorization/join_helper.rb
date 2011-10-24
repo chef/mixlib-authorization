@@ -133,16 +133,9 @@ module Mixlib
       end
 
       def delete_join
-        Mixlib::Authorization::Log.debug "IN DELETE JOIN ACL: #{join_data.inspect}"
-        if authorization_id
-          auth_join_object = fetch_auth_join_for(nil) # WIP, argument to this method no longer relevant
-          #Mixlib::Authorization::Log.debug "IN DELETE JOIN ACL: join_object = #{join_object.inspect}"
-          Mixlib::Authorization::Log.debug "IN DELETE JOIN ACL: auth_join_object = #{auth_join_object.inspect}"
-          AuthJoin.by_user_object_id(:key => self.id).first.destroy
-        else
-          Mixlib::Authorization::Log.debug "IN DELETE JOIN ACL: Cannot find join for #{self.id}"
-          false
-        end
+        authz_join_doc = AuthJoin.by_user_object_id(:key => self.id).first
+        authz_join_doc.destroy if authz_join_doc
+        true
       end
 
       def update_join_ace(ace_type, ace_data)

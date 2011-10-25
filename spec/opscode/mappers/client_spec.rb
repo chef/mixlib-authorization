@@ -22,12 +22,16 @@ describe Opscode::Mappers::Client do
     @amqp_client = mock("Chef AMQP Client")
     @org_id = "fff000"
 
+    @clients_group = mock("Org Clients Group")
+    @groups_model = mock("ScopedGroup (dbl)", :find_by_name => @clients_group)
+
     @mapper = Opscode::Mappers::Client.new do |m|
       m.db = @db
       m.amqp = @amqp_client
       m.org_id = @org_id
       m.stats_client = @stats_client
       m.authz_id = "0"
+      m.groups_model = @groups_model
     end
 
     @container_acl = {  "delete" => {"groups"=>[], "actors"=>[]},
@@ -95,6 +99,9 @@ describe Opscode::Mappers::Client do
       @client = Opscode::Models::Client.load(:name => "derp-validator",
                                              :validator => true,
                                              :certificate => SAMPLE_CERT )
+
+      @clients_group.should_receive(:add_actor)
+
       @mapper.create(@client, @clients_container)
 
     end
@@ -123,6 +130,9 @@ describe Opscode::Mappers::Client do
         @alt_validator = Opscode::Models::Client.load(:name => "derp-validator-two",
                                                :validator => true,
                                                :certificate => SAMPLE_CERT )
+
+        @clients_group.should_receive(:add_actor)
+
         @mapper.create(@alt_validator, @clients_container)
       end
 
@@ -175,6 +185,7 @@ describe Opscode::Mappers::Client do
         @other_client = Opscode::Models::Client.load(:name => "herp",
                                                      :validator => false,
                                                      :certificate => SAMPLE_CERT )
+        @clients_group.should_receive(:add_actor)
         @mapper.create(@other_client, @clients_container)
       end
 
@@ -241,6 +252,8 @@ describe Opscode::Mappers::Client do
         @other_client = Opscode::Models::Client.load(:name => "herpderp",
                                                      :certificate => SAMPLE_CERT,
                                                      :validator => false)
+        @clients_group.should_receive(:add_actor)
+
         @mapper.create(@other_client, @clients_container)
       end
 
@@ -262,6 +275,9 @@ describe Opscode::Mappers::Client do
 
       @client = Opscode::Models::Client.new(:name => "herpderp")
       @client.certificate = SAMPLE_CERT
+
+      @clients_group.should_receive(:add_actor)
+
       @mapper.create(@client, @clients_container)
     end
 
@@ -292,6 +308,10 @@ describe Opscode::Mappers::Client do
     it "adds the client to the search index" do
       # this is tested by the mocks for amqp_client and queue.
       # leaving this here just to be explicit
+    end
+
+    it "adds the client to the clients group" do
+      # This is tested by the method call expectations on the @clients_group mock.
     end
 
     describe "and then destroying it" do

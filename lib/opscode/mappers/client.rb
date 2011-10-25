@@ -13,7 +13,7 @@ module Opscode
       # * org_id::: Organization GUID
       # * stats_client::: statsd client
       # * authz_id::: AuthZ id of the actor making the request
-      class MapperConfig < Struct.new(:db, :amqp, :org_id, :stats_client, :authz_id)
+      class MapperConfig < Struct.new(:db, :amqp, :org_id, :stats_client, :authz_id, :groups_model)
       end
 
       attr_reader :amqp_connection
@@ -37,6 +37,7 @@ module Opscode
 
         super(conf.db, conf.stats_client, conf.authz_id)
 
+        @groups_model = conf.groups_model
         @amqp_connection = conf.amqp
         @org_id = conf.org_id
 
@@ -53,8 +54,17 @@ module Opscode
 
         validate_before_create!(client)
 
+        # If there's no authz id, create the authz side of the client. Do this
+        # before saving to the db will ensure that we don't create a node with
+        # invalid authz data.
         unless client.authz_id
           client.create_authz_object_as(requester_authz_id)
+
+          # Add client to the clients group. As of this writing, this operation
+          # is likely to fail if many clients are added to the clients group at
+          # once; we don't need any retries because chef-client will retry.
+          clients_group = @groups_model.find_by_name("clients")
+          clients_group.add_actor(client)
           # Do the container inheritance dance.
           # we rely on spoofing the request for the container's
           # ACLs as pivotal until authz is updated to allow ACL reads

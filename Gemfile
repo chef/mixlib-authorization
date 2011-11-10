@@ -4,7 +4,8 @@ gemspec
 
 
 gem "rake"
-gem "mysql2"
+#gem "mysql2"
+gem "pg"
 gem "highline"
 gem "rspec"
 

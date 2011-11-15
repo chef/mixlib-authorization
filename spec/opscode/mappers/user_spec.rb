@@ -5,7 +5,7 @@ describe Opscode::Mappers::User do
 
   before(:all) do
     require 'logger'
-    @db = Sequel.connect("postgres://localhost/opscode_chef_test")
+    @db = Sequel.connect(SQL_DATABASE_URI)
     #@db.logger = Logger.new(STDOUT) # makes the tests loud.
   end
 

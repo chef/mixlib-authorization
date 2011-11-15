@@ -81,4 +81,18 @@ namespace :db do
 
 end
 
+namespace :pg do
+  desc "(PG) Effectively drop the db and then migrate it to current"
+  task :remigrate do
+    sh("sequel -m db/migrate postgres://localhost/opscode_chef  -M 0")
+    sh("sequel -m db/migrate postgres://localhost/opscode_chef")
+  end
+
+  desc "(PG) Effectively drop the *test* db and then migrate it to current"
+  task :remigrate_test do
+    sh("sequel -m db/migrate postgres://localhost/opscode_chef_test -M 0")
+    sh("sequel -m db/migrate postgres://localhost/opscode_chef_test")
+  end
+end
+
 

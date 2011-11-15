@@ -12,7 +12,7 @@ Sequel.migration do
       # These should be 1176 chars exactly AFAICT, it may be possible to optimize.
       text(:public_key)
 
-      blob(:serialized_object)
+      text(:serialized_object)
 
       String(:last_updated_by, :null => false, :fixed => true, :size => 32)
       DateTime(:created_at, :null => false)

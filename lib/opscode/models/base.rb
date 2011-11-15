@@ -278,13 +278,15 @@ module Opscode
         hash_for_db = {}
 
         self.class.model_attributes.each do |attr_name, ivar_name|
-          if value = instance_variable_get(ivar_name)
+          value = instance_variable_get(ivar_name)
+          unless value.nil?
             hash_for_db[attr_name.to_sym] = value
           end
         end
 
         self.class.protected_model_attributes.each do |attr_name, ivar_name|
-          if value = instance_variable_get(ivar_name)
+          value = instance_variable_get(ivar_name)
+          unless value.nil?
             hash_for_db[attr_name.to_sym] = value
           end
         end

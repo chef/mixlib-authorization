@@ -33,7 +33,8 @@ module Opscode
 
 
     def self.use_dev_config
-      uri_file = File.expand_path("../../../../../DATABASE_URI", __FILE__)
+      opscode_dir = File.dirname(Dir["#{ENV['HOME']}/*/*"].grep(/opscode\-test/).first)
+      uri_file = File.expand_path("DATABASE_URI", opscode_dir)
       unless File.exist?(uri_file)
         puts "/!\\" + ("*" * 74) + '/!\\'
         puts "Could not find database uri config at #{uri_file}"

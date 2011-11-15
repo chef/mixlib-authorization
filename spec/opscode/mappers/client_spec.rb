@@ -11,7 +11,7 @@ describe Opscode::Mappers::Client do
 
   before(:all) do
     require 'logger'
-    @db = Sequel.connect(SQL_DATABASE_URI)
+    @db = Sequel.connect(Opscode::Mappers.connection_string)
     #@db.logger = Logger.new(STDOUT) # makes the tests loud.
   end
 

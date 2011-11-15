@@ -1,19 +1,6 @@
 require 'pp'
 require 'rubygems'
 
-uri_file = File.expand_path("../../../../DATABASE_URI", __FILE__)
-unless File.exist?(uri_file)
-  puts "Could not find database uri config at #{uri_file}"
-  puts "Create this file and write the database URI, eg:"
-  puts "postgres://localhost/opscode_chef_test"
-  puts "..for postgres."
-
-  exit 1
-end
-
-
-SQL_DATABASE_URI = IO.read(uri_file).strip
-
 $:.unshift File.expand_path("../../../lib/", __FILE__)
 
 require 'opscode/models/user'
@@ -39,6 +26,7 @@ class TestingStatsClient
   end
 end
 
+Opscode::Mappers.use_dev_config
 
 module Fixtures
 

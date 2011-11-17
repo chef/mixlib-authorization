@@ -26,6 +26,7 @@ class TestingStatsClient
   end
 end
 
+Opscode::Mappers.use_dev_config
 
 module Fixtures
 

@@ -31,6 +31,24 @@ module Opscode
       @connection_string or raise InvalidConfig, "No connection_string set for Opscode::Mappers"
     end
 
+
+    def self.use_dev_config
+      opscode_dir = File.dirname(Dir["#{ENV['HOME']}/*/*"].grep(/opscode\-test/).first)
+      uri_file = File.expand_path("DATABASE_URI", opscode_dir)
+      unless File.exist?(uri_file)
+        puts "/!\\" + ("*" * 74) + '/!\\'
+        puts "Could not find database uri config at #{uri_file}"
+        puts "Create this file and write the database URI, eg:"
+        puts "postgres://localhost/opscode_chef_test"
+        puts "..for postgres."
+        puts "/!\\" + ("*" * 74) + '/!\\'
+        puts "\n"
+      end
+
+      @connection_string = IO.read(uri_file).strip
+    end
+
+
     # Returns a Sequel::Database object, which wraps access to the database.
     # Until sharding is required, this is where we keep the connection to the
     # one true database.

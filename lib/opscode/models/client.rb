@@ -38,6 +38,11 @@ module Opscode
         load(:name => name, :validator => true)
       end
 
+      def initialize(*args)
+        @validator = false
+        super
+      end
+
       # This will be necessary to generate URLs from the client objects if we wish to do that...
       #protected_attribute :orgname
 

@@ -9,7 +9,6 @@ Sequel.migration do
       String(:authz_id, :null => false, :unique => true, :fixed => true, :size => 32)
       String(:name, :null => false) # Index comes from unique constraint
 
-      tinyint(:pubkey_version, :null => false)
       text(:public_key)
 
       TrueClass(:validator, :null => false)
@@ -18,6 +17,12 @@ Sequel.migration do
 
       DateTime(:created_at, :null => false)
       DateTime(:updated_at, :null => false)
+
+
+      smallint(:pubkey_version, :null => false)
+
+
+
 
       unique([:org_id, :name],:name => :org_id_name_unique) # org+name is unique and indexed
 

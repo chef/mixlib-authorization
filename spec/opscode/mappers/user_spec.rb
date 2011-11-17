@@ -5,7 +5,7 @@ describe Opscode::Mappers::User do
 
   before(:all) do
     require 'logger'
-    @db = Sequel.connect("mysql2://root@localhost/opscode_chef_test")
+    @db = Sequel.connect(Opscode::Mappers.connection_string)
     #@db.logger = Logger.new(STDOUT) # makes the tests loud.
   end
 
@@ -15,8 +15,8 @@ describe Opscode::Mappers::User do
     @stats_client = TestingStatsClient.new
 
     @user_data = {
-      :id => "123abc",
-      :authz_id => "abc123",
+      :id => "123abc".ljust(32, '0'),
+      :authz_id => "abc123".ljust(32, '0'),
       :first_name => 'Joe',
       :last_name => "User",
       :middle_name => "The",
@@ -29,7 +29,7 @@ describe Opscode::Mappers::User do
       :password => "p@ssword1",
       :image_file_name => 'current_status.png'
     }
-    @mapper = Opscode::Mappers::User.new(@db, @stats_client, "some_dudes_authz_id")
+    @mapper = Opscode::Mappers::User.new(@db, @stats_client, "some_dudes_authz_id".ljust(32, "0"))
   end
 
   describe "when no users are in the database" do
@@ -87,9 +87,9 @@ describe Opscode::Mappers::User do
       user = @mapper.find_for_authentication("joeuser")
       user.username.should == "joeuser"
       user.public_key.to_s.should == SAMPLE_CERT_KEY
-      user.id.should == "123abc"
+      user.id.should == "123abc".ljust(32, '0')
       # This is used when making authz requests later
-      user.authz_id.should == "abc123"
+      user.authz_id.should == "abc123".ljust(32, '0')
       user.should be_persisted
     end
 

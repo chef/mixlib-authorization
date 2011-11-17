@@ -11,7 +11,7 @@ describe Opscode::Mappers::Client do
 
   before(:all) do
     require 'logger'
-    @db = Sequel.connect("mysql2://root@localhost/opscode_chef_test")
+    @db = Sequel.connect(Opscode::Mappers.connection_string)
     #@db.logger = Logger.new(STDOUT) # makes the tests loud.
   end
 
@@ -20,14 +20,14 @@ describe Opscode::Mappers::Client do
 
     @stats_client = TestingStatsClient.new
     @amqp_client = mock("Chef AMQP Client")
-    @org_id = "fff000"
+    @org_id = "fff00000000000000000000000000000"
 
     @mapper = Opscode::Mappers::Client.new do |m|
       m.db = @db
       m.amqp = @amqp_client
       m.org_id = @org_id
       m.stats_client = @stats_client
-      m.authz_id = "0"
+      m.authz_id = ("0" * 32)
     end
 
     @container_acl = {  "delete" => {"groups"=>[], "actors"=>[]},
@@ -38,7 +38,7 @@ describe Opscode::Mappers::Client do
 
     @authz_server = Mixlib::Authorization::Config.authorization_service_uri
     @container_authz_model = AuthzModels::JoinTypes::Container.new(@authz_server,
-                                                                   "requester_id" => "0")
+                                                                   "requester_id" => ("0" * 32))
     @sentinel_actor_id = "86"
 
     @container_authz_model.save
@@ -70,10 +70,12 @@ describe Opscode::Mappers::Client do
 
   describe "when there are clients of other orgs in the database" do
     before do
-      client = {:id => "222", :org_id => "222", :name => "otherguy",
-                :pubkey_version => 1, :public_key => SAMPLE_CERT,
-                :validator => false, :last_updated_by => "0",
-                :created_at => Time.now, :updated_at => Time.now}
+      client = {:id => "2".ljust(32, "2"), :org_id => "2".ljust(32, "2"), :name => "otherguy",
+                :authz_id => "2".ljust(32, "2"), :pubkey_version => 1,
+                :public_key => SAMPLE_CERT, :validator => false,
+                :last_updated_by => "0".ljust(32, "0"), :created_at => Time.now,
+                :updated_at => Time.now}
+
       @db[:clients].insert(client)
     end
     it "does not list any clients" do
@@ -280,12 +282,12 @@ describe Opscode::Mappers::Client do
     end
 
     it "creates a corresponding actor object in authz" do
-      authz_data = @client.authz_object_as("0").fetch
+      authz_data = @client.authz_object_as("0".ljust(32, '0')).fetch
       authz_data["id"].should == @client.authz_id
     end
 
     it "updates the ACL with ACEs inherited from the container" do
-      acl = @client.authz_object_as("0").fetch_acl
+      acl = @client.authz_object_as("0".ljust(32, '0')).fetch_acl
       acl["grant"]["actors"].should include(@sentinel_actor_id)
     end
 

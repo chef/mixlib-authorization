@@ -4,7 +4,26 @@ gemspec
 
 
 gem "rake"
-gem "mysql2"
+
+# NOTE: This Gemfile is only used for development or when installed directly.
+#
+# When used as a library, Rubygems, bundler and friends will consult the
+# gemspec.
+#
+# cf. http://yehudakatz.com/2010/12/16/clarifying-the-roles-of-the-gemspec-and-gemfile/
+#
+# As of this writing, our database cookbook will install this library so that
+# you can use the Rake tasks to run a schema migration.
+#
+
+group(:mysql) do
+  gem "mysql2"
+end
+
+group(:pg) do
+  gem "pg"
+end
+
 gem "highline"
 gem "rspec"
 

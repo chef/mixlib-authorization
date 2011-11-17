@@ -4,7 +4,6 @@ Sequel.migration do
   change do
 
     create_table(:nodes) do
-      Kernel.require 'pp'
       String(:id, :primary_key => true, :fixed => true, :size => 32)
       String(:authz_id, :null => false, :fixed => true, :size => 32, :unique => true)
       String(:org_id, :null => false, :index => true, :fixed => true, :size => 32)

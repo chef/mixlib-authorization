@@ -17,7 +17,7 @@ Sequel.migration do
       if defined?(Sequel::MySQL)
         mediumblob(:serialized_object)
       elsif defined?(Sequel::Postgres)
-        bytea(:serialized_object)
+        text(:serialized_object)
       else
         raise "Unsupported database"
       end

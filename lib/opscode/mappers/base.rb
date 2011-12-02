@@ -33,7 +33,13 @@ module Opscode
 
 
     def self.use_dev_config
-      opscode_dir = File.dirname(Dir["#{ENV['HOME']}/*/*"].grep(/opscode\-test/).first)
+      opscode_dir_array = Dir["#{ENV['HOME']}/*/*"].grep(/opscode\-test/)
+      if opscode_dir_array.empty?
+        opscode_dir_array = Dir["#{ENV['HOME']}/*/*/*"].grep(/opscode\-test/)
+      end
+      raise "Can't find dir 'opscode-test' in $HOME/*/* or $HOME/*/*/*" if opscode_dir_array.empty?
+      opscode_dir = opscode_dir_array.first
+      
       uri_file = File.expand_path("DATABASE_URI", opscode_dir)
       unless File.exist?(uri_file)
         puts "/!\\" + ("*" * 74) + '/!\\'

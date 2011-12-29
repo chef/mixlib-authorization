@@ -32,28 +32,31 @@ module Opscode
     end
 
 
+    # Searches ~/.opscode and then /etc/opscde for a DATABSE_URI file
+    # containing the connection string to use for a dev environment.
     def self.use_dev_config
-      opscode_dir_array = Dir["#{ENV['HOME']}/*/*"].grep(/opscode\-test/)
-      if opscode_dir_array.empty?
-        opscode_dir_array = Dir["#{ENV['HOME']}/*/*/*"].grep(/opscode\-test/)
+      found = false
+      config_dirs = ["#{ENV['HOME']}/.opscode", "/etc/opscode"]
+      config_dirs.each do |config_dir|
+        uri_file = "#{config_dir}/DATABSE_URI"
+        if File.exists?(uri_file)
+          @connection_string = IO.read(uri_file).strip
+          puts "Found databse config at #{uri_file}"
+          found = true
+          break
+        else
+          puts "No DATABASE_URI file in #{config_dir}"
+        end
       end
-      raise "Can't find dir 'opscode-test' in $HOME/*/* or $HOME/*/*/*" if opscode_dir_array.empty?
-      opscode_dir = opscode_dir_array.first
-      
-      uri_file = File.expand_path("DATABASE_URI", opscode_dir)
-      unless File.exist?(uri_file)
-        puts "/!\\" + ("*" * 74) + '/!\\'
-        puts "Could not find database uri config at #{uri_file}"
-        puts "Create this file and write the database URI, eg:"
-        puts "postgres://localhost/opscode_chef_test"
-        puts "..for postgres."
-        puts "/!\\" + ("*" * 74) + '/!\\'
-        puts "\n"
+      if !found
+        puts "*" * 72
+        puts "Could not find DATABSE_URI file in ~/.opscode or /etc/opscode"
+        puts "Create ~/.opscode/DATABASE_URI with the following contents and retry:"
+        puts "mysql2://dev:opensesame@localhost/opscode_chef"
+        puts "*" * 72
+        raise "missing DATABASE_URI file"
       end
-
-      @connection_string = IO.read(uri_file).strip
     end
-
 
     # Returns a Sequel::Database object, which wraps access to the database.
     # Until sharding is required, this is where we keep the connection to the

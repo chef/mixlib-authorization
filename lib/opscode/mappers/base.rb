@@ -35,26 +35,27 @@ module Opscode
     # Searches ~/.opscode and then /etc/opscde for a DATABSE_URI file
     # containing the connection string to use for a dev environment.
     def self.use_dev_config
+      config_name = "DATABASE_URI"
       found = false
       config_dirs = ["#{ENV['HOME']}/.opscode", "/etc/opscode"]
       config_dirs.each do |config_dir|
-        uri_file = "#{config_dir}/DATABSE_URI"
+        uri_file = "#{config_dir}/#{config_name}"
         if File.exists?(uri_file)
           @connection_string = IO.read(uri_file).strip
           puts "Found databse config at #{uri_file}"
           found = true
           break
         else
-          puts "No DATABASE_URI file in #{config_dir}"
+          puts "No #{config_name} file in #{config_dir}"
         end
       end
       if !found
         puts "*" * 72
-        puts "Could not find DATABSE_URI file in ~/.opscode or /etc/opscode"
-        puts "Create ~/.opscode/DATABASE_URI with the following contents and retry:"
+        puts "Could not find #{config_name} file in ~/.opscode or /etc/opscode"
+        puts "Create ~/.opscode/#{config_name} with the following contents and retry:"
         puts "mysql2://dev:opensesame@localhost/opscode_chef"
         puts "*" * 72
-        raise "missing DATABASE_URI file"
+        raise "missing #{config_name} file"
       end
     end
 

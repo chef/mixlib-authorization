@@ -42,6 +42,7 @@ module Mixlib
         property :chargify_subscription_id
         property :chargify_customer_id
         property :billing_plan
+        property :assigned_at, :cast_as => Time
 
         validates_present :name, :full_name, :clientname
 
@@ -70,6 +71,7 @@ module Mixlib
             available_org.full_name       = params[:full_name]
             available_org.clientname      = params[:clientname]
             available_org[:requester_id]  = params[:requesting_actor_id]
+            available_org.assigned_at     = Time.now.utc
             available_org.save
           else
             raise NoUnassignedOrgsAvailable, "no unassigned orgs available"

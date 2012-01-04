@@ -32,3 +32,6 @@ gem "chef", :git => "git://github.com/opscode/chef.git", :branch => "pl-master",
 gem "opscode-dark-launch", :git => "git@github.com:opscode/opscode-shared", :branch => "master"
 
 
+group(:test) do
+  gem "uuid"
+end

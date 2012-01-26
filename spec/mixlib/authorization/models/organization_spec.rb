@@ -44,13 +44,13 @@ describe Models::Organization do
     end
 
     it "has helpful error messages" do
-      @org[:name] = "name INVALID"
+      @org[:name] = "name with spaces"
       @org.should have_validation_error "name must only contain letters, digits, hyphens, and underscores"
       @org[:name] = "_reserved_for_opscode"
       @org.should have_validation_error "name must begin with a letter or digit"
       @org[:name] = "-too-fugly-for-even-god-to-love"
       @org.should have_validation_error "name must begin with a letter or digit"
-      @org[:name] = "SHOUTING"
+      @org[:name] = "_nope$"
       @org.should have_validation_error "name must only contain letters, digits, hyphens, and underscores", "name must begin with a letter or digit"
     end
     

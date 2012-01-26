@@ -48,7 +48,8 @@ module Mixlib
 
         validates_with_method :name, :unique_name?
 
-        validates_format :name, :with => /^[a-z0-9][a-z0-9_-]*$/
+        validates_format :name, :with => /^[a-z0-9_-]*$/, :message => "name must only contain letters, digits, hyphens, and underscores"
+        validates_format :name, :with => /^[a-z0-9]/, :message => "name must begin with a letter or digit"
 
         auto_validate!
 

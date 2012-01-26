@@ -1,5 +1,12 @@
 require File.expand_path(File.dirname(__FILE__) + '/../../../spec_helper')
 
+RSpec::Matchers.define :have_validation_error do |*expected|
+  match do |actual|
+    return false if actual.valid?
+    actual.errors.full_messages == expected
+  end
+end
+
 describe Models::Organization do
   before do
     @org = Models::Organization.new
@@ -34,6 +41,17 @@ describe Models::Organization do
       @org.should_not be_valid
       @org[:name] = "-too-fugly-for-even-god-to-love"
       @org.should_not be_valid
+    end
+
+    it "has helpful error messages" do
+      @org[:name] = "name INVALID"
+      @org.should have_validation_error "name must only contain letters, digits, hyphens, and underscores"
+      @org[:name] = "_reserved_for_opscode"
+      @org.should have_validation_error "name must begin with a letter or digit"
+      @org[:name] = "-too-fugly-for-even-god-to-love"
+      @org.should have_validation_error "name must begin with a letter or digit"
+      @org[:name] = "SHOUTING"
+      @org.should have_validation_error "name must only contain letters, digits, hyphens, and underscores", "name must begin with a letter or digit"
     end
     
     it "ensures that the name is unique"

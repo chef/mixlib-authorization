@@ -16,6 +16,11 @@ module Mixlib
       end
 
       class InvalidOrganization < ArgumentError
+        attr_reader :errors
+        def initialize(errors)
+          super(errors.full_messages.join(", "))
+          @errors = errors
+        end
       end
 
       class NoUnassignedOrgsAvailable < RuntimeError
@@ -63,7 +68,7 @@ module Mixlib
         def self.create_from_unassigned(params)
           test_org = new(params)
           unless test_org.valid?
-            raise InvalidOrganization, test_org.errors.full_messages.join(", ")
+            raise InvalidOrganization, test_org.errors
           end
           if available_org = Mixlib::Authorization::Models::OrganizationInternal.select_available_org
             original_name = available_org.name

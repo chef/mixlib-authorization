@@ -26,7 +26,7 @@ module Opscode
         user.persisted!
         user
       rescue Sequel::DatabaseError => e
-        log_exception("User creation failed")
+        log_exception("User creation failed", e)
         self.class.query_failed!(e.message)
       end
 

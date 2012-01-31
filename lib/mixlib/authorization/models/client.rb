@@ -96,6 +96,28 @@ module Mixlib
           result
         end
 
+
+        # Saves the client, completely replacing the default ACL with the container ACL.
+        # This should only be used for creates.
+        def create_by_validator!(requesting_actor_id)
+          delete("requestor_id") # clear out old crap.
+          unless new_document?
+            Mixlib::Authorization::Log.error("Illegal call to create_by_validator. This call can only be used for creates.")
+            self.class.failed_to_save!("Update failed.")
+          end
+          result = save
+          if result
+            ##################################################
+            # /!\ Warning -- ID Spoofing /!\
+            ##################################################
+            create_authz_object_as(requesting_actor_id)
+            result = result && replace_acl_with_inherited(authz_id)
+            fix_group_membership_as(authz_id) if result
+          end
+          add_index
+          result or self.class.failed_to_save!("Could not save #{self.class} document (id: #{id})")
+        end
+
         # Same as #save_as, except it will raise an error if the object is
         # invalid or the save fails for some other reason. The specific errors
         # raised are configured by the class methods raise_on_failure= and
@@ -170,11 +192,13 @@ module Mixlib
             container_acl_data = container.fetch_join_acl
             container_acl = Acl.new(container_acl_data)
             self_acl = Acl.new(authz_object.fetch_acl)
-            Mixlib::Authorization::Log.debug "CONTAINER ACL: #{container_acl.to_user(org_database).inspect},\nCLIENT ACL: #{self_acl.to_user(org_database).inspect}"
+
             self_acl.merge!(container_acl)
-            Mixlib::Authorization::Log.debug "MERGED CLIENT ACL: #{self_acl.to_user(org_database).inspect}"
+
+            acl_without_validator = purge_validator_from_acl(self_acl)
+
             # TODO: Y U NO HAVE BULK ACE UPDATE
-            self_acl.aces.each {  |ace_name,ace| authz_object.update_ace(ace_name, ace.ace) }
+            acl_without_validator.aces.each {  |ace_name,ace| authz_object.update_ace(ace_name, ace.ace) }
           rescue => e
             # 4/11/2011 nuo:
             # This rescue block is generically rescuing all the exceptions occur in the block.
@@ -190,12 +214,66 @@ module Mixlib
           #check_inherit_acl_correctness(sender, container_join_acl)
 
           begin
-            object_acl = authz_object.fetch_acl
+            object_acl = Acl.new(authz_object.fetch_acl)
           rescue => e
             Mixlib::Authorization::Log.error("Failed trying to verify the result of inherit_acl.\nERROR:#{e.message}\n#{e.backtrace.join("\n")}")
             return false
           end
-          container_acl_data.merge(object_acl) == object_acl
+
+          acl_without_validator == object_acl
+        end
+
+        #--
+        # TODO: Lots o' code duplication with #save_inherited_acl_as
+        def replace_acl_with_inherited(requesting_actor_id)
+          org_database = database_from_orgname(self.orgname)
+
+          container = Mixlib::Authorization::Models::Container.on(org_database).by_containername(:key => parent_container_name).first
+          Mixlib::Authorization::Log.debug "CALLING ACL MERGER: object: #{inspect}, parent_name: #{parent_container_name}, org_database: #{org_database}, container: #{container.inspect}"
+          raise Mixlib::Authorization::AuthorizationError, "failed to find parent #{parent_container_name} for ACL inheritance" if container.nil?
+
+          ########################################
+          # /!\ Warning -- ID spoofing /!\
+          ########################################
+          # The requesting actor is the validator. Once removed from the update
+          # ace, the validator can't update anything any more.  So we have to
+          # spoof identity (making requests as the client itself) to complete
+          # the next updates:
+          authz_object = authz_object_as(authz_id)
+          container_acl_data = container.fetch_join_acl
+          container_acl = Acl.new(container_acl_data)
+
+          self_acl = Acl.new(authz_object.fetch_acl)
+          self_acl.merge!(container_acl)
+
+          acl_without_validator = purge_validator_from_acl(self_acl)
+
+          # When created by the validator, we want to completely replace the
+          # ACL with the one we inherit from the container instead of merging.
+          # This fixes a vulnerability where the validator client has full
+          # rights to the clients it creates.
+          # ----
+          # TODO: Y U NO HAVE BULK ACE UPDATE
+          acl_without_validator.aces.each {  |ace_name,ace| authz_object.update_ace(ace_name, ace.ace) }
+
+          # In the case that no exception occurred, this doubld checks the acl is inherited correctly.
+          # If it returns false, .save would return false as well.
+          #check_inherit_acl_correctness(sender, container_join_acl)
+
+          begin
+            object_acl = Acl.new(authz_object_as(authz_id).fetch_acl)
+          rescue => e
+            Mixlib::Authorization::Log.error("Failed trying to verify the result of inherit_acl.\nERROR:#{e.message}\n#{e.backtrace.join("\n")}")
+            return false
+          end
+
+          #pp :sanity_check => {:expect => acl_without_validator, :actual => object_acl}
+          acl_without_validator == object_acl
+        end
+
+        def purge_validator_from_acl(acl)
+          acl.each_ace {|ace_name, ace| ace.remove_actor(validator_authz_id) }
+          acl
         end
 
         # Retrieves join acl from sender and compares with container's join acl
@@ -212,7 +290,18 @@ module Mixlib
         end
 
         def has_validator_name?
-          clientname == orgname + "-validator"
+          clientname == validator_name
+        end
+
+        def validator_name
+          @validator_name ||= orgname + "-validator"
+        end
+
+        def validator_authz_id
+          @validator_authz_id ||= begin
+            validator = self.class.on(database).by_clientname(:key => validator_name).first
+            validator && validator.authz_id
+          end
         end
 
         # Adds this client to the clients group, and adds the admins group to

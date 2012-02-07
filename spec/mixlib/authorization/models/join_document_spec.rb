@@ -25,9 +25,8 @@ describe Mixlib::Authorization::Models::JoinDocument do
       lambda { @authz_model.fetch}.should raise_error(RestClient::ResourceNotFound)
     end
 
-    it "crashes authz when loading the ACL" do
-      # It would be nice if this was a 404 instead (at minimum).
-      lambda { @authz_model.fetch_acl }.should raise_error(RestClient::InternalServerError)
+    it "raises NotFound when loading the ACL" do
+      lambda { @authz_model.fetch_acl }.should raise_error(RestClient::ResourceNotFound)
     end
 
   end

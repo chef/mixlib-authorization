@@ -20,7 +20,7 @@ end
 
 describe RequestAuthentication do
   before(:all) do
-    Opscode::Mappers.connection_string = "mysql2://root@localhost/opscode_chef_test"
+    Opscode::Mappers.connection_string = "mysql2://root@127.0.0.1/opscode_chef_test"
   end
 
   before do

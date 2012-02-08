@@ -7,49 +7,41 @@ module Opscode
 
     module Strategies
 
-      # A strategy is a place where you can put logic related to authentication. Any strategy inherits
-      # from Opscode::Authentication::Strategies.
+      # A strategy is a place where you can put logic related to authentication.
+      # Any strategy inherits from Opscode::Authentication::Strategies.
       #
-      # The Opscode::Authentication::Strategies.add method is a simple way to provide custom strategies.
-      # You _must_ declare an @authenticate@ method.
+      # The Opscode::Authentication::Strategies.add method is a simple way to
+      # provide additional custom strategies.
       #
-      # The parameters for Opscode::Authentication::Strategies.add method is:
-      #   <label: Symbol> The label is the name given to a strategy.  Use the label to refer to the strategy when authenticating
-      #   <strategy: Class|nil> The optional stragtegy argument if set _must_ be a class that inherits from Opscode::Authentication::Strategies::Base and _must_
-      #                         implement an @authenticate@ method
-      #   <block> The block acts as a convinient way to declare your strategy.  Inside is the class definition of a strategy.
-      #
-      # Examples:
-      #
-      #   Block Declared Strategy:
-      #    Opscode::Authentication::Strategies.add(:foo) do
-      #      def authenticate
-      #        # authentication logic
-      #      end
-      #    end
-      #
-      #    Class Declared Strategy:
-      #      Opscode::Authentication::Strategies.add(:foo, MyStrategy)
-      #
+      # Strategies _must_ declare an @authenticate@ method.
       class Base
 
         attr_reader :user_mapper
 
+        def initialize(user_mapper)
+          @user_mapper = user_mapper
+        end
+
+        # TODO figure out where this gets fed in
         def logger
-          # TODO: less ghetto.
           @logger ||= Logger.new('/dev/null')
         end
 
+        # Run the authentiation strategy and return the underlying user instance
+        # if authentication is successful
         def authenitcate(*args)
           raise NotImplementedError, "#{self.class} should implement this method"
         end
 
+        # Same API as authenticated, but returns a boolean instead of a user.
         def authenticate?(*args)
           result = !!authenticate(*args)
           yield if result && block_given?
           result
         end
 
+        # The same as +authenticate+ except on failure it will throw an
+        # +AccessDeniedException+
         def authenticate!(*args)
           user = authenitcate(*args)
           throw AccessDeniedException unless user

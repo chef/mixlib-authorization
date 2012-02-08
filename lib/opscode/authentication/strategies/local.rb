@@ -5,9 +5,10 @@ module Opscode
       class Local < Opscode::Authentication::Strategies::Base
 
         def initialize(user_mapper, options={})
-          @user_mapper = user_mapper
+          super(user_mapper)
         end
 
+        # performs authentication against the local database
         def authenticate(login, password)
           user = nil
           u = user_mapper.find_by_username(login)

@@ -7,41 +7,51 @@ module Opscode
 
         attr_reader :host
         attr_reader :port
+        # assumes the format:
+        #  dc=opscode,dc=com
         attr_reader :base
+        # :uid is the LDAP attribute name for the user name in the login form.
+        # typically AD would be 'sAMAccountName' or 'UserPrincipalName',
+        # while OpenLDAP is 'uid'.
         attr_reader :uid
-        attr_reader :username_builder
+        # adjust to non-standard format for user authentication (bind) login
+        attr_reader :bind_login_format
 
-        # optional
-        attr_reader :admin_username
-        attr_reader :admin_password
-
-        DEFAULT_USERNAME_BUILDER = (default: Proc.new() {|attribute, login, ldap| "#{attribute}=#{login},#{ldap.base}" })
-        ACTIVE_DIRECTORY_USERNAME_BUILDER = (default: Proc.new() {|attribute, login, ldap| upn = ldap.base.split(',').map {|x| x.split('=')[-1] }.join('.'); "#{login}@#{upn}" })
+        DEFAULT_BIND_FORMAT = "%{uid}=%{login},%{base}"
 
         def initialize(user_mapper, options={})
-          @user_mapper = user_mapper
           # TODO validate some of these config values
           @host = options[:host]
           @port = options[:port] || 389
-          @uid = options[:uid] || 'sAMAccountName'
-          @username_builder = options[:username_builder] || DEFAULT_USERNAME_BUILDER
+          @uid = options[:uid] || 'uid'
+          @bind_login_format = options[:bind_login_format] || DEFAULT_BIND_FORMAT
 
-          @admin_username = options[:admin_username]
-          @admin_password = options[:admin_password]
+          super(user_mapper)
         end
 
+        # perform authentication via a bind against the configured LDAP instance
+        # returns the underlying LDAP entry
         def authenticate(login, password)
           result = nil
 
-          connection.authenticate(dn(login), password)
+          connection.authenticate(bind_name(login), password)
 
           if connection.bind
-            login = search_for_login(login)
-            if login
-              result = self.class.user_mapper.find_by_auth_id(login)
-            end
+            result = search_for_login(login)
+            # if login
+            #   result = self.class.user_mapper.find_by_auth_id(login)
+            # end
           end
-          result # Should we make the LDAP user available?
+          result
+        end
+
+        # Same API as authenticated, but returns a boolean instead of a user.
+        # If a block is provided yields the underlying LDAP entry on successful
+        # binding
+        def authenticate?(login, password, &block)
+          result = !!authenticate(*args)
+          yield ldap_entry if result && block_given?
+          result
         end
 
         private
@@ -56,19 +66,14 @@ module Opscode
           end
         end
 
-        def dn(login)
-          logger.debug("LDAP dn lookup: #{uid}=#{login}")
-          ldap_entry = search_for_login(login)
-          if ldap_entry.nil?
-            username_builder.call(uid, login, ldap)
-          else
-            ldap_entry.dn
-          end
+        def bind_name(login)
+          bind_login_format % \
+              {:login => login, :uid => uid, :base => base}
         end
 
-        # Searches the LDAP for the login
+        # Searches the LDAP for the login.
         #
-        # @return [Object] the LDAP entry found; nil if not found
+        # Returns the LDAP entry found; nil if not found
         def search_for_login(login)
           logger.debug("LDAP search for login: #{uid}=#{login}")
           filter = Net::LDAP::Filter.eq(uid, login)

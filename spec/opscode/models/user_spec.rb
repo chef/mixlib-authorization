@@ -1,7 +1,8 @@
 require File.expand_path('../../spec_helper', __FILE__)
 
+include Fixtures
+
 describe Opscode::Models::User do
-  include Fixtures
 
   it_should_behave_like("an active model")
 

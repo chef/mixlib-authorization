@@ -29,7 +29,7 @@ module Opscode
 
         # Run the authentiation strategy and return the underlying user instance
         # if authentication is successful
-        def authenitcate(*args)
+        def authenticate(*args)
           raise NotImplementedError, "#{self.class} should implement this method"
         end
 
@@ -43,8 +43,8 @@ module Opscode
         # The same as +authenticate+ except on failure it will throw an
         # +AccessDeniedException+
         def authenticate!(*args)
-          user = authenitcate(*args)
-          throw AccessDeniedException unless user
+          user = authenticate(*args)
+          raise AccessDeniedException unless user
           user
         end
       end

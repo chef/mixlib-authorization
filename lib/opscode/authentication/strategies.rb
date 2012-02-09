@@ -9,6 +9,9 @@ module Opscode
 
         # Add a strategy and store it in a hash.
         def add(label, strategy = nil)
+          unless strategy.ancestors.include?(Opscode::Authentication::Strategies::Base)
+            raise "#{label.inspect} is not a #{base}"
+          end
           strategies[label] = strategy
         end
 
@@ -22,10 +25,9 @@ module Opscode
         end
 
         # convience method for loading all built-in strategies
-        def builtin!(user_mapper=nil, options=nil)
-          user_mapper ||= Opscode::Mappers::User.new(Opscode::Mappers.default_connection, nil, 0)
-          self.add(:local, Opscode::Authentication::Strategies::Local.new(user_mapper, options))
-          self.add(:ldap, Opscode::Authentication::Strategies::LDAP.new(user_mapper, options))
+        def builtin!
+          self.add(:local, Opscode::Authentication::Strategies::Local)
+          self.add(:ldap, Opscode::Authentication::Strategies::LDAP)
           self
         end
       end

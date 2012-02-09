@@ -34,14 +34,14 @@ module Opscode
         def authenticate(login, password)
           result = nil
 
-          connection.authenticate(bind_name(login), password)
-
-          if connection.bind
-            result = search_for_login(login)
-            # if login
-            #   result = self.class.user_mapper.find_by_auth_id(login)
-            # end
+          begin
+            if connection.bind(build_auth_hash(login, password))
+              result = search_for_login(login)
+            end
+          rescue Net::LDAP::LdapError => e # assume the LDAP system is borked
+            raise RemoteAuthenticationException, e.message
           end
+
           result
         end
 
@@ -49,9 +49,9 @@ module Opscode
         # If a block is provided yields the underlying LDAP entry on successful
         # binding
         def authenticate?(login, password, &block)
-          result = !!authenticate(*args)
-          yield ldap_entry if result && block_given?
-          result
+          result = authenticate(login, password)
+          yield result if result && block_given?
+          !!result
         end
 
         private
@@ -64,6 +64,10 @@ module Opscode
               :base => base
             )
           end
+        end
+
+        def build_auth_hash(login, password)
+          {:method => :simple, :username => login, :password => password}
         end
 
         def bind_name(login)

@@ -157,7 +157,7 @@ module Opscode
       # call if the operation fails and is retried.
       def execute_sql(crud_operation, model, should_retry=true, &sql_code)
         benchmark_db(crud_operation, model, &sql_code)
-      rescue Sequel::DatabaseConnectionError
+      rescue Sequel::DatabaseConnectionError, Sequel::DatabaseDisconnectError
         if should_retry
           execute_sql(crud_operation, model, false, &sql_code)
         else

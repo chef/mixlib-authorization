@@ -24,6 +24,7 @@ module Opscode
           @host = options[:host]
           @port = options[:port] || 389
           @uid = options[:uid] || 'uid'
+          @base = options[:base]
           @bind_login_format = options[:bind_login_format] || DEFAULT_BIND_FORMAT
 
           super(user_mapper)
@@ -67,12 +68,13 @@ module Opscode
         end
 
         def build_auth_hash(login, password)
-          {:method => :simple, :username => login, :password => password}
+          formatted_login = bind_login_format % \
+              {:login => login, :uid => uid, :base => base}
+          {:method => :simple, :username => formatted_login, :password => password}
         end
 
         def bind_name(login)
-          bind_login_format % \
-              {:login => login, :uid => uid, :base => base}
+
         end
 
         # Searches the LDAP for the login.

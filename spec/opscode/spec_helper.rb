@@ -2,14 +2,15 @@ require 'pp'
 require 'rubygems'
 
 $:.unshift File.expand_path("../../../lib/", __FILE__)
-
-require 'opscode/models/user'
-require 'opscode/models/client'
-require 'opscode/mappers/user'
-require 'opscode/mappers/client'
-
 $:.unshift File.expand_path('../', __FILE__)
-require 'behaviors/active_model_behavior'
+
+# lib
+Dir[File.join(File.dirname(__FILE__), '..', '..', 'lib', '**', '*.rb')].sort.each { |lib| require lib }
+
+# shared behaviors
+Dir[File.join(File.dirname(__FILE__), 'behaviors', '**', '*.rb')].sort.each { |lib| require lib }
+# shared contexts
+Dir[File.join(File.dirname(__FILE__), 'contexts', '**', '*.rb')].sort.each { |lib| require lib }
 
 Mixlib::Authorization::Config.authorization_service_uri = "http://localhost:5959"
 

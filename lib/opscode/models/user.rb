@@ -6,6 +6,7 @@ require 'active_model'
 require 'active_model/validations'
 
 require 'opscode/models/base'
+require 'opscode/models/external_authn'
 
 module Opscode
   module Models
@@ -89,6 +90,12 @@ module Opscode
       rw_attribute :country
       rw_attribute :twitter_account
       rw_attribute :image_file_name
+
+      # Map supported external authnentication systems to local User record
+      # one_to_many :external_authn, :class => :ExternalAuthn, :key => :id
+      # Indicates this user can fall back to local authentication (if configured).
+      # Local authentication uses the values saved in username and hashed_password.
+      protected_attribute :recovery_authn_enabled
 
       # We now have a password checker API endpoint, so these should not appear
       # in API output. They are also not directly settable.

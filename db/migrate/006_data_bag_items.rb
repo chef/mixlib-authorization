@@ -29,9 +29,9 @@ Sequel.migration do
         raise "Unsupported database"
       end
 
-      # only one data_bag item with a given data_bag name / item_name in
-      # an org mysql and pgsql both allow lookups on indices with
-      # partial prefixes; e.g.  we get the benefit of the index if we
+      # only one data_bag_item with a given data_bag name / item_name in
+      # an org. Mysql and pgsql both allow lookups on indices with
+      # partial prefixes; in other words we get the benefit of the index if we
       # are looking up org_id/data_bag_name, as we will when we list
       # all the items in a data_bag. (see postgres docs section 11.5,
       # "Combining Multiple Indexes") (mysql apparently does the same thing)

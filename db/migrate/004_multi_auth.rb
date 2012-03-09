@@ -19,6 +19,7 @@ Sequel.migration do
       DateTime(:updated_at, :null => false)
 
       foreign_key([:user_id], :users, :key => :id)
+      unique [:external_user_id, :provider]
     end
 
     alter_table(:users) do

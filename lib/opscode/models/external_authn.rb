@@ -26,7 +26,7 @@ module Opscode
       protected_attribute :last_updated_by
 
       validates_presence_of :external_user_id
-      validates_presence_of :provider
+      validates_inclusion_of :provider, :in => [ "LDAP" ], :allow_blank => false
 
       # Since this model doesn't use the Active Record pattern, it can't talk
       # to the database to determine if an external user id is taken or not. This

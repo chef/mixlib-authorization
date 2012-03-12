@@ -9,7 +9,7 @@ Sequel.migration do
       String(:external_user_id, :null => false, :unique => true)
 
       # this probably needs a lookup table...how normalized shall we be?
-      enum :provider, :elements => ['ldap']
+      String(:provider, :null => false, :fixed => true, :size => 5)
 
       # A hash of all external information gathered about a user in the format it was gathered.
       # text(:external_serialized_object)

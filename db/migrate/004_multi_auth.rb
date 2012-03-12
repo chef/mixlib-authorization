@@ -23,7 +23,7 @@ Sequel.migration do
     end
 
     alter_table(:users) do
-      add_column :recovery_authn_enabled, TrueClass, :null => false
+      add_column :recovery_authn_enabled, TrueClass, :null => true
     end
 
   end

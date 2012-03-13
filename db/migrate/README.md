@@ -61,11 +61,11 @@ If `/opt/opscode/embedded/bin` is not listed first in the `PATH` make it so:
 Change to `mixlib-authorization` directory and run migrations:
 
     vagrant@private-chef:~$ cd /opt/opscode/embedded/service/mixlib-authorization
-    vagrant@private-chef:/opt/opscode/embedded/service/mixlib-authorization$ bundle exec sequel -m db/migrate postgres://opscode-pgsql@127.0.0.1/opscode_chef
+    vagrant@private-chef:/opt/opscode/embedded/service/mixlib-authorization$ bundle exec sequel -m db/migrate postgres://opscode-pgsql@127.0.0.1/opscode_chef_test
 
 Verify everything migrated correctly:
 
-    vagrant@private-chef:/opt/opscode/embedded/service/mixlib-authorization$ psql opscode_chef opscode-pgsql
+    vagrant@private-chef:/opt/opscode/embedded/service/mixlib-authorization$ psql opscode_chef_test opscode-pgsql
     psql (9.1.2)
     Type "help" for help.
 

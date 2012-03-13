@@ -69,38 +69,30 @@ Verify everything migrated correctly:
     psql (9.1.2)
     Type "help" for help.
 
-    opscode_chef=# \d
-                         List of relations
-     Schema |         Name          |   Type   |     Owner
-    --------+-----------------------+----------+---------------
-     public | clients               | table    | opscode-pgsql
-     public | external_authn        | table    | opscode-pgsql
-     public | external_authn_id_seq | sequence | opscode-pgsql
-     public | nodes                 | table    | opscode-pgsql
-     public | schema_info           | table    | opscode-pgsql
-     public | users                 | table    | opscode-pgsql
-    (6 rows)
+    opscode_chef_test=# \d+ users
+                                        Table "public.users"
+             Column          |            Type             | Modifiers | Storage  | Description
+    -------------------------+-----------------------------+-----------+----------+-------------
+     id                      | character(32)               | not null  | extended |
+     authz_id                | character(32)               | not null  | extended |
+     username                | text                        | not null  | extended |
+     email                   | text                        | not null  | extended |
+     pubkey_version          | integer                     | not null  | plain    |
+     public_key              | text                        |           | extended |
+     serialized_object       | text                        |           | extended |
+     last_updated_by         | character(32)               | not null  | extended |
+     created_at              | timestamp without time zone | not null  | plain    |
+     updated_at              | timestamp without time zone | not null  | plain    |
+     external_authn_provider | character varying(5)        |           | extended |
+     external_authn_uid      | text                        |           | extended |
+     recovery_authn_enabled  | boolean                     |           | plain    |
+    Indexes:
+        "users_pkey" PRIMARY KEY, btree (id)
+        "users_authz_id_key" UNIQUE CONSTRAINT, btree (authz_id)
+        "users_email_key" UNIQUE CONSTRAINT, btree (email)
+        "users_username_key" UNIQUE CONSTRAINT, btree (username)
+    Has OIDs: no
 
-    opscode_chef=# \l
-                                            List of databases
-         Name     |     Owner     | Encoding  | Collate | Ctype |          Access privileges
-    --------------+---------------+-----------+---------+-------+-------------------------------------
-     opscode_chef | opscode-pgsql | UTF8      | C       | C     | =Tc/"opscode-pgsql"                +
-                  |               |           |         |       | "opscode-pgsql"=CTc/"opscode-pgsql"+
-                  |               |           |         |       | opscode_chef=CTc/"opscode-pgsql"   +
-                  |               |           |         |       | opscode_chef_ro=CTc/"opscode-pgsql"
-     postgres     | opscode-pgsql | SQL_ASCII | C       | C     |
-     template0    | opscode-pgsql | SQL_ASCII | C       | C     | =c/"opscode-pgsql"                 +
-                  |               |           |         |       | "opscode-pgsql"=CTc/"opscode-pgsql"
-     template1    | opscode-pgsql | SQL_ASCII | C       | C     | =c/"opscode-pgsql"                 +
-                  |               |           |         |       | "opscode-pgsql"=CTc/"opscode-pgsql"
-    (4 rows)
+    opscode_chef_test=#
 
-    opscode_chef=# select * from schema_info;
-     version
-    ---------
-           4
-    (1 row)
-
-    opscode_chef=# \q
 

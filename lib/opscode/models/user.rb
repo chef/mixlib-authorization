@@ -6,7 +6,6 @@ require 'active_model'
 require 'active_model/validations'
 
 require 'opscode/models/base'
-require 'opscode/models/external_authn'
 
 module Opscode
   module Models
@@ -91,8 +90,13 @@ module Opscode
       rw_attribute :twitter_account
       rw_attribute :image_file_name
 
-      # Map supported external authnentication systems to local User record
-      # one_to_many :external_authn, :class => :ExternalAuthn, :key => :id
+      # The external authentication provider type, for now
+      # there is only one type LDAP
+      rw_attribute :external_authn_provider
+
+      # An identifier unique to the given provider, such as an LDAP uid
+      rw_attribute :external_authn_uid
+
       # Indicates this user can fall back to local authentication (if configured).
       # Local authentication uses the values saved in username and hashed_password.
       protected_attribute :recovery_authn_enabled
@@ -145,6 +149,11 @@ module Opscode
       validates_length_of :username, :within => 1..50
 
       validate :certificate_or_pubkey_present
+
+      # external authentication
+      validates_inclusion_of :external_authn_provider, :in => ["LDAP"],
+        :allow_nil => true, :unless => Proc.new { |user| user.external_authn_uid.nil? },
+        :message => "is not included in the valid providers list"
 
       PASSWORD = 'password'.freeze
       CERTIFICATE = 'certificate'.freeze

@@ -8,7 +8,10 @@ module Opscode
       # These properties of a Model::User have their own columns in the
       # database. There are also columns for cert/private key but these are
       # mapped in a special way.
-      BREAKOUT_COLUMNS = [:id, :authz_id, :username, :email, :created_at, :updated_at, :last_updated_by]
+      BREAKOUT_COLUMNS = [:id, :authz_id, :username, :email,
+                          :external_authn_provider, :external_authn_uid,
+                          :recovery_authn_enabled, :created_at, :updated_at,
+                          :last_updated_by]
 
       # Create a record in the database representing +user+ which is expected
       # to be a Models::User object.
@@ -188,6 +191,16 @@ module Opscode
       def find_by_authz_id(authz_id)
         find_by_query do |table|
           table.select(:id,:authz_id,:username).where(:authz_id => authz_id)
+        end
+      end
+
+      # Finds the user by the given +external_authn_uid+ and returns it with the id, external_authn_uid and username set.
+      def find_by_external_authn_uid(external_authn_uid)
+        finder = table.select(:id,:external_authn_uid,:username).where(:external_authn_uid => external_authn_uid)
+        if user_data = execute_sql(:read, :user) { finder.first }
+          inflate_model(user_data)
+        else
+          nil
         end
       end
 

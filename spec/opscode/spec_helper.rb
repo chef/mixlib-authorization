@@ -12,7 +12,7 @@ Dir[File.join(File.dirname(__FILE__), 'behaviors', '**', '*.rb')].sort.each { |l
 # shared contexts
 Dir[File.join(File.dirname(__FILE__), 'contexts', '**', '*.rb')].sort.each { |lib| require lib }
 
-Mixlib::Authorization::Config.authorization_service_uri = "http://localhost:5959"
+Mixlib::Authorization::Config.authorization_service_uri = "http://localhost:9463"
 
 class TestingStatsClient
   attr_reader :times_called

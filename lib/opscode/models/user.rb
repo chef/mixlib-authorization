@@ -152,8 +152,11 @@ module Opscode
 
       # external authentication
       validates_inclusion_of :external_authn_provider, :in => ["LDAP"],
-        :allow_nil => true, :unless => Proc.new { |user| user.external_authn_uid.nil? },
-        :message => "is not included in the valid providers list"
+        :allow_nil => true, :message => "is not included in the valid providers list"
+
+      validates_presence_of :external_authn_uid,
+        :unless => Proc.new { |user| user.external_authn_provider.nil? },
+        :message => "must not be blank"
 
       PASSWORD = 'password'.freeze
       CERTIFICATE = 'certificate'.freeze

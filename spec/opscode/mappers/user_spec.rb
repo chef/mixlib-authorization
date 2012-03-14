@@ -28,8 +28,7 @@ describe Opscode::Mappers::User do
       :country => "USA",
       :password => "p@ssword1",
       :image_file_name => 'current_status.png',
-      :external_authn_provider => "LDAP",
-      :external_authn_uid => "joeuser@ad.example.com"
+      :external_authentication_uid => "joeuser@ad.example.com"
     }
     @mapper = Opscode::Mappers::User.new(@db, @stats_client, "some_dudes_authz_id".ljust(32, "0"))
   end
@@ -104,10 +103,10 @@ describe Opscode::Mappers::User do
       user.id.should == id
     end
 
-    it "loads the username, id, and external_authn_uid by username" do
+    it "loads the username, id, and external_authentication_uid by username" do
       id = @user.id
-      user = @mapper.find_by_external_authn_uid("joeuser@ad.example.com")
-      user.external_authn_uid.should == "joeuser@ad.example.com"
+      user = @mapper.find_by_external_authentication_uid("joeuser@ad.example.com")
+      user.external_authentication_uid.should == "joeuser@ad.example.com"
       user.username.should == "joeuser"
       user.id.should == id
     end

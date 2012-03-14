@@ -90,16 +90,12 @@ module Opscode
       rw_attribute :twitter_account
       rw_attribute :image_file_name
 
-      # The external authentication provider type, for now
-      # there is only one type LDAP
-      rw_attribute :external_authn_provider
-
       # An identifier unique to the given provider, such as an LDAP uid
-      rw_attribute :external_authn_uid
+      rw_attribute :external_authentication_uid
 
       # Indicates this user can fall back to local authentication (if configured).
       # Local authentication uses the values saved in username and hashed_password.
-      protected_attribute :recovery_authn_enabled
+      protected_attribute :recovery_authentication_enabled
 
       # We now have a password checker API endpoint, so these should not appear
       # in API output. They are also not directly settable.
@@ -149,14 +145,6 @@ module Opscode
       validates_length_of :username, :within => 1..50
 
       validate :certificate_or_pubkey_present
-
-      # external authentication
-      validates_inclusion_of :external_authn_provider, :in => ["LDAP"],
-        :allow_nil => true, :message => "is not included in the valid providers list"
-
-      validates_presence_of :external_authn_uid,
-        :unless => Proc.new { |user| user.external_authn_provider.nil? },
-        :message => "must not be blank"
 
       PASSWORD = 'password'.freeze
       CERTIFICATE = 'certificate'.freeze

@@ -71,21 +71,20 @@ Verify everything migrated correctly:
 
     opscode_chef_test=# \d+ users
                                         Table "public.users"
-             Column          |            Type             | Modifiers | Storage  | Description
-    -------------------------+-----------------------------+-----------+----------+-------------
-     id                      | character(32)               | not null  | extended |
-     authz_id                | character(32)               | not null  | extended |
-     username                | text                        | not null  | extended |
-     email                   | text                        | not null  | extended |
-     pubkey_version          | integer                     | not null  | plain    |
-     public_key              | text                        |           | extended |
-     serialized_object       | text                        |           | extended |
-     last_updated_by         | character(32)               | not null  | extended |
-     created_at              | timestamp without time zone | not null  | plain    |
-     updated_at              | timestamp without time zone | not null  | plain    |
-     external_authn_provider | character varying(5)        |           | extended |
-     external_authn_uid      | text                        |           | extended |
-     recovery_authn_enabled  | boolean                     |           | plain    |
+             Column                   |            Type             | Modifiers | Storage  | Description
+    ----------------------------------+-----------------------------+-----------+----------+-------------
+     id                               | character(32)               | not null  | extended |
+     authz_id                         | character(32)               | not null  | extended |
+     username                         | text                        | not null  | extended |
+     email                            | text                        | not null  | extended |
+     pubkey_version                   | integer                     | not null  | plain    |
+     public_key                       | text                        |           | extended |
+     serialized_object                | text                        |           | extended |
+     last_updated_by                  | character(32)               | not null  | extended |
+     created_at                       | timestamp without time zone | not null  | plain    |
+     updated_at                       | timestamp without time zone | not null  | plain    |
+     external_authentication_uid      | text                        |           | extended |
+     recovery_authentication_enabled  | boolean                     |           | plain    |
     Indexes:
         "users_pkey" PRIMARY KEY, btree (id)
         "users_authz_id_key" UNIQUE CONSTRAINT, btree (authz_id)

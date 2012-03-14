@@ -9,8 +9,8 @@ module Opscode
       # database. There are also columns for cert/private key but these are
       # mapped in a special way.
       BREAKOUT_COLUMNS = [:id, :authz_id, :username, :email,
-                          :external_authn_provider, :external_authn_uid,
-                          :recovery_authn_enabled, :created_at, :updated_at,
+                          :external_authentication_uid,
+                          :recovery_authentiation_enabled, :created_at, :updated_at,
                           :last_updated_by]
 
       # Create a record in the database representing +user+ which is expected
@@ -194,9 +194,9 @@ module Opscode
         end
       end
 
-      # Finds the user by the given +external_authn_uid+ and returns it with the id, external_authn_uid and username set.
-      def find_by_external_authn_uid(external_authn_uid)
-        finder = table.select(:id,:external_authn_uid,:username).where(:external_authn_uid => external_authn_uid)
+      # Finds the user by the given +external_authentication_uid+
+      def find_by_external_authentication_uid(external_authentication_uid)
+        finder = table.where(:external_authentication_uid => external_authentication_uid)
         if user_data = execute_sql(:read, :user) { finder.first }
           inflate_model(user_data)
         else

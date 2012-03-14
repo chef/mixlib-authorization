@@ -25,9 +25,8 @@ describe Opscode::Models::User do
       :hashed_password => "some hex bits",
       :salt => "some random bits",
       :image_file_name => 'current_status.png',
-      :external_authn_provider => "LDAP",
-      :external_authn_uid => "furious_dd@example.com",
-      :recovery_authn_enabled => false,
+      :external_authentication_uid => "furious_dd@example.com",
+      :recovery_authentication_enabled => false,
       :created_at => @now.utc.to_s,
       :updated_at => @now.utc.to_s
 
@@ -95,16 +94,12 @@ describe Opscode::Models::User do
       @user.image_file_name.should be_nil
     end
 
-    it "has no external authentication provider" do
-      @user.external_authn_provider.should be_nil
-    end
-
     it "has no external authentication uid" do
-      @user.external_authn_uid.should be_nil
+      @user.external_authentication_uid.should be_nil
     end
 
     it "local recovery authenticaiton should be disabled" do
-      @user.recovery_authn_enabled.should be_false
+      @user.recovery_authentication_enabled.should be_false
     end
 
     it "is not peristed" do
@@ -337,32 +332,6 @@ describe Opscode::Models::User do
       end
     end
 
-    describe "when setting an external authentication mapping" do
-
-      describe "the external authentication provider is set" do
-        before do
-          @user.external_authn_provider = "LDAP"
-        end
-
-        it "requires an external authentication uid" do
-          @user.external_authn_uid = nil
-          @user.should_not be_valid
-          @user.errors[:external_authn_uid].should include("must not be blank")
-        end
-
-        it "does not accept an invalid provider" do
-          @user.external_authn_provider = "poop"
-          @user.should_not be_valid
-          @user.errors[:external_authn_provider].should include("is not included in the valid providers list")
-        end
-
-        it "has a valid provider" do
-          @user.valid?
-          @user.errors[:external_authn_provider].should be_empty
-        end
-      end
-    end
-
   end
 
   describe "when marked as peristed" do
@@ -446,16 +415,12 @@ describe Opscode::Models::User do
       @user.image_file_name.should == "current_status.png"
     end
 
-    it "has an external authentication provider" do
-      @user.external_authn_provider.should == "LDAP"
-    end
-
     it "has an external authentication uid" do
-      @user.external_authn_uid.should == "furious_dd@example.com"
+      @user.external_authentication_uid.should == "furious_dd@example.com"
     end
 
     it "local recovery authenticaiton should be disabled" do
-      @user.recovery_authn_enabled.should be_false
+      @user.recovery_authentication_enabled.should be_false
     end
 
     it "gives the created_at timestamp as a time object" do
@@ -520,7 +485,7 @@ describe Opscode::Models::User do
 
       expected_keys = [ :city, :twitter_account, :country, :username,
         :first_name, :last_name, :display_name, :middle_name, :email,
-        :image_file_name, :external_authn_provider, :external_authn_uid]
+        :image_file_name, :external_authentication_uid]
 
 
       user_as_a_hash.keys.should =~ expected_keys
@@ -558,8 +523,7 @@ describe Opscode::Models::User do
         'country' => "USA-updated",
         'twitter_account' => "updated_twits",
         'image_file_name' => 'updated_status.png',
-        'external_authn_provider' => 'LDAP',
-        'external_authn_uid' => 'updated_uid@updated.com'
+        'external_authentication_uid' => 'updated_uid@updated.com'
       }
       @user.persisted!
       @user.update_from_params(@form_data)
@@ -597,12 +561,8 @@ describe Opscode::Models::User do
       @user.image_file_name.should == "updated_status.png"
     end
 
-    it "updates the external authentication provider" do
-      @user.external_authn_provider.should == "LDAP"
-    end
-
     it "updates the external authentication uid" do
-      @user.external_authn_uid.should == "updated_uid@updated.com"
+      @user.external_authentication_uid.should == "updated_uid@updated.com"
     end
 
     it "does not update the password" do
@@ -659,8 +619,7 @@ describe Opscode::Models::User do
         :country => nil,
         :twitter_account => nil,
         :image_file_name => nil,
-        :external_authn_provider => nil,
-        :external_authn_uid => nil
+        :external_authentication_uid => nil
       }
       @user.update_from_params(@form_data)
     end
@@ -697,12 +656,8 @@ describe Opscode::Models::User do
       @user.image_file_name.should be_nil
     end
 
-    it "sets the external authentication provider to nil" do
-      @user.external_authn_provider.should be_nil
-    end
-
     it "sets the external authentication uid to nil" do
-      @user.external_authn_uid.should be_nil
+      @user.external_authentication_uid.should be_nil
     end
   end
 
@@ -722,8 +677,7 @@ describe Opscode::Models::User do
         :twitter_account => "moonpolysoft",
         :password => 'p@ssw0rd1',
         :image_file_name => 'current_status.png',
-        :external_authn_provider => "LDAP",
-        :external_authn_uid => "furious_dd@example.com"
+        :external_authentication_uid => "furious_dd@example.com"
       }
       @user = Opscode::Models::User.new(@form_data)
     end
@@ -752,13 +706,12 @@ describe Opscode::Models::User do
         'twitter_account' => "moonpolysoft",
         'password' => 'p@ssw0rd1',
         'image_file_name' => 'current_status.png',
-        'external_authn_provider' => "LDAP",
-        :external_authn_uid => "furious_dd@example.com",
+        :external_authentication_uid => "furious_dd@example.com",
         :requesting_actor_id => "some garbage",
         :id => "whatever", # pretty common in our code
         :user_id => "something",
         :authz_id => "malicious-intent",
-        :recovery_authn_enabled => true
+        :recovery_authentication_enabled => true
       }
       @user = Opscode::Models::User.new(@form_data)
     end
@@ -771,7 +724,7 @@ describe Opscode::Models::User do
       @user.authz_id.should be_nil
       @user.created_at.should be_nil
       @user.updated_at.should be_nil
-      @user.recovery_authn_enabled.should be_nil
+      @user.recovery_authentication_enabled.should be_nil
     end
 
   end
@@ -793,12 +746,11 @@ describe Opscode::Models::User do
         :country => "USA",
         :twitter_account => "moonpolysoft",
         :image_file_name => 'current_status.png',
-        :external_authn_uid => "furious_dd@example.com",
+        :external_authentication_uid => "furious_dd@example.com",
         :requesting_actor_id => "some garbage",
         :password => 'p@ssw0rd1',
         :hashed_password => "whoah what are you doing here?",
         :salt => "some random bits"
-
       }
       lambda { Opscode::Models::User.new(@form_data) }.should raise_error(ArgumentError)
     end

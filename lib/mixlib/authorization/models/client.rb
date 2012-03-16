@@ -217,10 +217,15 @@ module Mixlib
             object_acl = Acl.new(authz_object.fetch_acl)
           rescue => e
             Mixlib::Authorization::Log.error("Failed trying to verify the result of inherit_acl.\nERROR:#{e.message}\n#{e.backtrace.join("\n")}")
-            return false
+            raise
           end
 
           acl_without_validator == object_acl
+        rescue Exception => e
+          # Destroy this client if the ACLs didn't get created correctly
+          Merb.logger.error "Unexpected failure in ACL inheritance: #{e.inspect}, #{e.backtrace.join(",\n")}"
+          destroy
+          self.class.failed_to_save!("Failed to update groups in client creation")
         end
 
         #--
@@ -264,11 +269,15 @@ module Mixlib
             object_acl = Acl.new(authz_object_as(authz_id).fetch_acl)
           rescue => e
             Mixlib::Authorization::Log.error("Failed trying to verify the result of inherit_acl.\nERROR:#{e.message}\n#{e.backtrace.join("\n")}")
-            return false
+            raise
           end
 
-          #pp :sanity_check => {:expect => acl_without_validator, :actual => object_acl}
           acl_without_validator == object_acl
+        rescue Exception => e
+          # Destroy this client if the ACLs didn't get created correctly
+          Merb.logger.error "Unexpected failure in ACL inheritance: #{e.inspect}, #{e.backtrace.join(",\n")}"
+          destroy
+          self.class.failed_to_save!("Failed to update groups in client creation")
         end
 
         def purge_validator_from_acl(acl)

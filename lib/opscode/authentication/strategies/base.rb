@@ -16,12 +16,6 @@ module Opscode
       # Strategies _must_ declare an @authenticate@ method.
       class Base
 
-        attr_reader :user_mapper
-
-        def initialize(user_mapper)
-          @user_mapper = user_mapper
-        end
-
         # TODO figure out where this gets fed in
         def logger
           @logger ||= Logger.new('/dev/null')

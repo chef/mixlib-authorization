@@ -16,7 +16,7 @@ module Opscode
           if u && u.correct_password?(password)
             user = u
           end
-          user
+          user.for_json
         end
 
       end

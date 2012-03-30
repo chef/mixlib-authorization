@@ -133,10 +133,10 @@ module Opscode
 
       # We need to get a password when creating; on updates we only need a
       # password when updating the hashed_password
-      validates_presence_of :password, :unless => :persisted?
+      validates_presence_of :password, :if => Proc.new { |user| user.requires_password? && !user.persisted? }
 
-      validates_presence_of :hashed_password
-      validates_presence_of :salt
+      validates_presence_of :hashed_password, :if => :requires_password?
+      validates_presence_of :salt, :if => :requires_password?
 
       validates_format_of :username, :with => /^[a-z0-9\-_]+$/, :message => "has an invalid format (valid characters are a-z, 0-9, hyphen and underscore)"
       validates_format_of :email, :with => EmailAddress, :message => "has an invalid format"
@@ -217,11 +217,15 @@ module Opscode
         end
       end
 
+      def requires_password?
+        !Mixlib::Authorization::Config.has_key?(:ldap_host)
+      end
+
       # Is the password being updated? This is always true when creating a new
       # user. Also true when the password field is set on an existing user.
       # Used to trigger validation of the password format.
       def updating_password?
-        (!persisted?) || (!password.nil?)
+        (!persisted? && requires_password?) || (!password.nil?)
       end
 
       def to_param

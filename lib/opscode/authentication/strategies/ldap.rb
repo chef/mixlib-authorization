@@ -8,34 +8,19 @@ module Opscode
 
         attr_reader :host
         attr_reader :port
-        # assumes the format:
-        #  cn=users,dc=opscode,dc=com
-        attr_reader :base
-        # adjust to non-standard format for user authentication (bind) login
-        attr_reader :bind_login_format
-        # :login_attribute is the LDAP attribute name for the user name in the login form.
-        # typically AD would be 'cn', while OpenLDAP is 'uid'.
+        # assumes a format like:
+        #  cn=users,dc=opscode,dc=us
+        attr_reader :base_dn
+        # The LDAP attribute holding the user's login name. Typically in Active
+        # Directory it will be ``sAMAccountName``, while in OpenLDAP it is ``uid``.
         attr_reader :login_attribute
-        # :uid_attribute is the LDAP attribute name for the most unique identifier for the
-        # user--hopefully one that will not change when the username changes.  Typically AD
-        # would be 'objectsid'.
-        attr_reader :uid_attribute
-        # :login_attribute is the LDAP attribute name for the username that this entry maps
-        # to in Chef.  For AD, this would typically be sAMAccountName or UserPrincipalName.
-        attr_reader :chef_username_attribute
-
-        DEFAULT_BIND_FORMAT = "%{uid}=%{login},%{base}"
 
         def initialize(options={})
           # TODO validate some of these config values
           @host = options[:host]
           @port = options[:port] || 389
-          @base = options[:base]
-          @bind_login_format = options[:bind_login_format] || DEFAULT_BIND_FORMAT
-          @login_attribute = options[:login_attribute] || 'cn'
-          @uid_attribute = options[:uid_attribute] || 'uid'
-          @chef_username_attribute = options[:chef_username_attribute] || options[:login_attribute]
-
+          @base_dn = options[:base_dn]
+          @login_attribute = (options[:login_attribute] || 'samaccountname').downcase
           super
         end
 
@@ -43,7 +28,12 @@ module Opscode
         # returns the underlying LDAP entry
         def authenticate(login, password)
           begin
-            Net::LDAP.open(:host => host, :port => port, :base => base, :auth => build_auth_hash(login, password)) do |connection|
+
+            auth = {:method => :simple,
+                    :username => format_login_for_binding(login),
+                    :password => password}
+
+            Net::LDAP.open(:host => host, :port => port, :base => base_dn, :auth => auth) do |connection|
               # Authenticate
               unless connection.bind
                 raise AccessDeniedException, connection.get_operation_result.message
@@ -70,33 +60,60 @@ module Opscode
 
         private
 
-        def build_auth_hash(login, password)
-          formatted_login = bind_login_format % \
-              {:login => login, :uid => login_attribute, :base => base}
-          {:method => :simple, :username => formatted_login, :password => password}
+        # Determines the proper binding format for the login name:
+        #
+        #   opscode\testy
+        #   testy@opscode.us
+        #   CN=Testy McTesterson,CN=Users,DC=opscode,DC=us"
+        #
+        def format_login_for_binding(login)
+          # If we already have an old-school domain login (domain\user) or
+          # newer-style UPN login (user@domain) return it.
+          if login =~ /[\\@]/
+            login
+          elsif active_directory?
+            # extract the domain components from the base distinguished name and
+            # create a UPN:
+            #
+            #   dc=opscode,dc=us => opscode.us
+            base_upn = base_dn.split(/,?dc\s?=\s?/i)[-2..-1].join('.')
+            "#{login}@#{base_upn}"
+          else
+            # fall back to binding with standard LDAP common name
+            "cn=#{login},#{base_dn}"
+          end
         end
 
         def ldap_to_chef_user(ldap_user)
+          # AD contains a binary SID we must unpack
+          external_uid = if ldap_user['objectsid']
+            ldap_user['objectsid'].first.unpack('H*')[0]
+          elsif ldap_user['samaccountname']
+            ldap_user['samaccountname'].first
+          else
+            ldap_user['uid'].first
+          end
+
           {
             :first_name => ldap_user['givenname'][0],
             :last_name => ldap_user['sn'][0],
-#            :middle_name => "trolol",
             :display_name => ldap_user['displayname'][0],
             :email => ldap_user['mail'][0],
-            :username => ldap_user[chef_username_attribute][0],
-#            :public_key => nil,
-#            :certificate => SAMPLE_CERT,
+            :username => ldap_user[login_attribute][0],
             :city => ldap_user['l'][0],
             :country => ldap_user['c'][0],
-#            :twitter_account => "moonpolysoft",
-#            :hashed_password => "some hex bits",
-#            :salt => "some random bits",
-#            :image_file_name => 'current_status.png',
-            :external_authentication_uid => ldap_user[uid_attribute][0].unpack('H*')[0],
+            :external_authentication_uid => external_uid,
             :recovery_authentication_enabled => false,
-#            :created_at => ldap_user['whencreated'],
-#            :updated_at => @now.utc.to_s
           }
+        end
+
+        # sniff test to determine if we are dealing with the Active Directory
+        # flavor of LDAP.  Mainly used to make certain assumption about things
+        # like attribute naming and login name binding format.
+        def active_directory?
+          # TODO - there has to be a better way
+          (login_attribute == 'samaccountname') ||
+            (login_attribute == 'cn')
         end
       end
     end

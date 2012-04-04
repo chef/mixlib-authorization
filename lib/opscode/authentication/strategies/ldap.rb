@@ -56,6 +56,8 @@ module Opscode
 
             raise AccessDeniedException, message
 
+          rescue Errno::ETIMEDOUT => e # LDAP timeout
+            raise RemoteAuthenticationException, e.message
           rescue Net::LDAP::LdapError => e # assume the LDAP system is borked
             raise RemoteAuthenticationException, e.message
           end

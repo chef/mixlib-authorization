@@ -8,6 +8,8 @@ module Opscode
 
         attr_reader :host
         attr_reader :port
+        attr_reader :bind_dn
+        attr_reader :bind_password
         # assumes a format like:
         #  cn=users,dc=opscode,dc=us
         attr_reader :base_dn
@@ -19,6 +21,8 @@ module Opscode
           # TODO validate some of these config values
           @host = options[:host]
           @port = options[:port] || 389
+          @bind_dn = options[:bind_dn]
+          @bind_password = options[:bind_password]
           @base_dn = options[:base_dn]
           @login_attribute = (options[:login_attribute] || 'samaccountname').downcase
           super
@@ -27,23 +31,31 @@ module Opscode
         # perform authentication via a bind against the configured LDAP instance
         # returns the underlying LDAP entry
         def authenticate(login, password)
+
           begin
+            client.search(:base => base_dn,
+              :filter => Net::LDAP::Filter.eq(login_attribute, login), :size => 1) do |entry|
 
-            auth = {:method => :simple,
-                    :username => format_login_for_binding(login),
-                    :password => password}
+              # attempt to authenticate as user
+              unless client.bind_as(:base => base_dn, :filter => "(#{@login_attribute}=#{login})", :password => password)
+                raise AccessDeniedException, "Remote LDAP authentication (bind) failed for '#{login}'"
+              end
 
-            Net::LDAP.open(:host => host, :port => port, :base => base_dn, :auth => auth) do |connection|
-              # Authenticate
-              unless connection.bind
-                raise AccessDeniedException, connection.get_operation_result.message
-              end
-              # Retrieve user record from LDAP
-              connection.search(:filter => Net::LDAP::Filter.eq(login_attribute, login)) do |entry|
-                return ldap_to_chef_user(entry)
-              end
-              raise "Could not find LDAP user #{login_attribute}=#{login} with base #{base}"
+              return ldap_record_to_chef_user(entry)
             end
+
+            # return a nice failure message
+            message = case client.get_operation_result.code
+              when 0 # search failed
+                "Could not locate a record with distinguished name [#{login_attribute}=#{login},#{base_dn}] on remote LDAP server."
+              when 49 # bind failed
+                "Could not bind to remote LDAP server. Please ensure the 'bind_dn' and 'bind_password' values are correct."
+              else # everything else
+                "Could not complete remote LDAP operation (#{format_error_for_display(client.get_operation_result)})"
+              end
+
+            raise AccessDeniedException, message
+
           rescue Net::LDAP::LdapError => e # assume the LDAP system is borked
             raise RemoteAuthenticationException, e.message
           end
@@ -53,43 +65,31 @@ module Opscode
         # If a block is provided yields the underlying LDAP entry on successful
         # binding
         def authenticate?(login, password, &block)
-          result = authenticate(login, password)
+          result = authenticate(login, password) rescue false
           yield result if result && block_given?
           !!result
         end
 
         private
 
-        # Determines the proper binding format for the login name:
-        #
-        #   opscode\testy
-        #   testy@opscode.us
-        #   CN=Testy McTesterson,CN=Users,DC=opscode,DC=us"
-        #
-        def format_login_for_binding(login)
-          # If we already have an old-school domain login (domain\user) or
-          # newer-style UPN login (user@domain) return it.
-          if login =~ /[\\@]/
-            login
-          elsif active_directory?
-            # extract the domain components from the base distinguished name and
-            # create a UPN:
-            #
-            #   dc=opscode,dc=us => opscode.us
-            base_upn = base_dn.split(/,?dc\s?=\s?/i)[-2..-1].join('.')
-            "#{login}@#{base_upn}"
-          else
-            # fall back to binding with standard LDAP common name
-            "cn=#{login},#{base_dn}"
+        def client
+          @client ||= begin
+            opts = {:host => @host, :port => @port}
+            if @bind_dn && @bind_password
+              opts[:auth] = {
+                :method => :simple,
+                :username => @bind_dn,
+                :password => @bind_password
+              }
+            end
+            Net::LDAP.new(opts)
           end
         end
 
-        def ldap_to_chef_user(ldap_user)
+        def ldap_record_to_chef_user(ldap_user)
           # AD contains a binary SID we must unpack
           external_uid = if ldap_user['objectsid']
             ldap_user['objectsid'].first.unpack('H*')[0]
-          elsif ldap_user['samaccountname']
-            ldap_user['samaccountname'].first
           else
             ldap_user['uid'].first
           end
@@ -107,13 +107,8 @@ module Opscode
           }
         end
 
-        # sniff test to determine if we are dealing with the Active Directory
-        # flavor of LDAP.  Mainly used to make certain assumption about things
-        # like attribute naming and login name binding format.
-        def active_directory?
-          # TODO - there has to be a better way
-          (login_attribute == 'samaccountname') ||
-            (login_attribute == 'cn')
+        def format_error_for_display(result)
+          "code=#{result.code}, messsage=#{result.message}, error=#{result.error_message}"
         end
       end
     end

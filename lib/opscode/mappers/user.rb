@@ -10,7 +10,7 @@ module Opscode
       # mapped in a special way.
       BREAKOUT_COLUMNS = [:id, :authz_id, :username, :email,
                           :external_authentication_uid,
-                          :recovery_authentiation_enabled, :created_at, :updated_at,
+                          :recovery_authentication_enabled, :created_at, :updated_at,
                           :last_updated_by]
 
       # Create a record in the database representing +user+ which is expected

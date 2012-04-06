@@ -95,7 +95,7 @@ module Opscode
 
       # Indicates this user can fall back to local authentication (if configured).
       # Local authentication uses the values saved in username and hashed_password.
-      protected_attribute :recovery_authentication_enabled
+      rw_attribute :recovery_authentication_enabled
 
       # We now have a password checker API endpoint, so these should not appear
       # in API output. They are also not directly settable.

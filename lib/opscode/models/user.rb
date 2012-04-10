@@ -125,11 +125,11 @@ module Opscode
       # this text, so we'll leave it for now.
       #########################################################################
 
-      validates_presence_of :first_name, :message => "must not be blank"
-      validates_presence_of :last_name, :message => "must not be blank"
+      validates_presence_of :first_name, :message => "must not be blank", :unless => :external_authentication_enabled?
+      validates_presence_of :last_name, :message => "must not be blank", :unless => :external_authentication_enabled?
       validates_presence_of :display_name, :message => "must not be blank"
       validates_presence_of :username, :message => "must not be blank"
-      validates_presence_of :email, :message => "must not be blank"
+      validates_presence_of :email, :message => "must not be blank", :unless => :external_authentication_enabled?
 
       # We need to get a password when creating; on updates we only need a
       # password when updating the hashed_password
@@ -139,7 +139,7 @@ module Opscode
       validates_presence_of :salt, :if => :requires_password?
 
       validates_format_of :username, :with => /^[a-z0-9\-_]+$/, :message => "has an invalid format (valid characters are a-z, 0-9, hyphen and underscore)"
-      validates_format_of :email, :with => EmailAddress, :message => "has an invalid format"
+      validates_format_of :email, :with => EmailAddress, :message => "has an invalid format", :if => Proc.new { |user| user.email != nil}
 
       validates_length_of :password, :within => 6..50, :message => 'must be between 6 and 50 characters', :if => :updating_password?
       validates_length_of :username, :within => 1..50
@@ -217,8 +217,12 @@ module Opscode
         end
       end
 
+      def external_authentication_enabled?
+        Mixlib::Authorization::Config.has_key?(:ldap_host)
+      end
+
       def requires_password?
-        !Mixlib::Authorization::Config.has_key?(:ldap_host)
+        !external_authentication_enabled?
       end
 
       # Is the password being updated? This is always true when creating a new

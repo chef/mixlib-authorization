@@ -11,10 +11,9 @@ module Opscode
 
         # performs authentication against the local database
         def authenticate(login, password)
-          user = nil
-          u = @user_mapper.find_by_username(login)
-          if u && u.correct_password?(password)
-            user = u
+          user = @user_mapper.find_by_username(login)
+          unless user && user.correct_password?(password)
+            raise AccessDeniedException, "Username and password incorrect"
           end
           user.for_json
         end

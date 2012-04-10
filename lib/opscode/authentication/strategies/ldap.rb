@@ -96,10 +96,12 @@ module Opscode
             ldap_user['uid'].first
           end
 
+          username = ldap_user[login_attribute][0]
+
           {
             :first_name => ldap_user['givenname'][0],
             :last_name => ldap_user['sn'][0],
-            :display_name => ldap_user['displayname'][0],
+            :display_name => ldap_user['displayname'][0] || username,
             :email => ldap_user['mail'][0],
             :username => ldap_user[login_attribute][0],
             :city => ldap_user['l'][0],

@@ -91,7 +91,7 @@ module Opscode
         def ldap_record_to_chef_user(ldap_user)
           # AD contains a binary SID we must unpack
           external_uid = if ldap_user['objectsid']
-            ldap_user['objectsid'].first.unpack('H*')[0]
+            sid_to_string_sid(ldap_user['objectsid'].first)
           else
             ldap_user['uid'].first
           end
@@ -113,6 +113,14 @@ module Opscode
 
         def format_error_for_display(result)
           "code=#{result.code}, messsage=#{result.message}, error=#{result.error_message}"
+        end
+
+        def sid_to_string_sid(sid)
+          # See http://blogs.msdn.com/b/oldnewthing/archive/2004/03/15/89753.aspx
+          a,b,c1,c2,c3,c4,c5,c6,d,e,f,g ,h= sid.unpack('CCC6LLLLL')
+          # c is big-endian, not little (plus, it's 48 bits)
+          c = c6 | c5 << 8 | c4 << 16 | c3 << 24 | c2 << 32 | c1 << 40
+          "S-#{a}-#{b}-#{c}-#{d}-#{e}-#{f}-#{g}-#{h}"
         end
       end
     end

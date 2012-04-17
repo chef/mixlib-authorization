@@ -1,5 +1,6 @@
 source :rubygems
 
+# add dependencies specified in the gemspec file. This is where we pickup sequel
 gemspec
 
 

@@ -19,7 +19,7 @@ Gem::Specification.new do |s|
   s.add_dependency "mixlib-config"
   s.add_dependency "rest-client"
 
-  s.add_dependency "sequel"
+  s.add_dependency "sequel", "~> 3.34.1"
   s.add_dependency "activemodel"
 
   s.require_path = 'lib'

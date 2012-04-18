@@ -144,6 +144,16 @@ module Opscode
         execute_sql(:delete, :user) { table.filter(:id => user.id).delete }
       end
 
+      # Generic finder wrapper that takes a block of Sequel filters
+      def find_by_query(&block)
+        finder = block ? block.call(table) : table
+        if user_data = execute_sql(:read, :user) { finder.first }
+          inflate_model(user_data)
+        else
+          nil
+        end
+      end
+
       # Returns a Models::User object containing *only* enough data to
       # authenticate a request from this user and authorize further actions.
       # The following properties *are* included:
@@ -155,41 +165,29 @@ module Opscode
       # The returned user object will probably be invalid for saving and
       # shouldn't be used to modify the user object.
       def find_for_authentication(username)
-        finder = table.select(:id,:authz_id,:username, :pubkey_version,:public_key).where(:username => username)
-        if user_data = execute_sql(:read, :user) { finder.first }
-          inflate_model(user_data)
-        else
-          nil
+        find_by_query do |table|
+          table.select(:id,:authz_id,:username, :pubkey_version,:public_key).where(:username => username)
         end
       end
 
       # Returns a Models::User object with all properties set.
       def find_by_username(username)
-        finder = table.where(:username => username)
-        if user_data = execute_sql(:read, :user) { finder.first }
-          inflate_model(user_data)
-        else
-          nil
+        find_by_query do |table|
+          table.where(:username => username)
         end
       end
 
       # Finds the user with +user_id+ and returns it with all properties
       def find_by_id(user_id)
-        finder = table.where(:id => user_id)
-        if user_data = execute_sql(:read, :user) { finder.first }
-          inflate_model(user_data)
-        else
-          nil
+        find_by_query do |table|
+          table.where(:id => user_id)
         end
       end
 
       # Finds the user by the given +authz_id+ and returns it with the id, authz_id and username set.
       def find_by_authz_id(authz_id)
-        finder = table.select(:id,:authz_id,:username).where(:authz_id => authz_id)
-        if user_data = execute_sql(:read, :user) { finder.first }
-          inflate_model(user_data)
-        else
-          nil
+        find_by_query do |table|
+          table.select(:id,:authz_id,:username).where(:authz_id => authz_id)
         end
       end
 

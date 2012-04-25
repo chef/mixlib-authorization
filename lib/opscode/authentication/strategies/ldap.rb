@@ -96,16 +96,16 @@ module Opscode
             ldap_user['uid'].first
           end
 
-          username = ldap_user[login_attribute][0].downcase.gsub(/[^a-z0-9\-_]/, '_')
+          username = ldap_user[login_attribute][0].force_encoding("UTF-8").downcase.gsub(/[^a-z0-9\-_]/, '_')
 
           {
-            :first_name => ldap_user['givenname'][0],
-            :last_name => ldap_user['sn'][0],
-            :display_name => ldap_user['displayname'][0] || username,
-            :email => ldap_user['mail'][0],
+            :first_name => ldap_user['givenname'][0].force_encoding("UTF-8"),
+            :last_name => ldap_user['sn'][0].force_encoding("UTF-8"),
+            :display_name => ldap_user['displayname'][0].force_encoding("UTF-8") || username,
+            :email => ldap_user['mail'][0].force_encoding("UTF-8"),
             :username => username,
-            :city => ldap_user['l'][0],
-            :country => ldap_user['c'][0],
+            :city => ldap_user['l'][0].force_encoding("UTF-8"),
+            :country => ldap_user['c'][0].force_encoding("UTF-8"),
             :external_authentication_uid => external_uid,
             :recovery_authentication_enabled => false,
           }

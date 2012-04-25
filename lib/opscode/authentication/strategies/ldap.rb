@@ -88,6 +88,19 @@ module Opscode
           end
         end
 
+        def fix_encoding(string)
+          if (string.nil?)
+            nil
+          elsif (string.encoding.name == 'UTF-8')
+            string
+          elsif (string.encoding.name == 'ASCII-8BIT')
+            string.force_encoding("UTF-8")
+          else
+            # Don't know what to do with this string, so just return it
+            string
+          end
+        end
+
         def ldap_record_to_chef_user(ldap_user)
           # AD contains a binary SID we must unpack
           external_uid = if ldap_user['objectsid']
@@ -96,16 +109,16 @@ module Opscode
             ldap_user['uid'].first
           end
 
-          username = ldap_user[login_attribute][0].force_encoding("UTF-8").downcase.gsub(/[^a-z0-9\-_]/, '_')
+          username = fix_encoding(ldap_user[login_attribute][0]).downcase.gsub(/[^a-z0-9\-_]/, '_')
 
           {
-            :first_name => ldap_user['givenname'][0].force_encoding("UTF-8"),
-            :last_name => ldap_user['sn'][0].force_encoding("UTF-8"),
-            :display_name => ldap_user['displayname'][0].force_encoding("UTF-8") || username,
-            :email => ldap_user['mail'][0].force_encoding("UTF-8"),
+            :first_name => fix_encoding(ldap_user['givenname'][0]),
+            :last_name => fix_encoding(ldap_user['sn'][0]),
+            :display_name => fix_encoding(ldap_user['displayname'][0]) || username,
+            :email => fix_encoding(ldap_user['mail'][0]),
             :username => username,
-            :city => ldap_user['l'][0].force_encoding("UTF-8"),
-            :country => ldap_user['c'][0].force_encoding("UTF-8"),
+            :city => fix_encoding(ldap_user['l'][0]),
+            :country => fix_encoding(ldap_user['c'][0]),
             :external_authentication_uid => external_uid,
             :recovery_authentication_enabled => false,
           }

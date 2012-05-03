@@ -95,4 +95,19 @@ namespace :pg do
   end
 end
 
+def dev_vm_db_url
+  IO.read("/home/vagrant/.opscode/OPC_DATABASE_URI").chomp
+end
 
+namespace :dev_vm do
+  desc "(dev_vm) Effectively drop the db and then migrate it to current"
+  task :remigrate do
+    sh("sequel -m db/migrate #{dev_vm_db_url}  -M 0")
+    sh("sequel -m db/migrate #{dev_vm_db_url}")
+  end
+
+  desc "(dev_vm) Apply latest migrations (keep data)"
+  task :migrate do
+    sh("sequel -m db/migrate #{dev_vm_db_url}")
+  end
+end

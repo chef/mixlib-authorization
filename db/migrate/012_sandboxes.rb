@@ -8,7 +8,7 @@ Sequel.migration do
       primary_key [:org_id, :checksum]
     end
 
-    create_table(:sandbox_checksum) do
+    create_table(:sandboxed_checksums) do
       String(:org_id, :fixed => true, :size => 32)
       String(:sandbox_id, :fixed => true, :size => 32)
       String(:checksum, :fixed => true, :size => 32)
@@ -18,7 +18,7 @@ Sequel.migration do
   end
 
   down do
-    [:sandbox_checksum, :checksums].each do |table|
+    [:sandboxed_checksums, :checksums].each do |table|
       drop_table(table)
     end
   end

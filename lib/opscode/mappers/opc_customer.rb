@@ -45,9 +45,10 @@ module Opscode
         self.class.query_failed!(e.message)
       end
 
-      def list
-        finder = @table.select(:name)
-        execute_sql(:list, :opc_customer) { finder.all }.map {|row| row[:name]}
+      def list(load=false)
+        finder = @table
+        finder = finder.select(:name) unless load
+        execute_sql(:list, :opc_customer) { finder.all }.map {|row| load ? inflate_model(row) : row[:name]}
       end
 
       def find_by_query(&block)
@@ -67,11 +68,36 @@ module Opscode
         find_by_query { |table| table.filter(:domain => domain) }
       end
 
-      def find_all_by_user(username)
+      def find_all_by_user(user)
+        user = user.username if user.respond_to?(:username)
         execute_sql(:by_user, :opc_customer) do
-          table.join(:opc_users, :customer_id => :id).join(:users, :id => :user_id).filter(:users__username => username).select_all(:opc_customers).map do |row_data|
+          table.join(:opc_users, :customer_id => :id).join(:users, :id => :user_id).filter(:users__username => user).select_all(:opc_customers).map do |row_data|
             inflate_model(row_data)
           end
+        end
+      end
+
+      def add_user(customer, user)
+        execute_sql(:add_user, :opc_customer) do
+          join_table.insert(:customer_id => customer.id, :user_id => user.id)
+        end
+      end
+
+      def remove_user(customer, user)
+        execute_sql(:remove_user, :opc_customer) do
+          join_table.filter(:customer_id => customer.id, :user_id => user.id).delete
+        end
+      end
+
+      def has_user?(customer, user)
+        finder = join_table.filter(:customer_id => customer.id)
+        if user.id == user.username # The User objects in AccountManagement don't expose the UUID
+          finder = finder.join(:users, :id => :user_id).filter(:users__username => user.username)
+        else
+          finder = finder.filter(:user_id => user.id)
+        end
+        execute_sql(:has_user?, :opc_customer) do
+          !!finder.select(1).first
         end
       end
 

@@ -8,6 +8,7 @@ module Opscode
     class OpcCustomer < Base
       include ActiveModel::Validations
 
+      protected_attribute :id
       protected_attribute :name
       protected_attribute :domain
       protected_attribute :priority
@@ -29,6 +30,15 @@ module Opscode
       # overrides attr_reader to use custom reader in superclass
       def updated_at
         super
+      end
+
+      def initialize(*args)
+        @priority = 0
+        super
+      end
+
+      def to_key
+        persisted? ? [name] : nil
       end
 
     end

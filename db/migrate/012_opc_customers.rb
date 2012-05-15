@@ -9,7 +9,7 @@ Sequel.migration do
       String(:display_name, :null => false)
       String(:domain, :null => false, :unique => true)
       String(:contact, :null => false, :text => true)
-      Fixnum(:priority)
+      Fixnum(:priority, :null => false, :default => 0)
 
       DateTime(:created_at, :null => false)
       DateTime(:updated_at, :null => false)

@@ -122,14 +122,25 @@ module Mixlib
             Chef::Environment.create_default_environment(cdb)
           else
             headers = {:headers => {'x-ops-request-source' => 'web'}}
-            rest = Chef::REST.new(
-              Chef::Config[:chef_server_host_uri],
-              Chef::Config[:web_ui_proxy_user],
-              Chef::Config[:web_ui_private_key], headers)
-            rest.post_rest("organizations/#{name}/environments", {
-              'name' => '_default',
-              'description' => 'The default Chef environment'
-            })
+            rest = Chef::REST.new(Chef::Config[:chef_server_host_uri],
+                                  Chef::Config[:web_ui_proxy_user],
+                                  Chef::Config[:web_ui_private_key], headers)
+            rest.post_rest("organizations/#{name}/environments",
+                           {
+                             'name' => '_default',
+                             'description' => 'The default Chef environment'
+                           })
+
+            # TODO: Maybe add grant later
+            # TODO: Also, this is ugly
+            rest = Chef::REST.new('http://127.0.0.1:9685',
+                                  Chef::Config[:web_ui_proxy_user],
+                                  Chef::Config[:web_ui_private_key], headers)
+
+            %w(create update delete).each do |type|
+              rest.put_rest("organizations/#{name}/environments/_default/_acl/#{type}",
+                            { type => { 'actors' => [], 'groups' => [] }})
+            end
           end
         end
 
@@ -151,7 +162,6 @@ module Mixlib
             Chef::Environment.create_default_environment(cdb)
           end
         end
-
       end
     end
   end

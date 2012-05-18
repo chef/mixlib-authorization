@@ -25,6 +25,8 @@ describe Opscode::Models::User do
       :hashed_password => "some hex bits",
       :salt => "some random bits",
       :image_file_name => 'current_status.png',
+      :external_authentication_uid => "furious_dd@example.com",
+      :recovery_authentication_enabled => false,
       :created_at => @now.utc.to_s,
       :updated_at => @now.utc.to_s
 
@@ -90,6 +92,14 @@ describe Opscode::Models::User do
 
     it "has no image file" do
       @user.image_file_name.should be_nil
+    end
+
+    it "has no external authentication uid" do
+      @user.external_authentication_uid.should be_nil
+    end
+
+    it "local recovery authenticaiton should be disabled" do
+      @user.recovery_authentication_enabled.should be_false
     end
 
     it "is not peristed" do
@@ -405,6 +415,14 @@ describe Opscode::Models::User do
       @user.image_file_name.should == "current_status.png"
     end
 
+    it "has an external authentication uid" do
+      @user.external_authentication_uid.should == "furious_dd@example.com"
+    end
+
+    it "local recovery authenticaiton should be disabled" do
+      @user.recovery_authentication_enabled.should be_false
+    end
+
     it "gives the created_at timestamp as a time object" do
       @user.created_at.should be_a_kind_of(Time)
       @user.created_at.to_i.should be_within(1).of(@now.to_i)
@@ -467,7 +485,7 @@ describe Opscode::Models::User do
 
       expected_keys = [ :city, :twitter_account, :country, :username,
         :first_name, :last_name, :display_name, :middle_name, :email,
-        :image_file_name]
+        :image_file_name, :external_authentication_uid]
 
 
       user_as_a_hash.keys.should =~ expected_keys
@@ -504,7 +522,8 @@ describe Opscode::Models::User do
         'city' => "UpdatedCity",
         'country' => "USA-updated",
         'twitter_account' => "updated_twits",
-        'image_file_name' => 'updated_status.png'
+        'image_file_name' => 'updated_status.png',
+        'external_authentication_uid' => 'updated_uid@updated.com'
       }
       @user.persisted!
       @user.update_from_params(@form_data)
@@ -540,6 +559,10 @@ describe Opscode::Models::User do
 
     it "updates the image file name" do
       @user.image_file_name.should == "updated_status.png"
+    end
+
+    it "updates the external authentication uid" do
+      @user.external_authentication_uid.should == "updated_uid@updated.com"
     end
 
     it "does not update the password" do
@@ -595,7 +618,8 @@ describe Opscode::Models::User do
         :city => nil,
         :country => nil,
         :twitter_account => nil,
-        :image_file_name => nil
+        :image_file_name => nil,
+        :external_authentication_uid => nil
       }
       @user.update_from_params(@form_data)
     end
@@ -631,6 +655,10 @@ describe Opscode::Models::User do
     it "sets the image file to nil" do
       @user.image_file_name.should be_nil
     end
+
+    it "sets the external authentication uid to nil" do
+      @user.external_authentication_uid.should be_nil
+    end
   end
 
   describe "when created from form data" do
@@ -648,7 +676,8 @@ describe Opscode::Models::User do
         :country => "USA",
         :twitter_account => "moonpolysoft",
         :password => 'p@ssw0rd1',
-        :image_file_name => 'current_status.png'
+        :image_file_name => 'current_status.png',
+        :external_authentication_uid => "furious_dd@example.com"
       }
       @user = Opscode::Models::User.new(@form_data)
     end
@@ -677,10 +706,12 @@ describe Opscode::Models::User do
         'twitter_account' => "moonpolysoft",
         'password' => 'p@ssw0rd1',
         'image_file_name' => 'current_status.png',
+        :external_authentication_uid => "furious_dd@example.com",
         :requesting_actor_id => "some garbage",
         :id => "whatever", # pretty common in our code
         :user_id => "something",
-        :authz_id => "malicious-intent"
+        :authz_id => "malicious-intent",
+        :recovery_authentication_enabled => true
       }
       @user = Opscode::Models::User.new(@form_data)
     end
@@ -693,6 +724,7 @@ describe Opscode::Models::User do
       @user.authz_id.should be_nil
       @user.created_at.should be_nil
       @user.updated_at.should be_nil
+      @user.recovery_authentication_enabled.should be_nil
     end
 
   end
@@ -714,11 +746,11 @@ describe Opscode::Models::User do
         :country => "USA",
         :twitter_account => "moonpolysoft",
         :image_file_name => 'current_status.png',
-
+        :external_authentication_uid => "furious_dd@example.com",
+        :requesting_actor_id => "some garbage",
         :password => 'p@ssw0rd1',
         :hashed_password => "whoah what are you doing here?",
         :salt => "some random bits"
-
       }
       lambda { Opscode::Models::User.new(@form_data) }.should raise_error(ArgumentError)
     end

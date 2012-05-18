@@ -8,7 +8,10 @@ module Opscode
       # These properties of a Model::User have their own columns in the
       # database. There are also columns for cert/private key but these are
       # mapped in a special way.
-      BREAKOUT_COLUMNS = [:id, :authz_id, :username, :email, :created_at, :updated_at, :last_updated_by]
+      BREAKOUT_COLUMNS = [:id, :authz_id, :username, :email,
+                          :external_authentication_uid,
+                          :recovery_authentication_enabled, :created_at, :updated_at,
+                          :last_updated_by]
 
       # Create a record in the database representing +user+ which is expected
       # to be a Models::User object.
@@ -189,6 +192,20 @@ module Opscode
         find_by_query do |table|
           table.select(:id,:authz_id,:username).where(:authz_id => authz_id)
         end
+      end
+
+      # Finds the user by the given +external_authentication_uid+
+      def find_by_external_authentication_uid(external_authentication_uid)
+        finder = table.where(:external_authentication_uid => external_authentication_uid)
+        if user_data = execute_sql(:read, :user) { finder.first }
+          inflate_model(user_data)
+        else
+          nil
+        end
+      end
+
+      def find_all_by_query(&block)
+        execute_sql(:read, :user) { block.call(table).map {|u| inflate_model(u) } }
       end
 
       # Loads the entire set of users into memory. Don't do this in production code.

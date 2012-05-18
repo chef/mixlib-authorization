@@ -6,4 +6,5 @@ end
 require 'opscode/db_stats_client'
 require 'opscode/mappers/base'
 require 'opscode/mappers/user'
-
+require 'opscode/mappers/client'
+require 'opscode/mappers/opc_customer'

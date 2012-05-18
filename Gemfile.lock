@@ -75,6 +75,7 @@ GEM
     moneta (0.6.0)
     multi_json (1.1.0)
     mysql2 (0.3.6)
+    net-ldap (0.2.2)
     net-ssh (2.1.4)
     net-ssh-gateway (1.1.0)
       net-ssh (>= 1.99.1)
@@ -119,6 +120,7 @@ DEPENDENCIES
   highline
   mixlib-authorization!
   mysql2
+  net-ldap (~> 0.2.2)
   opscode-dark-launch!
   pg
   rake

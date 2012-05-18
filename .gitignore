@@ -2,3 +2,4 @@ pkg/
 *.swp
 .rake_tasks~
 bin/
+.bundle/

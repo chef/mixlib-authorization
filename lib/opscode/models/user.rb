@@ -90,6 +90,13 @@ module Opscode
       rw_attribute :twitter_account
       rw_attribute :image_file_name
 
+      # An identifier unique to the given provider, such as an LDAP uid
+      rw_attribute :external_authentication_uid
+
+      # Indicates this user can fall back to local authentication (if configured).
+      # Local authentication uses the values saved in username and hashed_password.
+      rw_attribute :recovery_authentication_enabled
+
       # We now have a password checker API endpoint, so these should not appear
       # in API output. They are also not directly settable.
       protected_attribute :hashed_password
@@ -118,21 +125,21 @@ module Opscode
       # this text, so we'll leave it for now.
       #########################################################################
 
-      validates_presence_of :first_name, :message => "must not be blank"
-      validates_presence_of :last_name, :message => "must not be blank"
+      validates_presence_of :first_name, :message => "must not be blank", :unless => :external_authentication_enabled?
+      validates_presence_of :last_name, :message => "must not be blank", :unless => :external_authentication_enabled?
       validates_presence_of :display_name, :message => "must not be blank"
       validates_presence_of :username, :message => "must not be blank"
-      validates_presence_of :email, :message => "must not be blank"
+      validates_presence_of :email, :message => "must not be blank", :unless => :external_authentication_enabled?
 
       # We need to get a password when creating; on updates we only need a
       # password when updating the hashed_password
-      validates_presence_of :password, :unless => :persisted?
+      validates_presence_of :password, :if => Proc.new { |user| user.requires_password? && !user.persisted? }
 
-      validates_presence_of :hashed_password
-      validates_presence_of :salt
+      validates_presence_of :hashed_password, :if => :requires_password?
+      validates_presence_of :salt, :if => :requires_password?
 
       validates_format_of :username, :with => /^[a-z0-9\-_]+$/, :message => "has an invalid format (valid characters are a-z, 0-9, hyphen and underscore)"
-      validates_format_of :email, :with => EmailAddress, :message => "has an invalid format"
+      validates_format_of :email, :with => EmailAddress, :message => "has an invalid format", :if => Proc.new { |user| user.email != nil}
 
       validates_length_of :password, :within => 6..50, :message => 'must be between 6 and 50 characters', :if => :updating_password?
       validates_length_of :username, :within => 1..50
@@ -210,11 +217,19 @@ module Opscode
         end
       end
 
+      def external_authentication_enabled?
+        Mixlib::Authorization::Config.has_key?(:ldap_host)
+      end
+
+      def requires_password?
+        !external_authentication_enabled?
+      end
+
       # Is the password being updated? This is always true when creating a new
       # user. Also true when the password field is set on an existing user.
       # Used to trigger validation of the password format.
       def updating_password?
-        (!persisted?) || (!password.nil?)
+        (!persisted? && requires_password?) || (!password.nil?)
       end
 
       def to_param

@@ -68,13 +68,18 @@ module Opscode
         find_by_query { |table| table.filter(:domain => domain) }
       end
 
-      def find_all_by_user(user)
-        user = user.username if user.respond_to?(:username)
-        execute_sql(:by_user, :opc_customer) do
-          table.join(:opc_users, :customer_id => :id).join(:users, :id => :user_id).filter(:users__username => user).select_all(:opc_customers).map do |row_data|
+      def find_all_by_user(user, &block)
+        username = user.respond_to?(:username) ? user.username : user
+        customers = execute_sql(:by_user, :opc_customer) do
+          table.join(:opc_users, :customer_id => :id).join(:users, :id => :user_id).filter(:users__username => username).select_all(:opc_customers).map do |row_data|
             inflate_model(row_data)
           end
         end
+        if user.respond_to?(:email) && (!block || block.call)
+          domain_customer = find_by_domain(user.email.split('@').last)
+          customers.insert(0, domain_customer) if domain_customer && !customers.include?(domain_customer)
+        end
+        customers
       end
 
       def add_user(customer, user)

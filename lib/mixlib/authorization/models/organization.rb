@@ -118,9 +118,10 @@ module Mixlib
           create_database!
           policy = OrgAuthPolicy.new(self, org_db, user_mapper, requesting_actor_id)
           policy.apply!
-          if Opscode::DarkLaunch.is_feature_enabled?("couchdb_environments", nil)
-            Chef::Environment.create_default_environment(cdb)
-          else
+          if !Opscode::DarkLaunch.is_feature_enabled?("couchdb_environments", nil)
+            # This code makes a rest call to the erlang endpoint to
+            # create the _default environment, then makes a rest call
+            # to authz to give it the correct permissions
             headers = {:headers => {'x-ops-request-source' => 'web'}}
             rest = Chef::REST.new(Chef::Config[:chef_server_host_uri],
                                   Chef::Config[:web_ui_proxy_user],
@@ -130,13 +131,11 @@ module Mixlib
                              'name' => '_default',
                              'description' => 'The default Chef environment'
                            })
-
-            # TODO: Maybe add grant later
-            # TODO: Also, this is ugly
-            rest = Chef::REST.new('http://127.0.0.1:9685',
+            rest = Chef::REST.new(Chef::Config[:account_service_uri],
                                   Chef::Config[:web_ui_proxy_user],
                                   Chef::Config[:web_ui_private_key], headers)
 
+            # TODO: Maybe add grant later; for now, _default is resistent to modification
             %w(create update delete).each do |type|
               rest.put_rest("organizations/#{name}/environments/_default/_acl/#{type}",
                             { type => { 'actors' => [], 'groups' => [] }})

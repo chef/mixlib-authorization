@@ -199,6 +199,11 @@ module Opscode
         Yajl::Encoder.encode(data)
       end
 
+      # Return a basic cached mapper to simplify read-only operations
+      def self.instance
+        @instance ||= self.new(Opscode::Mappers.default_connection, nil, 0)
+      end
+
     end
 
   end

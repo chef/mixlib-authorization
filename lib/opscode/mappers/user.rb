@@ -204,6 +204,10 @@ module Opscode
         end
       end
 
+      def find_all_by_query(&block)
+        execute_sql(:read, :user) { block.call(table).map {|u| inflate_model(u) } }
+      end
+
       # Loads the entire set of users into memory. Don't do this in production code.
       def find_all
         execute_sql(:read, :user) { table.map {|u| inflate_model(u) } }

@@ -118,6 +118,19 @@ module Mixlib
           create_database!
           policy = OrgAuthPolicy.new(self, org_db, user_mapper, requesting_actor_id)
           policy.apply!
+          if !Opscode::DarkLaunch.is_feature_enabled?("couchdb_environments", nil)
+            # This code makes a rest call to the erlang endpoint to
+            # create the _default environment
+            headers = {:headers => {'x-ops-request-source' => 'web'}}
+            rest = Chef::REST.new(Chef::Config[:chef_server_host_uri],
+                                  Chef::Config[:web_ui_proxy_user],
+                                  Chef::Config[:web_ui_private_key], headers)
+            rest.post_rest("organizations/#{name}/environments",
+                           {
+                             'name' => '_default',
+                             'description' => 'The default Chef environment'
+                           })
+          end
         end
 
         def create_database!
@@ -134,9 +147,10 @@ module Mixlib
           Chef::CookbookVersion.create_design_document(cdb)
           Chef::Environment.create_design_document(cdb)
           # Create the '_default' Environment
-          Chef::Environment.create_default_environment(cdb)
+          if Opscode::DarkLaunch.is_feature_enabled?("couchdb_environments", nil)
+            Chef::Environment.create_default_environment(cdb)
+          end
         end
-
       end
     end
   end

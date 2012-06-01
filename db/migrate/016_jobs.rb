@@ -25,6 +25,8 @@ Sequel.migration do
 
       DateTime(:created_at, :null => false)
       DateTime(:updated_at, :null => false)
+
+      unique([:org_id, :node_name, :job_id]) # only one node with a given name/org per job
       foreign_key(:job_id, :jobs, :on_delete => :restrict)
       #foreign_key([:org_id, :node_id], :nodes, :key => [:org_id, :node_id], :on_delete => :cascade, :on_update => :cascade)
     end

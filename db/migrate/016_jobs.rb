@@ -23,6 +23,8 @@ Sequel.migration do
       # String(:node_id, :null => :false, :fixed => true, :size => 32)
       Integer(:status, :null => false)
 
+      DateTime(:created_at, :null => false)
+      DateTime(:updated_at, :null => false)
       foreign_key(:job_id, :jobs, :on_delete => :restrict)
       #foreign_key([:org_id, :node_id], :nodes, :key => [:org_id, :node_id], :on_delete => :cascade, :on_update => :cascade)
     end

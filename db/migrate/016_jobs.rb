@@ -18,9 +18,9 @@ Sequel.migration do
     end
 
     create_table(:job_nodes) do
+      String(:org_id, :null => false, :fixed => true, :size => 32)
       String(:node_name, :null => false)
       # String(:node_id, :null => :false, :fixed => true, :size => 32)
-      String(:org_id, :null => false, :fixed => true, :size => 32)
       Integer(:status, :null => false)
 
       foreign_key(:job_id, :jobs, :on_delete => :restrict)

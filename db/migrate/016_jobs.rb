@@ -10,7 +10,9 @@ Sequel.migration do
     create_table(:jobs) do
       String(:id, :primary_key => true, :fixed => true, :size => 32)
       String(:org_id, :null => false, :fixed => true, :size => 32)
+      String(:command, :null => false)
       Integer(:status, :null => false)
+      Integer(:duration, :null => true)
 
       String(:last_updated_by, :null => false, :fixed => true, :size => 32)
       DateTime(:created_at, :null => false)

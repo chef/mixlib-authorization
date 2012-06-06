@@ -46,7 +46,7 @@ module Opscode
       end
 
       def destroy(customer)
-        unless user.id
+        unless customer.id
           return self.class.invalid_object!("Cannot delete customer #{customer.inspect} without a valid ID")
         end
         execute_sql(:destroy, :opc_customer) do

@@ -45,6 +45,16 @@ module Opscode
         self.class.query_failed!(e.message)
       end
 
+      def destroy(customer)
+        unless customer.id
+          return self.class.invalid_object!("Cannot delete customer #{customer.inspect} without a valid ID")
+        end
+        execute_sql(:destroy, :opc_customer) do
+          join_table.filter(:customer_id => customer.id).delete
+          table.filter(:id => customer.id).delete
+        end
+      end
+
       def list(load=false)
         finder = @table
         finder = finder.select(:name) unless load

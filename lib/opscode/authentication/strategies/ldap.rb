@@ -17,6 +17,14 @@ module Opscode
         # Directory it will be ``sAMAccountName``, while in OpenLDAP it is ``uid``.
         attr_reader :login_attribute
 
+        # Supported encryption methods include:
+        #
+        # * :simple_tls - This is usually referred to as LDAPS (ie LDAP over
+        #                  SSL).  Runs over a different port (usually 636).
+        # * :start_tls - runs over the standard LDAP port (ie 389)
+        attr_reader :encryption
+        SUPPORTED_ENCRYPTION_METHODS = [:simple_tls, :start_tls]
+
         def initialize(options={})
           # TODO validate some of these config values
           @host = options[:host]
@@ -25,6 +33,16 @@ module Opscode
           @bind_password = options[:bind_password]
           @base_dn = options[:base_dn]
           @login_attribute = (options[:login_attribute] || 'samaccountname').downcase
+
+          if options[:encryption]
+            if SUPPORTED_ENCRYPTION_METHODS.include?(options[:encryption])
+              @encryption = options[:encryption]
+            else
+              raise ArgumentError, "Unsupported encryption method #{options[:encryption]}, \
+valid values include [#{SUPPORTED_ENCRYPTION_METHODS.join(', ')}]."
+            end
+          end
+
           super
         end
 
@@ -76,12 +94,14 @@ module Opscode
 
         def client
           @client ||= begin
-            opts = {:host => @host, :port => @port}
-            if @bind_dn && @bind_password
+            opts = {:host => host,
+                    :port => port,
+                    :encryption => encryption}
+            if bind_dn && bind_password
               opts[:auth] = {
                 :method => :simple,
-                :username => @bind_dn,
-                :password => @bind_password
+                :username => bind_dn,
+                :password => bind_password
               }
             end
             Net::LDAP.new(opts)

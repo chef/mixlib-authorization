@@ -122,13 +122,6 @@ valid values include [#{SUPPORTED_ENCRYPTION_METHODS.join(', ')}]."
         end
 
         def ldap_record_to_chef_user(ldap_user)
-          # AD contains a binary SID we must unpack
-          external_uid = if ldap_user['objectsid']
-            sid_to_string_sid(ldap_user['objectsid'].first)
-          else
-            ldap_user['uid'].first
-          end
-
           username = fix_encoding(ldap_user[login_attribute][0]).downcase.gsub(/[^a-z0-9\-_]/, '_')
 
           {
@@ -139,7 +132,7 @@ valid values include [#{SUPPORTED_ENCRYPTION_METHODS.join(', ')}]."
             :username => username,
             :city => fix_encoding(ldap_user['l'][0]),
             :country => fix_encoding(ldap_user['c'][0]),
-            :external_authentication_uid => external_uid,
+            :external_authentication_uid => username,
             :recovery_authentication_enabled => false,
           }
         end

@@ -4,7 +4,7 @@ Sequel.migration do
 
   up do
 
-    alter_table(:nodes) do 
+    alter_table(:nodes) do
       drop_column :last_audit_id
       add_column(:last_run_id, String, :size => 32)
     end
@@ -43,12 +43,14 @@ Sequel.migration do
       foreign_key([:run_id], :node_run, :name => :node_run_run_id_fk, :on_delete => :cascade, :on_update => :restrict)
     end
 
+  end
+
   down do
     drop_table(:node_run_detail)
 
     drop_table(:node_run)
 
-    create_table(:node_audit) do 
+    create_table(:node_audit) do
       column :audit_id, bin_column_type, :null => false
       String(:node_id, :index => true, :fixed => true, :size => 32)
       String(:status, :fixed => false, :size => 16)
@@ -71,16 +73,15 @@ Sequel.migration do
       text(:res_final_state, :null => true)
       text(:delta, :null => true)
       primary_key([:audit_id, :seq])
-      foreign_key([:audit_id], :node_audit, :name => :audit_id_fk); 
+      foreign_key([:audit_id], :node_audit, :name => :audit_id_fk);
     end
 
     bin_column_type = defined?(Sequel::Postgres) ? "bytea" : "varbinary(16)"
 
-    alter_table(:nodes) do 
+    alter_table(:nodes) do
       add_column :last_audit_id, bin_column_type
       drop_column :last_run_id
     end
   end
 
-  end
 end

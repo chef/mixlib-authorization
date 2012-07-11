@@ -46,6 +46,8 @@ Sequel.migration do
   end
 
   down do
+    bin_column_type = defined?(Sequel::Postgres) ? "bytea" : "varbinary(16)"
+
     drop_table(:node_run_detail)
 
     drop_table(:node_run)
@@ -75,8 +77,6 @@ Sequel.migration do
       primary_key([:audit_id, :seq])
       foreign_key([:audit_id], :node_audit, :name => :audit_id_fk);
     end
-
-    bin_column_type = defined?(Sequel::Postgres) ? "bytea" : "varbinary(16)"
 
     alter_table(:nodes) do
       add_column :last_audit_id, bin_column_type

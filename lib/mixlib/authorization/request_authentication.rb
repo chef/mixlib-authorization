@@ -155,10 +155,10 @@ module Mixlib
 
       def find_client
         if orgname
-          if Opscode::DarkLaunch.is_feature_enabled?("sql_clients", orgname)
-            find_client_sql
-          else
+          if Opscode::DarkLaunch.is_feature_enabled?("couchdb_clients", orgname)
             find_client_couchdb
+          else
+            find_client_sql
           end
 
         else

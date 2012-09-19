@@ -70,7 +70,7 @@ module Mixlib
 
       def requesting_entity
         @requesting_entity ||= begin
-          (find_user || find_client) or raise AuthorizationError, "Cannot find user or client #{username} in org #{orgname}"
+          (find_client || find_user) or raise AuthorizationError, "Cannot find client or user #{username} in org #{orgname}"
         end
       end
 

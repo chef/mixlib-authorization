@@ -60,8 +60,7 @@ module Mixlib
       end
 
       def orgname
-        #BUGBUG - next line seems odd.  Can't we ensure that it's *always* :organization_id? [cb]
-        @orgname ||= (params[:organization_id] || params[:id])
+        @orgname ||= params[:organization_id]
       end
 
       def required_headers_present?

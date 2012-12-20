@@ -15,6 +15,10 @@ module Opscode
 
       rw_attribute :display_name
       rw_attribute :contact
+      rw_attribute :osc_customer
+      rw_attribute :ohc_customer
+      rw_attribute :opc_customer
+      rw_attribute :support_plan
 
       protected_attribute :created_at #custom reader method
       protected_attribute :updated_at #custom reader method

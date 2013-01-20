@@ -43,7 +43,7 @@ valid values include [#{SUPPORTED_ENCRYPTION_METHODS.join(', ')}]."
             end
           end
 
-          super
+          super()
         end
 
         # perform authentication via a bind against the configured LDAP instance

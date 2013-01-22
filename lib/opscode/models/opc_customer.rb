@@ -25,6 +25,11 @@ module Opscode
 
       validates_presence_of :name, :message => "must not be blank"
       validates_format_of   :name, :with => /\A([a-zA-Z0-9\-_\.])*\z/, :message => "has an invalid format"
+      validate :at_least_one_customer_type
+
+      def at_least_one_customer_type
+        errors.add(:osc_customer, 'At least one customer type must be selected') unless osc_customer || ohc_customer || opc_customer
+      end
 
       # overrides attr_reader to use custom reader in superclass
       def created_at

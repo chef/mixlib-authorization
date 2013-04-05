@@ -125,8 +125,6 @@ module Opscode
       # this text, so we'll leave it for now.
       #########################################################################
 
-      validates_presence_of :first_name, :message => "must not be blank", :unless => :external_authentication_enabled?
-      validates_presence_of :last_name, :message => "must not be blank", :unless => :external_authentication_enabled?
       validates_presence_of :display_name, :message => "must not be blank"
       validates_presence_of :username, :message => "must not be blank"
       validates_presence_of :email, :message => "must not be blank", :unless => :external_authentication_enabled?

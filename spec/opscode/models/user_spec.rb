@@ -123,14 +123,6 @@ describe Opscode::Models::User do
         @user.valid?
       end
 
-      it "has an invalid first name" do
-        @user.errors[:first_name].should include("must not be blank")
-      end
-
-      it "has an invalid last name" do
-        @user.errors[:last_name].should include("must not be blank")
-      end
-
       it "has an invalid display name" do
         @user.errors[:display_name].should include("must not be blank")
       end

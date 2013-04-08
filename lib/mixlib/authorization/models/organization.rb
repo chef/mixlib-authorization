@@ -114,11 +114,14 @@ module Mixlib
           @org_db ||= database_from_orgname(name)
         end
 
-        def setup!(user_mapper, requesting_actor_id)
-          create_database!
+        # Sets up a new organization
+        # couchdb_environments should be passed by the controller based upon
+        # Darklaunch features
+        def setup!(user_mapper, requesting_actor_id, couchdb_environments)
+          create_database!(couchdb_environments)
           policy = OrgAuthPolicy.new(self, org_db, user_mapper, requesting_actor_id)
           policy.apply!
-          if !Opscode::DarkLaunch.is_feature_enabled?("couchdb_environments", nil)
+          if !couchdb_environments
             # This code makes a rest call to the erlang endpoint to
             # create the _default environment
             headers = {:headers => {'x-ops-request-source' => 'web'}}
@@ -133,7 +136,7 @@ module Mixlib
           end
         end
 
-        def create_database!
+        def create_database!(couchdb_environments)
           # Create the chef-specific design documents
           cdb = Chef::CouchDB.new("http://#{Mixlib::Authorization::Config.couchdb_uri}", orgname_to_dbname(name))
           cdb.create_db(false)
@@ -147,9 +150,7 @@ module Mixlib
           Chef::CookbookVersion.create_design_document(cdb)
           Chef::Environment.create_design_document(cdb)
           # Create the '_default' Environment
-          if Opscode::DarkLaunch.is_feature_enabled?("couchdb_environments", nil)
-            Chef::Environment.create_default_environment(cdb)
-          end
+          Chef::Environment.create_default_environment(cdb) if couchdb_environments
         end
       end
     end

@@ -31,7 +31,7 @@ GIT
 
 GIT
   remote: git@github.com:opscode/opscode-shared
-  revision: fb8b74258efea8b79985c4a5071b2eb14b424191
+  revision: f533ae22d34ce1a003fcd2c189497f0154334fda
   branch: master
   specs:
     opscode-dark-launch (0.0.3)

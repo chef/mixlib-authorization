@@ -20,15 +20,21 @@ module Mixlib
       ACES = ["create","read","update","delete","grant"]
       attr_reader :aces
 
-      def initialize(aces_in=nil)
-        @aces = if aces_in.nil?
-                  ACES.inject({ }) { |memo, ace_name| memo[ace_name]=Ace.new; memo}
-                else
-                  if aces_in.respond_to?(:keys)
-                    aces_in.inject({ }) { |memo, ace_tuple| memo[ace_tuple[0]]= Ace.new(ace_tuple[1]); memo }
-                  else
-                    aces_in
+      # @param aces_in [Hash, ???] Initial state of the ACL
+      # @param authz_id_mapper [Mixlib::Authorization::AuthzIDMapper]
+      #   mapper responsible for converting between user and client
+      #   Authz IDs and names, and vice versa.
+      # @todo Do we ever pass a non-Hash into this?  If so, what is
+      #   the type?  It looks like it'd always be a Hash...
+      def initialize(aces, authz_id_mapper)
+        @authz_id_mapper = authz_id_mapper
+        @aces = if aces.respond_to?(:keys)
+                  aces.inject({}) do |memo, ace_tuple|
+                    memo[ace_tuple[0]]= Ace.new(ace_tuple[1])
+                    memo
                   end
+                else
+                  aces
                 end
       end
 

@@ -117,14 +117,14 @@ module Mixlib
         # Sets up a new organization
         # couchdb_environments should be passed by the controller based upon
         # Darklaunch features
-        def setup!(user_mapper, requesting_actor_id, couchdb_environments)
-          create_database!(couchdb_environments)
+        def setup!(user_mapper, requesting_actor_id, options)
+          create_database!(options[:couchdb_environments])
           policy = OrgAuthPolicy.new(self, org_db, user_mapper, requesting_actor_id)
           policy.apply!
-          if !couchdb_environments
+          if !options[:couchdb_environments]
             # This code makes a rest call to the erlang endpoint to
             # create the _default environment
-            headers = {:headers => {'x-ops-request-source' => 'web'}}
+            headers = {:headers => {'x-ops-request-source' => 'web', 'X-Ops-Darklaunch' => options[:xdarklaunch_headers]}}
             rest = Chef::REST.new(Chef::Config[:chef_server_host_uri],
                                   Chef::Config[:web_ui_proxy_user],
                                   Chef::Config[:web_ui_private_key], headers)

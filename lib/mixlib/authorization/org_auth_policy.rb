@@ -219,21 +219,21 @@ module Mixlib
         @default_policy
       end
 
-      def initialize(org, org_db, user_mapper, requesting_actor_id)
+      def initialize(org, user_mapper, requesting_actor_id)
         debug("Initializing Policy Engine:")
         debug("     ORG NAME: #{org.name}")
-        debug("       ORG DB: #{org_db}")
+        debug("       ORG DB: #{org.org_db}")
         debug("  user_mapper: #{user_mapper}")
         debug("          RAD: #{requesting_actor_id}")
 
         @org = org
         @org_name = org.name
-        @org_db = org_db
+        @org_db = org.org_db
         @global_db = Mixlib::Authorization::Config.default_database
         @requesting_actor_id = requesting_actor_id
         @scoped_groups = Mixlib::Authorization::Models::ScopedGroup.new(@org_db, @org_db, user_mapper, nil, nil)
         @global_groups = Mixlib::Authorization::Models::ScopedGroup.new(@global_db, @org_db, user_mapper, nil, nil)
-        @org_objects = OrgObjects.new(org, org_db, user_mapper, @scoped_groups, requesting_actor_id)
+        @org_objects = OrgObjects.new(org, @org_db, user_mapper, @scoped_groups, requesting_actor_id)
       end
 
       # Evaluates the default policy in the context of the organization
@@ -289,4 +289,3 @@ module Mixlib
     end
   end
 end
-

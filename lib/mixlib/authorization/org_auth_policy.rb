@@ -47,7 +47,7 @@ module Mixlib
           @org = org
           @org_db = org.org_db
           @requesting_actor_id = requesting_actor_id
-          @scoped_groups = Mixlib::Authorization::Models::ScopedGroup.new(@org_db, @org_db, @user_mapper, nil, nil)
+          @scoped_groups = scoped_groups
 
           @groups_by_name = {}
           @containers_by_name = {}

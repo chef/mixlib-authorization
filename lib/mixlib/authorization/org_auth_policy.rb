@@ -43,7 +43,7 @@ module Mixlib
         attr_reader :org_db
         attr_reader :requesting_actor_id
 
-        def initialize(org, user_mapper, scoped_groups, requesting_actor_id)
+        def initialize(org, scoped_groups, requesting_actor_id)
           @org = org
           @org_db = org.org_db
           @requesting_actor_id = requesting_actor_id
@@ -233,7 +233,7 @@ module Mixlib
         @requesting_actor_id = requesting_actor_id
         @scoped_groups = Mixlib::Authorization::Models::ScopedGroup.new(@org_db, @org_db, user_mapper, nil, nil)
         @global_groups = Mixlib::Authorization::Models::ScopedGroup.new(@global_db, @org_db, user_mapper, nil, nil)
-        @org_objects = OrgObjects.new(org, user_mapper, @scoped_groups, requesting_actor_id)
+        @org_objects = OrgObjects.new(org, @scoped_groups, requesting_actor_id)
       end
 
       # Evaluates the default policy in the context of the organization

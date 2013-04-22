@@ -34,6 +34,8 @@ module Mixlib
         join_type Mixlib::Authorization::Models::JoinTypes::Object
         join_properties :requester_id
 
+        attr_accessor :authz_id_mapper
+
         def for_json
           self.properties.inject({ }) do |result, prop|
             pname = prop.name.to_sym

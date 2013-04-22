@@ -15,6 +15,7 @@ require 'stringio'
 require 'opscode/dark_launch'
 require 'opscode/models/user'
 require 'opscode/mappers/user'
+require 'opscode/mappers/client'
 
 module Mixlib
   module Authorization

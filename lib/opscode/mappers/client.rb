@@ -1,4 +1,5 @@
 require 'opscode/mappers/base'
+require 'opscode/models/client'
 
 module Opscode
   module Mappers

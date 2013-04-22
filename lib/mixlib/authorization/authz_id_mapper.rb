@@ -106,21 +106,17 @@ module Mixlib
       # names correspond to a User first, then a Client.
       #
       # @param actor_names [Array<String>]
-      # @return [Hash<Symbol, Array<String>>]
-      #
-      # @todo reconsider / investigate the use of this return
-      # type... I think it probably needs to be Array<String>
+      # @return [Array<String>>]
       def actor_names_to_authz_ids(actor_names)
         users = users_by_names(actor_names)
         remaining_actors = actor_names - users.map(&:name)
         clients = clients_by_names(remaining_actors)
 
-        actor_ids = {
-          :users => users.map(&:authz_id),
-          :clients => clients.map(&:authz_id)
-        }
-        Mixlib::Authorization::Log.debug { "Mapped actors #{actor_names.inspect} to actors #{actor_ids}" }
-        actor_ids
+        user_ids = users.map(&:authz_id)
+        client_ids = clients.map(&:authz_id)
+
+        Mixlib::Authorization::Log.debug { "Mapped actors #{actor_names.inspect} to users #{user_ids.inspect} and clients #{client_ids.inspect}" }
+        user_ids + client_ids
       end
 
       # Fetches {Opscode::Model::User} objects corresponding to the

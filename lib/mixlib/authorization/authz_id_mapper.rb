@@ -110,7 +110,7 @@ module Mixlib
       def actor_names_to_authz_ids(actor_names)
         users = users_by_names(actor_names)
         remaining_actors = actor_names - users.map(&:name)
-        client_ids = clients_by_names(remaining_actors)
+        client_ids = client_names_to_authz_ids(remaining_actors)
         user_ids = users.map(&:authz_id)
 
         Mixlib::Authorization::Log.debug { "Mapped actors #{actor_names.inspect} to users #{user_ids.inspect} and clients #{client_ids.inspect}" }
@@ -214,6 +214,7 @@ module Mixlib
         end
       end
 
+      # @return [Array<String>] the Authz IDs that correspond to the given client names
       def client_names_to_authz_ids(client_names)
         if clients_in_sql?
           return [] if @client_mapper.nil?
@@ -221,32 +222,9 @@ module Mixlib
           clients = client_mapper.find_all_for_authz_map(client_names)
           unless clients.size == client_names.size
             missing_client_names = client_names - clients.map(&:name)
-            raise InvalidGroupMember, "Users #{missing_user_names.join(', ')} do not exist"
+            raise InvalidGroupMember, "Clients #{missing_client_names.join(', ')} do not exist"
           end
           clients.each {|c| cache_actor_mapping(c.name, c.authz_id)}
-          clients.map(&:authz_id)
-        else
-          client_names.map do |clientname|
-            unless client = Models::Client.on(couch_db).by_clientname(:key=>clientname).first
-              raise InvalidGroupMember, "Client #{clientname} does not exist"
-            end
-            cache_actor_mapping(client.name, client.authz_id)
-            client.authz_id
-          end
-        end
-      end
-
-      # Favor this over client_names_to_authz_ids
-
-
-
-
-      # @return [Array<String>] the Authz IDs that correspond to the given client names
-      def clients_by_names(client_names)
-        if clients_in_sql?
-          return [] if @client_mapper.nil?
-          clients = @client_mapper.find_all_for_authz_map(client_names)
-          clients.each{|c| cache_actor_mapping(c.name, c.authz_id)}
           clients.map(&:authz_id)
         else
           client_names.map do |clientname|

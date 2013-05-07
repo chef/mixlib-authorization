@@ -79,11 +79,11 @@ module Mixlib
       def actor_authz_ids_to_names(actor_ids)
         users = users_by_authz_ids(actor_ids)
         remaining_actors = actor_ids - users.map(&:authz_id)
-        clients = clients_by_authz_ids(remaining_actors)
+        client_names = clients_by_authz_ids(remaining_actors)
 
         actor_names = {
           :users => users.map(&:name),
-          :clients => clients.map(&:name)
+          :clients => client_names
         }
 
         Mixlib::Authorization::Log.debug { "Mapped actors #{actor_ids.inspect} to actors #{actor_names}" }
@@ -110,10 +110,8 @@ module Mixlib
       def actor_names_to_authz_ids(actor_names)
         users = users_by_names(actor_names)
         remaining_actors = actor_names - users.map(&:name)
-        clients = clients_by_names(remaining_actors)
-
+        client_ids = clients_by_names(remaining_actors)
         user_ids = users.map(&:authz_id)
-        client_ids = clients.map(&:authz_id)
 
         Mixlib::Authorization::Log.debug { "Mapped actors #{actor_names.inspect} to users #{user_ids.inspect} and clients #{client_ids.inspect}" }
         user_ids + client_ids
@@ -168,11 +166,7 @@ module Mixlib
       end
 
       # @param authz_ids [Array<String>]
-      # @return [Array<Opscode::Models::Client>, Array<String>] I
-      #   think this returns Clients if coming from SQL and Strings if
-      #   coming from CouchDB... need to confirm
-      #
-      # @todo Confirm return type
+      # @return [Array<String>] the names of clients corresponding to the given `authz_ids`
       def clients_by_authz_ids(authz_ids)
 
         if clients_in_sql?
@@ -185,29 +179,31 @@ module Mixlib
           clients = @client_mapper.find_all_by_authz_id(authz_ids)
           # TODO: I think we can dispense with the caching here since we're coming from SQL
           clients.each {|c| cache_actor_mapping(c.name, c.authz_id)}
-          clients
+          client.map(&:name)
         else
           # This also performs the caching of client mappings.
           authz_ids.map {|authz_id| client_by_authz_id_couch(authz_id) }.compact
         end
       end
 
-      # @param client_authz_id [String] the Authz ID of a Client to fetch
-      # @return [String, Client, nil]
+      # Get the *NAME* of a client specified by the given Authz ID.
       #
-      # @todo The return value of this method is too broad... do
-      #   callers appropriately deal with the variability?
+      # @param client_authz_id [String] the Authz ID of a Client to fetch
+      #
+      # @return [String, nil] The name of the client with the given
+      #   authz ID.  Can return `nil` if the AuthzIDMapper is a "global"
+      #   one, in which case, there won't ever be clients
+      #
+      # @todo Why would we even call this in a global mapper??
       def client_by_authz_id_couch(client_authz_id)
         # If we've already encountered the Client in CouchDB before,
         # use the cached value to prevent unnecessary HTTP requests.
         if name = @actor_names_by_authz_id[client_authz_id]
-          # Wait, what?  Why does it return a name if it's been
-          # cached, but a full Client if it hasn't?
           name
         elsif client_join_entry = AuthJoin.by_auth_object_id(:key=>client_authz_id).first
           client = Mixlib::Authorization::Models::Client.on(couch_db).get(client_join_entry.user_object_id)
           cache_actor_mapping(client.name, client_authz_id)
-          client
+          client.name
         else
           # Wasn't cached, and doesn't exist in the database.  This
           # can happen when this AuthzIDMapper is a "global" one, in
@@ -241,14 +237,25 @@ module Mixlib
       end
 
       # Favor this over client_names_to_authz_ids
+
+
+
+
+      # @return [Array<String>] the Authz IDs that correspond to the given client names
       def clients_by_names(client_names)
         if clients_in_sql?
           return [] if @client_mapper.nil?
-          clients = @client_mapper.find_all_by_authz_map(client_names)
+          clients = @client_mapper.find_all_for_authz_map(client_names)
           clients.each{|c| cache_actor_mapping(c.name, c.authz_id)}
-          clients
+          clients.map(&:authz_id)
         else
-          client_names.map{|name| client_by_name_couch.DOESNTEXIST}
+          client_names.map do |clientname|
+            unless client = Models::Client.on(couch_db).by_clientname(:key=>clientname).first
+              raise InvalidGroupMember, "Client #{clientname} does not exist"
+            end
+            cache_actor_mapping(client.name, client.authz_id)
+            client.authz_id
+          end
         end
       end
 

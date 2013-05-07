@@ -155,14 +155,12 @@ module Mixlib
       # actors, which may include clients.
       #
       # @param user_names [Array<String>]
-      # @return [Array<Hash>]
-      #
-      # @todo check return type
+      # @return [Array<Opscode::Model::User>]
       def users_by_names(user_names)
-        user_ids = @user_mapper.find_all_for_authz_map(user_names)
+        users = @user_mapper.find_all_for_authz_map(user_names)
         # TODO: I think we can dispense with the caching here since we're coming from SQL
-        user_ids.each{|i| cache_actor_mapping(i.name, i.authz_id)}
-        user_ids
+        users.each{|u| cache_actor_mapping(u.name, u.authz_id)}
+        users
       end
 
       # @param authz_ids [Array<String>]

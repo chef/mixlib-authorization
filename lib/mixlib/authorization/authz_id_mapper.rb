@@ -135,8 +135,17 @@ module Mixlib
         users
       end
 
-      # @deprecated use {#users_by_names}
-      # @todo verify this is not used elsewhere
+      # @deprecated use {#users_by_names}.  This assumes that all
+      #   given names are indeed for Users, and not for Clients as
+      #   well.  Throwing an error in that case would be bad.  I'm
+      #   going to leave this here for now, though, since its only
+      #   used by
+      #   Mixlib::Authorization::Models::Group#translate_ids_to_authz;
+      #   in that case, it really should only have Users.  This can
+      #   wait for another refactoring.
+      #
+      # @param user_names [Array<String>]
+      # @return [Array<String>]
       def user_names_to_authz_ids(user_names)
         users = user_mapper.find_all_for_authz_map(user_names)
         unless users.size == user_names.size

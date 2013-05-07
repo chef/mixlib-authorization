@@ -79,7 +79,7 @@ module Mixlib
       def actor_authz_ids_to_names(actor_ids)
         users = users_by_authz_ids(actor_ids)
         remaining_actors = actor_ids - users.map(&:authz_id)
-        client_names = clients_by_authz_ids(remaining_actors)
+        client_names = client_authz_ids_to_names(remaining_actors)
 
         actor_names = {
           :users => users.map(&:name),
@@ -174,7 +174,7 @@ module Mixlib
 
       # @param authz_ids [Array<String>]
       # @return [Array<String>] the names of clients corresponding to the given `authz_ids`
-      def clients_by_authz_ids(authz_ids)
+      def client_authz_ids_to_names(authz_ids)
 
         if clients_in_sql?
           # If the client mapper is nil, then we're probably dealing

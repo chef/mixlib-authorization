@@ -33,7 +33,7 @@ module Mixlib
       end
 
       def ==(other)
-        other.respond_to?(:for_json) && other.for_json == for_json
+        other.respond_to?(:aces) && other.aces == aces
       end
 
       def each_ace(*aces_to_yield)
@@ -139,8 +139,14 @@ module Mixlib
         @ace["groups"] = @ace["groups"].concat(other_ace.groups).sort.uniq
       end
 
+      # We ensure that the individual aces are sorted before doing the
+      # comparison to account for any differences in ordering that may
+      # have been introduced in any manipulations that were performed
+      # on them.
       def ==(other)
-        other.respond_to?(:ace) && other.ace == ace
+        other.respond_to?(:ace) &&
+          other.ace["actors"].sort == ace["actors"].sort &&
+          other.ace["groups"].sort == ace["groups"].sort
       end
     end
 

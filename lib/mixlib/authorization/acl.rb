@@ -96,11 +96,13 @@ module Mixlib
 
       def add_actor(member)
         @ace["actors"] << member
+        @ace["actors"].sort!
         self
       end
 
       def add_group(member)
         @ace["groups"] << member
+        @ace["groups"].sort!
         self
       end
 

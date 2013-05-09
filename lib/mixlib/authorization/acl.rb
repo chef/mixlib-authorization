@@ -130,9 +130,11 @@ module Mixlib
 
       alias :to_hash :for_json
 
+      # We want to keep the actor and group aces sorted so that ==
+      # works predictably
       def merge!(other_ace)
-        @ace["actors"].concat(other_ace.actors).uniq!
-        @ace["groups"].concat(other_ace.groups).uniq!
+        @ace["actors"] = @ace["actors"].concat(other_ace.actors).sort.uniq
+        @ace["groups"] = @ace["groups"].concat(other_ace.groups).sort.uniq
       end
 
       def ==(other)

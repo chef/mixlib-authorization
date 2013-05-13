@@ -186,7 +186,7 @@ module Mixlib
           clients = @client_mapper.find_all_by_authz_id(authz_ids)
           # TODO: I think we can dispense with the caching here since we're coming from SQL
           clients.each {|c| cache_actor_mapping(c.name, c.authz_id)}
-          client.map(&:name)
+          clients.map(&:name)
         else
           # This also performs the caching of client mappings.
           authz_ids.map {|authz_id| client_by_authz_id_couch(authz_id) }.compact

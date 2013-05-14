@@ -225,7 +225,7 @@ module Opscode
         when nil
           row_data.delete(:public_key) # just in case
         else
-          raise ArgumentError, "Unknown public key version."
+          raise ArgumentError, "Unknown public key version!  Client data was: #{row_data.inspect}"
         end
 
         BREAKOUT_COLUMNS.each do |property_name|

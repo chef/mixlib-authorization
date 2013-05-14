@@ -119,7 +119,8 @@ module Mixlib
         # Darklaunch features
         def setup!(user_mapper, requesting_actor_id, options)
           create_database!(options[:couchdb_environments])
-          policy = OrgAuthPolicy.new(self, org_db, user_mapper, requesting_actor_id)
+          policy = OrgAuthPolicy.new(self, user_mapper, requesting_actor_id)
+
           policy.apply!
           if !options[:couchdb_environments]
             # This code makes a rest call to the erlang endpoint to

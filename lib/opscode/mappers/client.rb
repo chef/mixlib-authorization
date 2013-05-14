@@ -1,4 +1,5 @@
 require 'opscode/mappers/base'
+require 'opscode/models/client'
 
 module Opscode
   module Mappers
@@ -43,7 +44,23 @@ module Opscode
         @table = @connection[:clients].filter(:org_id => org_id)
       end
 
-      # Does all the work of creating a client: generates ids for it, updates the timestamps, creates the object in authz, and 
+      # These next methods were borrowed from Opscode::Mappers::User, and
+      # do pretty much the same thing they did there.
+
+      def find_all_for_authz_map(client_names)
+        return client_names if client_names.empty?
+        finder = @table.select(:id,:authz_id,:name).where(:name => client_names)
+        execute_sql(:read, :clients) { finder.map {|c| inflate_model(c)}}
+      end
+
+      def find_all_by_authz_id(authz_ids)
+        return authz_ids if authz_ids.empty?
+        finder = table.select(:id,:authz_id,:name).where(:authz_id => authz_ids)
+        execute_sql(:read, :clients) { finder.map {|c| inflate_model(c)}}
+      end
+
+      # Does all the work of creating a client: generates ids for it,
+      # updates the timestamps, creates the object in authz, and
       def create(client, container)
         # If the caller has already set an id, trust it.
         client.assign_id!(new_uuid) unless client.id
@@ -189,17 +206,35 @@ module Opscode
         client
       end
 
+      # Properties of an Opscode::Model::Client object that have their
+      # own columns in the database.  Leaving out 'admin', since
+      # that's only applicable on Open Source Chef, which doesn't use
+      # mixlib-authorization anyway.
+      BREAKOUT_COLUMNS = [:id, :org_id, :authz_id, :name, :public_key,
+                          :validator, :last_updated_by, :created_at, :updated_at]
+
+      # Map the nested hash with serialized attributes that we store in DB rows
+      # to a flat hash suitable for passing to Opscode::Model::Client's initializer
       def map_from_row!(row_data)
+        model_data = {}
         case row_data.delete(:pubkey_version)
-        when 1
-          row_data[:certificate] = row_data.delete(:public_key)
         when 0
-          # leave it
+          model_data[:public_key] = row_data.delete(:public_key)
+        when 1
+          model_data[:certificate] = row_data.delete(:public_key)
+        when nil
+          row_data.delete(:public_key) # just in case
         else
-          raise "Invalid Client data!: #{row_data.inspect}"
+          raise ArgumentError, "Unknown public key version!  Client data was: #{row_data.inspect}"
         end
 
-        row_data
+        BREAKOUT_COLUMNS.each do |property_name|
+          model_data[property_name] = row_data.delete(property_name) if row_data.key?(property_name)
+        end
+
+        Merb.logger.info("Client Model Data is: #{model_data}")
+
+        model_data
       end
 
       def map_to_row!(model_data)
@@ -242,4 +277,3 @@ module Opscode
     end
   end
 end
-

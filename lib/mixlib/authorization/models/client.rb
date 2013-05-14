@@ -75,6 +75,8 @@ module Mixlib
         join_type Mixlib::Authorization::Models::JoinTypes::Actor
         join_properties :clientname, :requester_id
 
+        # Hack required to get an AuthzIDMapper into a client
+        attr_accessor :authz_id_mapper
 
         private :save
         private :save!
@@ -190,8 +192,8 @@ module Mixlib
             raise Mixlib::Authorization::AuthorizationError, "failed to find parent #{parent_container_name} for ACL inheritance" if container.nil?
             authz_object = authz_object_as(requesting_actor_id)
             container_acl_data = container.fetch_join_acl
-            container_acl = Acl.new(container_acl_data)
-            self_acl = Acl.new(authz_object.fetch_acl)
+            container_acl = Acl.new(container_acl_data, authz_id_mapper)
+            self_acl = Acl.new(authz_object.fetch_acl, authz_id_mapper)
 
             self_acl.merge!(container_acl)
 
@@ -214,7 +216,7 @@ module Mixlib
           #check_inherit_acl_correctness(sender, container_join_acl)
 
           begin
-            object_acl = Acl.new(authz_object.fetch_acl)
+            object_acl = Acl.new(authz_object.fetch_acl, authz_id_mapper)
           rescue => e
             Mixlib::Authorization::Log.error("Failed trying to verify the result of inherit_acl.\nERROR:#{e.message}\n#{e.backtrace.join("\n")}")
             raise
@@ -246,9 +248,9 @@ module Mixlib
           # the next updates:
           authz_object = authz_object_as(authz_id)
           container_acl_data = container.fetch_join_acl
-          container_acl = Acl.new(container_acl_data)
+          container_acl = Acl.new(container_acl_data, authz_id_mapper)
 
-          self_acl = Acl.new(authz_object.fetch_acl)
+          self_acl = Acl.new(authz_object.fetch_acl, authz_id_mapper)
           self_acl.merge!(container_acl)
 
           acl_without_validator = purge_validator_from_acl(self_acl)
@@ -266,7 +268,7 @@ module Mixlib
           #check_inherit_acl_correctness(sender, container_join_acl)
 
           begin
-            object_acl = Acl.new(authz_object_as(authz_id).fetch_acl)
+            object_acl = Acl.new(authz_object_as(authz_id).fetch_acl, authz_id_mapper)
           rescue => e
             Mixlib::Authorization::Log.error("Failed trying to verify the result of inherit_acl.\nERROR:#{e.message}\n#{e.backtrace.join("\n")}")
             raise

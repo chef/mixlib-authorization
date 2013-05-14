@@ -20,15 +20,21 @@ module Mixlib
       ACES = ["create","read","update","delete","grant"]
       attr_reader :aces
 
-      def initialize(aces_in=nil)
-        @aces = if aces_in.nil?
-                  ACES.inject({ }) { |memo, ace_name| memo[ace_name]=Ace.new; memo}
-                else
-                  if aces_in.respond_to?(:keys)
-                    aces_in.inject({ }) { |memo, ace_tuple| memo[ace_tuple[0]]= Ace.new(ace_tuple[1]); memo }
-                  else
-                    aces_in
+      # @param aces_in [Hash, ???] Initial state of the ACL
+      # @param authz_id_mapper [Mixlib::Authorization::AuthzIDMapper]
+      #   mapper responsible for converting between user and client
+      #   Authz IDs and names, and vice versa.
+      # @todo Do we ever pass a non-Hash into this?  If so, what is
+      #   the type?  It looks like it'd always be a Hash...
+      def initialize(aces, authz_id_mapper)
+        @authz_id_mapper = authz_id_mapper
+        @aces = if aces.respond_to?(:keys)
+                  aces.inject({}) do |memo, ace_tuple|
+                    memo[ace_tuple[0]]= Ace.new(ace_tuple[1], @authz_id_mapper)
+                    memo
                   end
+                else
+                  aces
                 end
       end
 
@@ -55,12 +61,19 @@ module Mixlib
         @aces.delete(ace_name)
       end
 
-      def to_user(org_database)
-        Acl.new(@aces.inject({ }) { |memo, ace_tuple| memo[ace_tuple[0]] = ace_tuple[1].to_user(org_database).for_json; memo })
+      def to_user
+        Acl.new(@aces.inject({}) do |memo, ace_tuple|
+                  memo[ace_tuple[0]] = ace_tuple[1].to_user.for_json;
+                  memo
+                end, @authz_id_mapper)
       end
 
-      def to_auth(org_database)
-        Acl.new(@aces.inject({ }) { |memo, ace_tuple| memo[ace_tuple[0]] = ace_tuple[1].to_auth(org_database).for_json; memo })
+      def to_auth
+        Acl.new(@aces.inject({}) do |memo, ace_tuple |
+                  memo[ace_tuple[0]] = ace_tuple[1].to_auth.for_json
+                  memo
+                end,
+                @authz_id_mapper)
       end
 
       def for_json
@@ -77,13 +90,25 @@ module Mixlib
     end
 
     class Ace
+
       include Mixlib::Authorization::AuthHelper
+
+      # TODO: This looks like it is only used for the following:
+      #
+      # transform_actor_ids
+      # transform_group_ids
+      #
+      # These just map user and client authz ids => *names* (not user-side IDs), and vice versa
       include Mixlib::Authorization::IDMappingHelper
 
       attr_reader :ace
 
-      def initialize(ace_data=nil)
-        @ace = ace_data || { "actors"=>[], "groups"=>[] }
+      # @param ace [Hash<String, Array>] a hash with `"actors"` and `"groups"` keys
+      # @param authz_id_mapper [Mixlib::Authorization::AuthzIDMapper]
+      #   mapper responsible for converting between user and client
+      #   Authz IDs and names, and vice versa.
+      def initialize(ace, authz_id_mapper)
+        @ace, @authz_id_mapper = ace, authz_id_mapper
       end
 
       def actors
@@ -114,14 +139,37 @@ module Mixlib
         self
       end
 
-      def to_auth(org_database)
-        Ace.new({ "actors" => transform_actor_ids(ace["actors"], org_database, :to_auth),
-                  "groups"=>transform_group_ids(ace["groups"], org_database, :to_auth)} )
+      # Map an ace containing user-facing names into their Authz ID
+      # counterparts.  Assumes the Ace contains names, and does not
+      # currently verify this.
+      #
+      # @return [Ace]
+      def to_auth
+        actor_ids = @authz_id_mapper.actor_names_to_authz_ids(actors)
+        group_ids = @authz_id_mapper.group_names_to_authz_ids(groups)
+
+        # TODO: Don't like that the mapper needs to be passed through...
+        Ace.new({"actors" => actor_ids, "groups" => group_ids},
+                @authz_id_mapper)
       end
 
-      def to_user(org_database)
-        Ace.new({ "actors" => transform_actor_ids(ace["actors"], org_database, :to_user),
-                  "groups"=>transform_group_ids(ace["groups"], org_database, :to_user)} )
+      # Map an ace containing Authz IDs to their user-facing name
+      # counterparts.  Assumes the Ace contains Authz IDs, and does
+      # not currently verify this.
+      #
+      # @return [Ace]
+      def to_user
+        actors = @authz_id_mapper.actor_authz_ids_to_names(@ace["actors"])
+        groups = @authz_id_mapper.group_authz_ids_to_names(@ace["groups"])
+
+        # Since the ID mapper returns a hash for the actor IDs we need
+        # to flatten first.  Since there's only ever one kind of
+        # group, those names are already flattened.
+        actor_names = actors[:users] + actors[:clients]
+
+        # TODO: Don't like that the mapper needs to be passed through...
+        Ace.new({"actors" => actor_names, "groups" => groups},
+                @authz_id_mapper)
       end
 
       def for_json
@@ -141,8 +189,11 @@ module Mixlib
     end
 
     class AuthAcl < Acl
-      def self.from_acl_data(acl_data)
-        AuthAcl.new(ACES.inject({ }) { |memo,ace_name| memo[ace_name] = Ace.new(self, acl_data[ace_name]); memo })
+      def self.from_acl_data(acl_data, authz_id_mapper)
+        AuthAcl.new(ACES.inject({}) do |memo,ace_name |
+                      memo[ace_name] = Ace.new(self, acl_data[ace_name], authz_id_mapper)
+                      memo
+                    end, authz_id_mapper)
       end
     end
 

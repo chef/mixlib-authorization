@@ -77,6 +77,8 @@ Mixlib::Authorization::OrgAuthPolicy.default do |org|
   debug("Creating default objects")
   create_default_objects do
     # Create the Mixlib::Authorization document for the _default environment
-    Mixlib::Authorization::Models::Environment.on(org_db).new(:name=>"_default", :requester_id => requesting_actor_id, :orgname=>org_name).save
+    e = Mixlib::Authorization::Models::Environment.on(org_db).new(:name=>"_default", :requester_id => requesting_actor_id, :orgname=>org_name)
+    e.authz_id_mapper = @authz_id_mapper
+    e.save
   end
 end

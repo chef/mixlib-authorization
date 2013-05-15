@@ -41,14 +41,27 @@ describe Acl do
     it "is equal to another object if it responds to for_json and the values returned by for_json are equal" do
       @acl.should == Acl.new
 
-      acl_ace_data = {"create" => {"actors" => %{list of actors}, "groups" => %w{list of groups}}}
+      acl_ace_data = {"create" => {"actors" => %w{list of actors}, "groups" => %w{list of groups}}}
 
       an_acl_with_an_ace          = Acl.new(acl_ace_data)
       an_acl_with_the_same_ace    = Acl.new(acl_ace_data)
-      an_acl_with_a_different_ace = Acl.new(acl_ace_data.merge("update" => :some_aces))
+      an_acl_with_a_different_ace = Acl.new(acl_ace_data.merge("update" => %w{some aces}))
 
       an_acl_with_an_ace.should     == an_acl_with_the_same_ace
       an_acl_with_an_ace.should_not == an_acl_with_a_different_ace
+    end
+
+    it "is equal to another object even if the members of ACEs are in different orders" do
+      ace_1 = {"create" => {"actors" => ["larry", "moe", "curly"], "groups" => ["stooges", "comedians"]}}
+      ace_2 = {"create" => {"actors" => ["moe", "curly", "larry"], "groups" => ["comedians", "stooges"]}}
+
+      ace_1.should_not == ace_2 # as hashes, they SHOULD be unequal, since the arrays are in different orders
+
+      acl_1 = Acl.new(ace_1)
+      acl_2 = Acl.new(ace_2)
+
+      acl_1.should == acl_2 # as ACLs, however, those ACE lists should be compared regardless of order.
+
     end
 
     it "sets an ace of a given type to a given value" do
@@ -87,6 +100,7 @@ describe Acl do
       end
 
       it "converts itself to a nested hash containing ACEs with user ids as hashes" do
+        pending("Not running because requires MySQL")
         @acl.add(:create, @ace_with_auth_ids)
         @ace_with_auth_ids.should_receive(:to_user).with(:ORGDB).and_return(@ace_with_user_ids)
         expected = Acl.new
@@ -95,6 +109,7 @@ describe Acl do
       end
 
       it "converts itself to a nested hash containing ACES with auth ids as hashes" do
+        pending("Not running because requires MySQL")
         @acl.add(:grant, @ace_with_user_ids)
 
         @ace_with_user_ids.should_receive(:to_auth).with(:ORGDB).and_return(@ace_with_auth_ids)

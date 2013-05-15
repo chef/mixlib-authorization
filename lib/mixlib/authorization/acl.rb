@@ -33,7 +33,7 @@ module Mixlib
       end
 
       def ==(other)
-        other.respond_to?(:for_json) && other.for_json == for_json
+        other.respond_to?(:aces) && other.aces == aces
       end
 
       def each_ace(*aces_to_yield)
@@ -96,11 +96,13 @@ module Mixlib
 
       def add_actor(member)
         @ace["actors"] << member
+        @ace["actors"].sort!
         self
       end
 
       def add_group(member)
         @ace["groups"] << member
+        @ace["groups"].sort!
         self
       end
 
@@ -130,13 +132,21 @@ module Mixlib
 
       alias :to_hash :for_json
 
+      # We want to keep the actor and group aces sorted so that ==
+      # works predictably
       def merge!(other_ace)
-        @ace["actors"].concat(other_ace.actors).uniq!
-        @ace["groups"].concat(other_ace.groups).uniq!
+        @ace["actors"] = @ace["actors"].concat(other_ace.actors).sort.uniq
+        @ace["groups"] = @ace["groups"].concat(other_ace.groups).sort.uniq
       end
 
+      # We ensure that the individual aces are sorted before doing the
+      # comparison to account for any differences in ordering that may
+      # have been introduced in any manipulations that were performed
+      # on them.
       def ==(other)
-        other.respond_to?(:ace) && other.ace == ace
+        other.respond_to?(:ace) &&
+          other.ace["actors"].sort == ace["actors"].sort &&
+          other.ace["groups"].sort == ace["groups"].sort
       end
     end
 

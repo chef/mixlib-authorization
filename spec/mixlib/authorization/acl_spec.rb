@@ -87,6 +87,7 @@ describe Acl do
       end
 
       it "converts itself to a nested hash containing ACEs with user ids as hashes" do
+        pending("Not running because requires MySQL")
         @acl.add(:create, @ace_with_auth_ids)
         @ace_with_auth_ids.should_receive(:to_user).with(:ORGDB).and_return(@ace_with_user_ids)
         expected = Acl.new
@@ -95,6 +96,7 @@ describe Acl do
       end
 
       it "converts itself to a nested hash containing ACES with auth ids as hashes" do
+        pending("Not running because requires MySQL")
         @acl.add(:grant, @ace_with_user_ids)
 
         @ace_with_user_ids.should_receive(:to_auth).with(:ORGDB).and_return(@ace_with_auth_ids)

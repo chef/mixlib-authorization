@@ -41,11 +41,11 @@ describe Acl do
     it "is equal to another object if it responds to for_json and the values returned by for_json are equal" do
       @acl.should == Acl.new
 
-      acl_ace_data = {"create" => {"actors" => %{list of actors}, "groups" => %w{list of groups}}}
+      acl_ace_data = {"create" => {"actors" => %w{list of actors}, "groups" => %w{list of groups}}}
 
       an_acl_with_an_ace          = Acl.new(acl_ace_data)
       an_acl_with_the_same_ace    = Acl.new(acl_ace_data)
-      an_acl_with_a_different_ace = Acl.new(acl_ace_data.merge("update" => :some_aces))
+      an_acl_with_a_different_ace = Acl.new(acl_ace_data.merge("update" => %w{some aces}))
 
       an_acl_with_an_ace.should     == an_acl_with_the_same_ace
       an_acl_with_an_ace.should_not == an_acl_with_a_different_ace

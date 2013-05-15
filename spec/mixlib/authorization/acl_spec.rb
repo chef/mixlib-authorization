@@ -51,6 +51,19 @@ describe Acl do
       an_acl_with_an_ace.should_not == an_acl_with_a_different_ace
     end
 
+    it "is equal to another object even if the members of ACEs are in different orders" do
+      ace_1 = {"create" => {"actors" => ["larry", "moe", "curly"], "groups" => ["stooges", "comedians"]}}
+      ace_2 = {"create" => {"actors" => ["moe", "curly", "larry"], "groups" => ["comedians", "stooges"]}}
+
+      ace_1.should_not == ace_2 # as hashes, they SHOULD be unequal, since the arrays are in different orders
+
+      acl_1 = Acl.new(ace_1)
+      acl_2 = Acl.new(ace_2)
+
+      acl_1.should == acl_2 # as ACLs, however, those ACE lists should be compared regardless of order.
+
+    end
+
     it "sets an ace of a given type to a given value" do
       @acl.add(:create, :an_ace)
       @acl.aces["create"].should == :an_ace

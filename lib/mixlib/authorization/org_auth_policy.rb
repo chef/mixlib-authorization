@@ -1,3 +1,5 @@
+require 'mixlib/authorization/authz_id_mapper'
+
 module Mixlib
   module Authorization
 
@@ -43,11 +45,11 @@ module Mixlib
         attr_reader :org_db
         attr_reader :requesting_actor_id
 
-        def initialize(org, org_db, user_mapper, scoped_groups, requesting_actor_id)
+        def initialize(org, scoped_groups, requesting_actor_id)
           @org = org
-          @org_db = org_db
+          @org_db = org.org_db
           @requesting_actor_id = requesting_actor_id
-          @scoped_groups = Mixlib::Authorization::Models::ScopedGroup.new(@org_db, @org_db, @user_mapper, nil, nil)
+          @scoped_groups = scoped_groups
 
           @groups_by_name = {}
           @containers_by_name = {}
@@ -78,16 +80,18 @@ module Mixlib
         attr_reader :group_name
         attr_reader :org_objects
 
-        def initialize(ace_types, group_name, org_objects)
+        def initialize(ace_types, group_name, org_objects, authz_id_mapper)
           if EPIC_DEBUG
             debug("Initializing ACL POLICY ENGINE")
             debug("     group_name: #{group_name}")
             debug("      ace_types: #{ace_types.inspect}")
             debug("    org_objects: #{org_objects.inspect}")
+            debug("authz_id_mapper: #{authz_id_mapper.inspect}")
           end
           @ace_types = ace_types
           @org_objects = org_objects
           @group_name = group_name
+          @authz_id_mapper = authz_id_mapper
         end
 
         ######################################################################
@@ -121,7 +125,7 @@ module Mixlib
         def organization
           org = org_objects.organization
           group = org_objects.group(group_name)
-          org_acl = Acl.new(org.fetch_join_acl)
+          org_acl = Acl.new(org.fetch_join_acl, @authz_id_mapper)
           org_acl.each_ace(*ace_types) do |ace_name, ace|
             ace.add_group(group.authz_id)
             org.update_join_ace(ace_name, ace.to_hash)
@@ -139,7 +143,7 @@ module Mixlib
 
           group = org_objects.group(group_name)
           container = org_objects.container(container_name)
-          container_acl = Acl.new(container.fetch_join_acl)
+          container_acl = Acl.new(container.fetch_join_acl, @authz_id_mapper)
           container_acl.each_ace(*ace_types) do |ace_name, ace|
             ace.add_group(group.authz_id)
             container.update_join_ace(ace_name, ace.to_hash)
@@ -151,7 +155,7 @@ module Mixlib
           debug("  * Granting [#{ace_types.join(', ')}] on #{target_group_name} group to #{group_name} group")
           target_group = org_objects.group(target_group_name)
           group = org_objects.group(group_name)
-          target_group_acl = Acl.new(target_group.fetch_join_acl)
+          target_group_acl = Acl.new(target_group.fetch_join_acl, @authz_id_mapper)
           target_group_acl.each_ace(*ace_types) do |ace_name, ace|
             ace.add_group(group.authz_id)
             target_group.update_join_ace(ace_name, ace.to_hash)
@@ -169,9 +173,10 @@ module Mixlib
         attr_reader :group_name
         attr_reader :org_objects
 
-        def initialize(group_name, org_objects)
+        def initialize(group_name, org_objects, authz_id_mapper)
           @group_name = group_name
           @org_objects = org_objects
+          @authz_id_mapper = authz_id_mapper
         end
 
         # Adds the requesting_actor (assumed to be the superuser, aka pivotal) to the group.
@@ -186,7 +191,7 @@ module Mixlib
         # added to the ACEs specified in the +ace_types+
         def have_rights(*ace_types) # yields acl_policy
           debug("* Adding #{group_name} group to ACEs:")
-          acl_policy = AclPolicy.new(ace_types, group_name, org_objects)
+          acl_policy = AclPolicy.new(ace_types, group_name, org_objects, @authz_id_mapper)
           yield acl_policy
         end
 
@@ -196,13 +201,13 @@ module Mixlib
         def clear_groups_from(*ace_types)
           debug("* Clearing ACEs #{ace_types.join(', ')} on #{group_name} group")
           group = org_objects.group(group_name)
-          group_acl = Acl.new(group.fetch_join_acl)
+          group_acl = Acl.new(group.fetch_join_acl, @authz_id_mapper)
           group_acl.each_ace(*ace_types) do |ace_name, ace|
             ace.groups.clear
             group.update_join_ace(ace_name, ace.to_hash)
           end
         end
-      end
+      end # GroupAuthPolicy
 
       attr_reader :org_name
       attr_reader :org_db
@@ -219,21 +224,27 @@ module Mixlib
         @default_policy
       end
 
-      def initialize(org, org_db, user_mapper, requesting_actor_id)
+      def initialize(org, user_mapper, requesting_actor_id)
         debug("Initializing Policy Engine:")
         debug("     ORG NAME: #{org.name}")
-        debug("       ORG DB: #{org_db}")
+        debug("       ORG DB: #{org.org_db}")
         debug("  user_mapper: #{user_mapper}")
         debug("          RAD: #{requesting_actor_id}")
 
         @org = org
         @org_name = org.name
-        @org_db = org_db
+        @org_db = org.org_db
         @global_db = Mixlib::Authorization::Config.default_database
         @requesting_actor_id = requesting_actor_id
         @scoped_groups = Mixlib::Authorization::Models::ScopedGroup.new(@org_db, @org_db, user_mapper, nil, nil)
         @global_groups = Mixlib::Authorization::Models::ScopedGroup.new(@global_db, @org_db, user_mapper, nil, nil)
-        @org_objects = OrgObjects.new(org, org_db, user_mapper, @scoped_groups, requesting_actor_id)
+        @org_objects = OrgObjects.new(org, @scoped_groups, requesting_actor_id)
+
+        # We don't need to concern ourselves with clients when we're
+        # creating the auth policy, since no clients exist at this
+        # point.
+        @authz_id_mapper = Mixlib::Authorization::AuthzIDMapper.new(@global_db, user_mapper, nil, false)
+
       end
 
       # Evaluates the default policy in the context of the organization
@@ -278,7 +289,7 @@ module Mixlib
 
       # Define a GroupAuthPolicy for the group +name+ via a block.
       def group(name)
-        group_policy = GroupAuthPolicy.new(name, @org_objects)
+        group_policy = GroupAuthPolicy.new(name, @org_objects, @authz_id_mapper)
         yield group_policy
       end
 
@@ -289,4 +300,3 @@ module Mixlib
     end
   end
 end
-

@@ -46,7 +46,7 @@ module Mixlib
         # * clients_in_sql::: NOT IMPLEMENTED YET
         def initialize(group_db, org_db, user_mapper, client_mapper=nil, clients_in_sql=false)
           @group_db = group_db
-          @org_db = @org_db
+          @org_db = org_db
           @authz_id_mapper = AuthzIDMapper.new(org_db, user_mapper, client_mapper, clients_in_sql)
         end
 

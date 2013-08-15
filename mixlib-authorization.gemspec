@@ -20,7 +20,13 @@ Gem::Specification.new do |s|
   s.add_dependency "rest-client"
 
   s.add_dependency "sequel", "~> 3.34.1"
-  s.add_dependency "activemodel"
+
+  # Pinning this to a pre-4.0.0 version.  Updating to 4.0.0+ will
+  # require changes to our regular expressions; see
+  # https://github.com/rails/rails/blob/4-0-stable/activemodel/CHANGELOG.md
+  # (last entry) and
+  # http://edgeguides.rubyonrails.org/security.html#regular-expressions.
+  s.add_dependency "activemodel", "~> 3.2.2"
 
   s.require_path = 'lib'
   s.files = %w(LICENSE README.rdoc Rakefile NOTICE) + Dir.glob("{lib,spec,features}/**/*")

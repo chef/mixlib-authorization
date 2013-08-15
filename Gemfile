@@ -17,13 +17,7 @@ gem "rake"
 # you can use the Rake tasks to run a schema migration.
 #
 
-group(:mysql) do
-  gem "mysql2"
-end
-
-group(:pg) do
-  gem "pg"
-end
+gem "pg", "~> 0.16.0"
 
 gem "highline"
 gem "rspec"

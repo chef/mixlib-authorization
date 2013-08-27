@@ -43,11 +43,10 @@ module Mixlib
         #   it's the same.
         # * user_mapper::: An Opscode::Mappers::User object
         # * client_mapper::: NOT IMPLEMENTED YET
-        # * clients_in_sql::: NOT IMPLEMENTED YET
-        def initialize(group_db, org_db, user_mapper, client_mapper=nil, clients_in_sql=false)
+        def initialize(group_db, org_db, user_mapper, client_mapper=nil)
           @group_db = group_db
           @org_db = org_db
-          @authz_id_mapper = AuthzIDMapper.new(org_db, user_mapper, client_mapper, clients_in_sql)
+          @authz_id_mapper = AuthzIDMapper.new(org_db, user_mapper, client_mapper)
         end
 
         # Lists all of the groups (just names) in +group_db+

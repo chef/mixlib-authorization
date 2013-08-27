@@ -117,41 +117,29 @@ module Mixlib
         # Sets up a new organization
         # couchdb_environments should be passed by the controller based upon
         # Darklaunch features
-        def setup!(user_mapper, requesting_actor_id, options)
-          create_database!(options[:couchdb_environments])
-          policy = OrgAuthPolicy.new(self, user_mapper, requesting_actor_id)
+        def setup!(user_mapper, requesting_actor_id, options=Hash.new)
+          create_database!
 
+          policy = OrgAuthPolicy.new(self, user_mapper, requesting_actor_id)
           policy.apply!
-          if !options[:couchdb_environments]
-            # This code makes a rest call to the erlang endpoint to
-            # create the _default environment
-            headers = {:headers => {'x-ops-request-source' => 'web', 'X-Ops-Darklaunch' => options[:xdarklaunch_headers]}}
-            rest = Chef::REST.new(Chef::Config[:chef_server_host_uri],
-                                  Chef::Config[:web_ui_proxy_user],
-                                  Chef::Config[:web_ui_private_key], headers)
-            rest.post_rest("organizations/#{name}/environments",
-                           {
-                             'name' => '_default',
-                             'description' => 'The default Chef environment'
-                           })
-          end
+
+          # Environments are in erchef / SQL. Make an HTTP request to create the default environment
+          headers = {:headers => {'x-ops-request-source' => 'web'}}
+          rest = Chef::REST.new(Chef::Config[:chef_server_host_uri],
+                                Chef::Config[:web_ui_proxy_user],
+                                Chef::Config[:web_ui_private_key], headers)
+          rest.post_rest("organizations/#{name}/environments",
+                        {
+                           'name' => '_default',
+                           'description' => 'The default Chef environment'
+                         })
         end
 
-        def create_database!(couchdb_environments)
+        def create_database!
           # Create the chef-specific design documents
           cdb = Chef::CouchDB.new("http://#{Mixlib::Authorization::Config.couchdb_uri}", orgname_to_dbname(name))
           cdb.create_db(false)
           cdb.create_id_map
-          Chef::Node.create_design_document(cdb)
-          Chef::Role.create_design_document(cdb)
-          Chef::DataBag.create_design_document(cdb)
-          Chef::DataBagItem.create_design_document(cdb)
-          Chef::Sandbox.create_design_document(cdb)
-          Chef::Checksum.create_design_document(cdb)
-          Chef::CookbookVersion.create_design_document(cdb)
-          Chef::Environment.create_design_document(cdb)
-          # Create the '_default' Environment
-          Chef::Environment.create_default_environment(cdb) if couchdb_environments
         end
       end
     end

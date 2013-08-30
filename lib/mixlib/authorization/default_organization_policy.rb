@@ -32,7 +32,7 @@ Mixlib::Authorization::OrgAuthPolicy.default do |org|
 
     admins.have_rights(:read, :update, :create, :grant, :delete) do |on|
       on.all_containers
-      on.groups(:admins, :users, :clients)
+      on.groups(:admins, :users, :clients, "billing-admins")
       on.organization
     end
   end

@@ -14,10 +14,6 @@ module Mixlib
       attr_reader :user_mapper
       attr_reader :client_mapper
 
-      def clients_in_sql?
-        @clients_in_sql
-      end
-
       # Create a new AuthzIDMapper.  This is responsible for mapping
       # Authz-side identifiers to user-side names, and vice versa.
       # Depending on how it is parameterized, it can map global-level
@@ -37,12 +33,6 @@ module Mixlib
       #   there will not be any clients, and so this parameter can be
       #   `nil`.
       #
-      # @param clients_in_sql [Boolean] When mapping in an org-scoped
-      #   context, clients can be found in either CouchDB or SQL,
-      #   depending on the migration status of the organization.  This
-      #   should be determined by querying XDarkLaunch in the
-      #   opscode-account layer, and passing the result in here.
-      #
       # @note The implementation here of ignoring clients for global
       #   objects is ugly; we need more clarity and explicitness
       #   around how we deal with global vs. non-global objects.
@@ -51,7 +41,7 @@ module Mixlib
       #   scheme) that allows you to explicitly create either a global
       #   or an org-scoped mapper, instead of relying on client code
       #   to know the correct combination of parameters.
-      def initialize(couch_db, user_mapper, client_mapper=nil, clients_in_sql=false)
+      def initialize(couch_db, user_mapper, client_mapper=nil)
         @group_authz_ids_by_name = {}
         @group_names_by_authz_id = {}
 
@@ -61,7 +51,6 @@ module Mixlib
         @couch_db = couch_db
         @user_mapper = user_mapper
         @client_mapper = client_mapper
-        @clients_in_sql = clients_in_sql
       end
 
       # Given a list of Authz IDs, resolve the user-side names of the
@@ -176,21 +165,16 @@ module Mixlib
       # @return [Array<String>] the names of clients corresponding to the given `authz_ids`
       def client_authz_ids_to_names(authz_ids)
 
-        if clients_in_sql?
-          # If the client mapper is nil, then we're probably dealing
-          # with a "global" mapper, in which case there aren't going
-          # to be clients anyway (since those are strictly org-scoped)
-          return [] if @client_mapper.nil?
+        # If the client mapper is nil, then we're probably dealing
+        # with a "global" mapper, in which case there aren't going
+        # to be clients anyway (since those are strictly org-scoped)
+        return [] if @client_mapper.nil?
 
-          # Otherwise, we're in an org-scoped mapper
-          clients = @client_mapper.find_all_by_authz_id(authz_ids)
-          # TODO: I think we can dispense with the caching here since we're coming from SQL
-          clients.each {|c| cache_actor_mapping(c.name, c.authz_id)}
-          clients.map(&:name)
-        else
-          # This also performs the caching of client mappings.
-          authz_ids.map {|authz_id| client_by_authz_id_couch(authz_id) }.compact
-        end
+        # Otherwise, we're in an org-scoped mapper
+        clients = @client_mapper.find_all_by_authz_id(authz_ids)
+        # TODO: I think we can dispense with the caching here since we're coming from SQL
+        clients.each {|c| cache_actor_mapping(c.name, c.authz_id)}
+        clients.map(&:name)
       end
 
       # Get the *NAME* of a client specified by the given Authz ID.
@@ -223,25 +207,15 @@ module Mixlib
 
       # @return [Array<String>] the Authz IDs that correspond to the given client names
       def client_names_to_authz_ids(client_names)
-        if clients_in_sql?
-          return [] if @client_mapper.nil?
+        return [] if @client_mapper.nil?
 
-          clients = client_mapper.find_all_for_authz_map(client_names)
-          unless clients.size == client_names.size
-            missing_client_names = client_names - clients.map(&:name)
-            raise InvalidGroupMember, "Clients #{missing_client_names.join(', ')} do not exist"
-          end
-          clients.each {|c| cache_actor_mapping(c.name, c.authz_id)}
-          clients.map(&:authz_id)
-        else
-          client_names.map do |clientname|
-            unless client = Models::Client.on(couch_db).by_clientname(:key=>clientname).first
-              raise InvalidGroupMember, "Client #{clientname} does not exist"
-            end
-            cache_actor_mapping(client.name, client.authz_id)
-            client.authz_id
-          end
+        clients = client_mapper.find_all_for_authz_map(client_names)
+        unless clients.size == client_names.size
+          missing_client_names = client_names - clients.map(&:name)
+          raise InvalidGroupMember, "Clients #{missing_client_names.join(', ')} do not exist"
         end
+        clients.each {|c| cache_actor_mapping(c.name, c.authz_id)}
+        clients.map(&:authz_id)
       end
 
       def group_authz_ids_to_names(group_ids)

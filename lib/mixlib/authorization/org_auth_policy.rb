@@ -236,14 +236,14 @@ module Mixlib
         @org_db = org.org_db
         @global_db = Mixlib::Authorization::Config.default_database
         @requesting_actor_id = requesting_actor_id
-        @scoped_groups = Mixlib::Authorization::Models::ScopedGroup.new(@org_db, @org_db, user_mapper, nil, nil)
-        @global_groups = Mixlib::Authorization::Models::ScopedGroup.new(@global_db, @org_db, user_mapper, nil, nil)
+        @scoped_groups = Mixlib::Authorization::Models::ScopedGroup.new(@org_db, @org_db, user_mapper, nil)
+        @global_groups = Mixlib::Authorization::Models::ScopedGroup.new(@global_db, @org_db, user_mapper, nil)
         @org_objects = OrgObjects.new(org, @scoped_groups, requesting_actor_id)
 
         # We don't need to concern ourselves with clients when we're
         # creating the auth policy, since no clients exist at this
         # point.
-        @authz_id_mapper = Mixlib::Authorization::AuthzIDMapper.new(@global_db, user_mapper, nil, false)
+        @authz_id_mapper = Mixlib::Authorization::AuthzIDMapper.new(@global_db, user_mapper, nil)
 
       end
 

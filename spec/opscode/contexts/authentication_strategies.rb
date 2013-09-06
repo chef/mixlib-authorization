@@ -11,8 +11,8 @@ shared_context 'authentication strategies' do
   end
 
   let(:user_mapper) do
-    mapper = mock(Opscode::Mappers::User)
-    mapper.stub!(:find_by_username).and_return(user)
+    mapper = double(Opscode::Mappers::User)
+    mapper.stub(:find_by_username).and_return(user)
     mapper
   end
 

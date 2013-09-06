@@ -10,17 +10,17 @@ describe Opscode::Authentication::Strategies::LDAP do
 
   let(:connection) do
     c = Net::LDAP.new
-    c.stub!(:bind).with({:method=>:simple,
+    c.stub(:bind).with({:method=>:simple,
       :username=>"uid=#{login},dc=opscode,dc=com", :password=>"pedant"}).and_return(true)
-    c.stub!(:bind).with({:method=>:simple,
+    c.stub(:bind).with({:method=>:simple,
       :username=>"uid=#{login},dc=opscode,dc=com", :password=>"FU"}).and_return(false)
-    c.stub!(:search).with(any_args()).and_yield(user)
+    c.stub(:search).with(any_args()).and_yield(user)
     c
   end
 
   let!(:strategy) do
     s = Opscode::Authentication::Strategies::LDAP.new(user_mapper, default_options)
-    s.stub!(:connection).and_return(connection)
+    s.stub(:connection).and_return(connection)
     s
   end
 
@@ -42,7 +42,7 @@ describe Opscode::Authentication::Strategies::LDAP do
     it "should allow customizaiton of the bind login format" do
       s = Opscode::Authentication::Strategies::LDAP.new(user_mapper,
             default_options.merge(:bind_login_format => "FAKE-%{uid}-FORMAT-%{login}-YO-%{base}"))
-      s.stub!(:connection).and_return(connection)
+      s.stub(:connection).and_return(connection)
       auth_hash = {:method=>:simple, :username=>"FAKE-uid-FORMAT-#{login}-YO-#{default_base}", :password=>"pedant"}
       connection.should_receive(:bind).with(auth_hash)
       s.authenticate(login, password)

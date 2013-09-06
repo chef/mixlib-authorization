@@ -3,7 +3,8 @@ require File.expand_path('../../../spec_helper', __FILE__)
 describe Acl do
   before do
     # TODO: This class should not even talk to the database at all.
-    Opscode::Mappers.connection_string = "mysql2://root@127.0.0.1/opscode_chef_test"
+    Opscode::Mappers.use_dev_config
+#    Opscode::Mappers.connection_string = "mysql2://root@127.0.0.1/opscode_chef_test"
   end
 
   describe "in the constructor" do
@@ -185,10 +186,10 @@ describe Ace do
 
     it "transforms its members from auth ids to users ids, given the organization database" do
       @ace.add_group("nominalists")
-      @ace.stub!(:transform_group_ids).with(%w{nominalists}, :ORGDB, :to_user).and_return(%w{utilitarians})
+      @ace.stub(:transform_group_ids).with(%w{nominalists}, :ORGDB, :to_user).and_return(%w{utilitarians})
 
       @ace.add_actor("beconstructive")
-      @ace.stub!(:transform_actor_ids).with(%w{beconstructive}, :ORGDB, :to_user).and_return(%w{quietdown})
+      @ace.stub(:transform_actor_ids).with(%w{beconstructive}, :ORGDB, :to_user).and_return(%w{quietdown})
 
       @ace.to_user(:ORGDB).should == Ace.new("groups"=>%w{utilitarians},"actors"=>%w{quietdown})
     end

@@ -10,7 +10,7 @@ describe Opscode::Mappers::User do
   end
 
   before do
-    @db[:users].truncate
+    @db.run("TRUNCATE TABLE users CASCADE;")
 
     @stats_client = TestingStatsClient.new
 
@@ -76,7 +76,7 @@ describe Opscode::Mappers::User do
     before do
       @user = Opscode::Models::User.load(@user_data)
       @now = Time.now
-      Time.stub!(:now).and_return(@now)
+      Time.stub(:now).and_return(@now)
       @mapper.create(@user)
     end
 

@@ -17,7 +17,7 @@ internal_database = 'opscode_account_internal_functional_test'
 # private_key = OpenSSL::PKey::RSA.new(File.read('/etc/opscode/azs.pem'))
 # webui_public_key = OpenSSL::PKey::RSA.new(File.read('/etc/opscode/webui_pub.pem'))
 couchdb_uri = 'localhost:5984'
-authorization_service_uri = 'http://localhost:5959'
+authorization_service_uri = Mixlib::Authorization::Config.authorization_service_uri
 #certificate_service_uri = 'http://localhost:5140/certificates'
 
 ## FAILSAFES ##

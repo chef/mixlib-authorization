@@ -13,12 +13,13 @@ describe Mixlib::Authorization::Models::JoinDocument do
     # metadata associated with the join itself. This class is more like a model
     # backed by web service resources
 
-    @authorization_service_uri = "http://localhost:5959"
+    @authorization_service_uri = Mixlib::Authorization::Config.authorization_service_uri
+    @default_requestor_id = Mixlib::Authorization::Config.superuser_id
   end
 
   describe "when the actor does not exist" do
     before do
-      @authz_model = actor.new(@authorization_service_uri, "requester_id" => 0, "object_id" => "f" * 32)
+      @authz_model = actor.new(@authorization_service_uri, "requester_id" => @default_requestor_id, "object_id" => "f" * 32)
     end
 
     it "raises NotFound when loading the authz data" do
@@ -33,9 +34,9 @@ describe Mixlib::Authorization::Models::JoinDocument do
 
   describe "when an actor has been created" do
     before do
-      @created_authz_model = actor.new(@authorization_service_uri, "requester_id" => 0)
+      @created_authz_model = actor.new(@authorization_service_uri, "requester_id" => @default_requestor_id)
       @created_authz_model.save
-      @authz_model = actor.new(@authorization_service_uri, "requester_id" => 0, "object_id" => @created_authz_model.id)
+      @authz_model = actor.new(@authorization_service_uri, "requester_id" => @default_requestor_id, "object_id" => @created_authz_model.id)
     end
 
     it "loads the authz object" do
@@ -72,7 +73,7 @@ describe Mixlib::Authorization::Models::JoinDocument do
 
     describe "when applying ACLs from a parent object" do
       before do
-        @container = Mixlib::Authorization::Models::JoinTypes::Object.new(@authorization_service_uri, "requester_id" => 0)
+        @container = Mixlib::Authorization::Models::JoinTypes::Object.new(@authorization_service_uri, "requester_id" => @default_requestor_id)
         @container.save
         %w{create read update delete grant}.each do |ace_type|
           @container.grant_permission_to_actor(ace_type, "fff000")

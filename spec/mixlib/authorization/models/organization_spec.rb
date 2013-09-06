@@ -19,7 +19,7 @@ describe Models::Organization do
       @org[:org_type] = "Business"
       @org[:clientname] = "org-validator"
       
-      @org.stub!(:unique_name?).and_return(true)
+      @org.stub(:unique_name?).and_return(true)
     end
     
     it "allows org names with 'a-z', '0-9', '_', and '-'" do

@@ -4,7 +4,6 @@ describe Acl do
   before do
     # TODO: This class should not even talk to the database at all.
     Opscode::Mappers.use_dev_config
-#    Opscode::Mappers.connection_string = "mysql2://root@127.0.0.1/opscode_chef_test"
   end
 
   describe "in the constructor" do

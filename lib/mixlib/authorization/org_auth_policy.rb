@@ -45,11 +45,13 @@ module Mixlib
         attr_reader :org_db
         attr_reader :requesting_actor_id
 
-        def initialize(org, scoped_groups, requesting_actor_id)
+        def initialize(org, scoped_groups, requesting_actor_id, mappers, options)
           @org = org
           @org_db = org.org_db
           @requesting_actor_id = requesting_actor_id
           @scoped_groups = scoped_groups
+
+          @mappers = mappers
 
           @groups_by_name = {}
           @containers_by_name = {}
@@ -57,7 +59,11 @@ module Mixlib
 
         def container(container_name)
           @containers_by_name[container_name] ||= begin
-            Mixlib::Authorization::Models::Container.on(org_db).by_containername(:key => container_name).first
+            if (@couchdb_containers)
+              Mixlib::Authorization::Models::Container.on(org_db).by_containername(:key => container_name).first
+            else
+              @mappers.container.find_by_name(container_name)
+            end
           end
         end
 
@@ -224,26 +230,32 @@ module Mixlib
         @default_policy
       end
 
-      def initialize(org, user_mapper, requesting_actor_id)
+      def initialize(org, requesting_actor_id, options)
         debug("Initializing Policy Engine:")
         debug("     ORG NAME: #{org.name}")
         debug("       ORG DB: #{org.org_db}")
         debug("  user_mapper: #{user_mapper}")
         debug("          RAD: #{requesting_actor_id}")
 
+        @couchdb_containers = !!options[:couchdb_containers]
+
         @org = org
         @org_name = org.name
         @org_db = org.org_db
         @global_db = Mixlib::Authorization::Config.default_database
-        @requesting_actor_id = requesting_actor_id
-        @scoped_groups = Mixlib::Authorization::Models::ScopedGroup.new(@org_db, @org_db, user_mapper, nil)
-        @global_groups = Mixlib::Authorization::Models::ScopedGroup.new(@global_db, @org_db, user_mapper, nil)
-        @org_objects = OrgObjects.new(org, @scoped_groups, requesting_actor_id)
 
-        # We don't need to concern ourselves with clients when we're
-        # creating the auth policy, since no clients exist at this
-        # point.
-        @authz_id_mapper = Mixlib::Authorization::AuthzIDMapper.new(@global_db, user_mapper, nil)
+        @mappers = Opscode::Mappers::Mappers.new do |m|
+          m.sql = Opscode::Mappers.default_connection
+          m.couchdb = @org_db
+          m.org_id = org.guid
+          m.stats_client = nil  ## TODO FIGURE OUT stats client
+          m.authz_id = requesting_actor_id
+        end
+
+        @requesting_actor_id = requesting_actor_id
+        @scoped_groups = Mixlib::Authorization::Models::ScopedGroup.new(@org_db, @org_db, @mappers, @couchdb_containers)
+        @global_groups = Mixlib::Authorization::Models::ScopedGroup.new(@global_db, @org_db, @mappers, @couchdb_containers)
+        @org_objects = OrgObjects.new(org, @scoped_groups, requesting_actor_id, @mappers, options)
 
       end
 
@@ -260,13 +272,21 @@ module Mixlib
       # Create the given containers
       def has_containers(*containers)
         containers.each do |container_name|
-        debug("* Creating #{container_name} container")
-          Models::Container.on(org_db).new( :containername => container_name.to_s,
-                                            :containerpath => container_name.to_s,
-                                            :requester_id  => requesting_actor_id).save!
+          debug("* Creating #{container_name} container")
+          
+          if (@couchdb_containers) 
+            Models::Container.on(org_db).new( :containername => container_name.to_s,
+                                              :containerpath => container_name.to_s,
+                                              :requester_id  => requesting_actor_id).save!
+          else
+            container = Opscode::Models::Container.new( :name => container_name.to_s,
+                                                        :org_id => @org.id,
+                                                        :requester_id  => @requesting_actor_id)
+            @mappers.container.create(container)
+          end
         end
       end
-
+        
       # Create the given +groups+
       def has_groups(*groups)
         groups.each do |group_name|
@@ -289,7 +309,7 @@ module Mixlib
 
       # Define a GroupAuthPolicy for the group +name+ via a block.
       def group(name)
-        group_policy = GroupAuthPolicy.new(name, @org_objects, @authz_id_mapper)
+        group_policy = GroupAuthPolicy.new(name, @org_objects, mapper.authz_id)
         yield group_policy
       end
 

@@ -117,10 +117,10 @@ module Mixlib
         # Sets up a new organization
         # couchdb_environments should be passed by the controller based upon
         # Darklaunch features
-        def setup!(user_mapper, requesting_actor_id, options=Hash.new)
+        def setup!(requesting_actor_id, options=Hash.new)
           create_database!
 
-          policy = OrgAuthPolicy.new(self, user_mapper, requesting_actor_id)
+          policy = OrgAuthPolicy.new(self, requesting_actor_id, options)
           policy.apply!
 
           # Environments are in erchef / SQL. Make an HTTP request to create the default environment
@@ -128,11 +128,12 @@ module Mixlib
           rest = Chef::REST.new(Chef::Config[:chef_server_host_uri],
                                 Chef::Config[:web_ui_proxy_user],
                                 Chef::Config[:web_ui_private_key], headers)
-          rest.post_rest("organizations/#{name}/environments",
-                        {
-                           'name' => '_default',
-                           'description' => 'The default Chef environment'
-                         })
+# TODO REVERT THIS ONCE THE ERCHEF CODE IS INTEGRATED
+#          rest.post_rest("organizations/#{name}/environments",
+#                        {
+#                           'name' => '_default',
+#                           'description' => 'The default Chef environment'
+#                         })
         end
 
         def create_database!

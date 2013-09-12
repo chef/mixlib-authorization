@@ -155,43 +155,21 @@ module Mixlib
 
       def find_client
         if orgname
-          if Opscode::DarkLaunch.is_feature_enabled?("couchdb_clients", orgname)
-            find_client_couchdb
-          else
-            find_client_sql
+          client_mapper = Opscode::Mappers::Client.new do |m|
+            m.db = Opscode::Mappers.default_connection
+            m.org_id = guid_from_orgname(orgname)
+            m.stats_client = nil
+            m.authz_id = 0
           end
 
+          if client = client_mapper.find_for_authentication(username)
+            @actor_type = :client
+          end
+          client
         else
           Log.debug "No database found for organization #{orgname}"
           nil
         end
-      end
-
-      def find_client_sql
-        client_mapper = Opscode::Mappers::Client.new do |m|
-          m.db = Opscode::Mappers.default_connection
-          m.org_id = guid_from_orgname(orgname)
-          m.stats_client = nil
-          m.authz_id = 0
-        end
-
-        if client = client_mapper.find_for_authentication(username)
-          @actor_type = :client
-        end
-
-        client
-      end
-
-      def find_client_couchdb
-        db = database_from_orgname(orgname)
-        Log.debug "checking for client #{username}"
-        client = Models::Client.on(db).by_clientname(:key=>username).first
-        Log.debug "Found client for #{username}"
-        @actor_type = :client
-        client
-      rescue ArgumentError
-        Log.debug "No client found for client name: #{username} in organization: #{orgname}"
-        nil
       end
 
       def create_authenticator

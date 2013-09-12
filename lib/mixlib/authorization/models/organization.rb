@@ -115,8 +115,6 @@ module Mixlib
         end
 
         # Sets up a new organization
-        # couchdb_environments should be passed by the controller based upon
-        # Darklaunch features
         def setup!(user_mapper, requesting_actor_id, options=Hash.new)
           create_database!
 

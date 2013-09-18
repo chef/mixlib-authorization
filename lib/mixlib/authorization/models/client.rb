@@ -187,6 +187,10 @@ module Mixlib
         def save_inherited_acl_as(requesting_actor_id)
           org_database = database_from_orgname(self.orgname)
           begin
+            # TODO REMOVE BEFORE MERGE; this exists to make sure we aren't going here
+            Mixlib::Authorization::Log.error "THIS SHOULD NOT BE USED (models/client.rb)"
+            exit(-1)
+
             container = Mixlib::Authorization::Models::Container.on(org_database).by_containername(:key => parent_container_name).first
             Mixlib::Authorization::Log.debug "CALLING ACL MERGER: object: #{inspect}, parent_name: #{parent_container_name}, org_database: #{org_database}, container: #{container.inspect}"
             raise Mixlib::Authorization::AuthorizationError, "failed to find parent #{parent_container_name} for ACL inheritance" if container.nil?

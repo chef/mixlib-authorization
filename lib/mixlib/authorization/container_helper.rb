@@ -53,9 +53,9 @@ module Mixlib
               container_join_acl = container.fetch_join_acl
               cacl = Acl.new(container_join_acl, authz_id_mapper) # The authz_id_mapper needs to be in the class this is mixed into :'(
               sacl = Acl.new(sender.fetch_join_acl, authz_id_mapper) # Ditto
-              Mixlib::Authorization::Log.debug { "CONTAINER ACL: #{cacl.to_user(org_database).inspect},\nSENDER ACL: #{sacl.to_user(org_database).inspect}" }
+ #             Mixlib::Authorization::Log.debug { "CONTAINER ACL: #{cacl.to_user(org_database).inspect},\nSENDER ACL: #{sacl.to_user(org_database).inspect}" }
               sacl.merge!(cacl)
-              Mixlib::Authorization::Log.debug { "MERGED SENDER ACL: #{sacl.to_user(org_database).inspect}" }
+ #             Mixlib::Authorization::Log.debug { "MERGED SENDER ACL: #{sacl.to_user(org_database).inspect}" }
               sacl.aces.each {  |ace_name,ace| sender.update_join_ace(ace_name, ace.ace) }
             rescue => e
               # 4/11/2011 nuo:

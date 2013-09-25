@@ -60,17 +60,25 @@ module Mixlib
         end
 
         def container(container_name)
-          @containers_by_name[container_name] ||= begin
-            if (@couchdb_containers)
-              Mixlib::Authorization::Models::Container.on(org_db).by_containername(:key => container_name).first
-            else
-              @mappers.container.find_by_name(container_name)
+          @containers_by_name[container_name] ||= 
+            begin
+              if (@couchdb_containers)
+                Mixlib::Authorization::Models::Container.on(org_db).by_containername(:key => container_name).first
+              else
+                @mappers.container.find_by_name(container_name)
+              end
             end
-          end
         end
 
         def group(group_name)
-          @groups_by_name[group_name] ||= @scoped_groups.find_by_name(group_name)
+          @groups_by_name[group_name] ||= 
+            begin
+              if (@couchdb_groups)                                                 
+                @scoped_groups.find_by_name(group_name)
+              else
+                @mappers.groups.find_by_name(group_name)
+              end
+            end
         end
 
         def organization
@@ -240,6 +248,7 @@ module Mixlib
         debug("          RAD: #{requesting_actor_id}")
 
         @couchdb_containers = !!options[:couchdb_containers]
+        @couchdb_groups = !!options[:couchdb_containers]
 
         @org = org
         @org_name = org.name
@@ -252,11 +261,12 @@ module Mixlib
           m.org_id = org.guid
           m.stats_client = nil  ## TODO FIGURE OUT stats client
           m.authz_id = requesting_actor_id
+          m.groups_in_sql = !@couchdb_groups
         end
 
         @requesting_actor_id = requesting_actor_id
-        @scoped_groups = Mixlib::Authorization::Models::ScopedGroup.new(@org_db, @org_db, @mappers, @couchdb_containers)
-        @global_groups = Mixlib::Authorization::Models::ScopedGroup.new(@global_db, @org_db, @mappers, @couchdb_containers)
+        @scoped_groups = Mixlib::Authorization::Models::ScopedGroup.new(@org_db, @org_db, @mappers, @couchdb_containers, @couchdb_groups)
+        @global_groups = Mixlib::Authorization::Models::ScopedGroup.new(@global_db, @org_db, @mappers, @couchdb_containers, @couchdb_groups)
         @org_objects = OrgObjects.new(org, @scoped_groups, requesting_actor_id, @mappers, options)
 
       end

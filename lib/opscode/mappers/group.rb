@@ -153,6 +153,11 @@ module Opscode
         row && inflate_model(row)
       end
 
+      def find_by_authz_id(authz_id)
+        row = execute_sql(:read, :group) { table.filter(:authz_id => authz_id).first }
+        row && inflate_model(row)
+      end
+
       def inflate_model(row_data)
         group = Models::Group.load(map_from_row!(row_data))
         group.persisted!

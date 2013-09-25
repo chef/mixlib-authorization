@@ -55,6 +55,8 @@ module Mixlib
 
           @groups_by_name = {}
           @containers_by_name = {}
+
+          @couchdb_containers = options[:couchdb_containers]
         end
 
         def container(container_name)
@@ -309,7 +311,7 @@ module Mixlib
 
       # Define a GroupAuthPolicy for the group +name+ via a block.
       def group(name)
-        group_policy = GroupAuthPolicy.new(name, @org_objects, mapper.authz_id)
+        group_policy = GroupAuthPolicy.new(name, @org_objects, @mappers.authz_id)
         yield group_policy
       end
 

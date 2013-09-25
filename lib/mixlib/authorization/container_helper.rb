@@ -22,11 +22,11 @@ module Mixlib
 
       module ClassMethods
         ## TODO Refactor (this replicates stuff in application.rb)
-        def get_container(name, mappers, couchdb_containers) 
+        def get_container(name, org_database, mappers, couchdb_containers) 
           ## organizations and users remain in couchdb
           Mixlib::Authorization::Log.debug { "Getting container #{name} (#{@couchdb_containers})" }
           if (couchdb_containers || name == "organizations" || name == "users")
-            Mixlib::Authorization::Models::Container.on(database).by_containerpath(:key=>name).first
+            Mixlib::Authorization::Models::Container.on(org_database).by_containerpath(:key=>name).first
           else
             mappers.container.find_by_name(name)
           end
@@ -41,12 +41,12 @@ module Mixlib
           @container_helper_acl_merger = Proc.new { |sender, org_database, mappers, couchdb_containers|
             begin
               authz_id_mapper = mappers.authz_id
-              container = get_container(parent_name, mappers, couchdb_containers)
+              container = get_container(parent_name, org_database, mappers, couchdb_containers)
               Mixlib::Authorization::Log.debug { "CALLING ACL MERGER: sender: #{sender.inspect}, parent_name: #{parent_name}, org_database: #{org_database}, container: #{container.inspect}" }
               # Retries are silly; this should go away
               if container.nil?
                 Mixlib::Authorization::Log.error "CALLING ACL MERGER: sender: #{sender.inspect}, parent_name: #{parent_name}, org_database: #{org_database}, container: #{container.inspect}"
-                try_again = get_container(parent_name, mappers, couchdb_containers)
+                try_again = get_container(parent_name, org_database, mappers, couchdb_containers)
                 Mixlib::Authorization::Log.error "Did a retry work? #{try_again.inspect}"
                 raise Mixlib::Authorization::AuthorizationError, "failed to find parent #{parent_name} for ACL inheritance"
               end

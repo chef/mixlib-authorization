@@ -58,14 +58,6 @@ module Opscode
       def update_join_ace(type, data)
         join_type.update_ace(type,data)
       end
-#
-#      def authz_object_as(requesting_actor_id)
-#        join_type.authz_object_as(requesting_actor_id)
-#      end
-#
-#      def grant_permission_to_actor(perm, authz_id)
-#         join_type.grant_permission_to_actor(perm, authz_id)
-#      end
 
       # Assigns instance variables from "safe" params, that is ones that are
       # not defined via +protected_attribute+.

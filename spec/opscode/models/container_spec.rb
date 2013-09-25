@@ -128,7 +128,7 @@ describe Opscode::Models::Container do
       end
 
       it "has a name" do
-        @container_for_json[:name].should == "takeout"
+        @container_for_json["containername"].should == "takeout"
       end
 
     end

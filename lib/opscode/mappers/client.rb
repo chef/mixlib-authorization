@@ -24,7 +24,7 @@ module Opscode
       # block, which yields a MapperConfig object. Example:
       #     Opscode::Mappers::Client.new do |m|
       #       m.db = Sequel.connect("mysql2:// ...")
-      #       m.ampq = Chef::AmqpClient.instance
+      #       m.amqp = Chef::AmqpClient.instance
       #       m.org_id = "fffffff ..."
       #       m.stats_client = request.env['statsd.service.client'] # we use statsd via middleware
       #       m.authz_id = "123defffff ..."

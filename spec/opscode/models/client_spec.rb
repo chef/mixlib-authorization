@@ -229,7 +229,7 @@ describe Opscode::Models::Client do
     describe "when converted to a Hash for indexing" do
       before do
         @now = Time.now
-        Time.stub!(:new).and_return(@now)
+        Time.stub(:new).and_return(@now)
         @client_for_index = @client.for_index
       end
 
@@ -283,19 +283,19 @@ describe Opscode::Models::Client do
     describe "when authorizing a request" do
 
       it "creates an authorization side object" do
-        @client.create_authz_object_as(0)
+        @client.create_authz_object_as(Mixlib::Authorization::Config.dummy_actor_id)
         @client.authz_id.should_not be_nil
         authz_id = @client.authz_id
-        @client.authz_object_as(0).fetch.should == {"id" => authz_id}
+        @client.authz_object_as(Mixlib::Authorization::Config.dummy_actor_id).fetch.should == {"id" => authz_id}
       end
 
       describe "and the authz side has been created" do
         before do
-          @client.create_authz_object_as(0)
+          @client.create_authz_object_as(Mixlib::Authorization::Config.dummy_actor_id)
         end
 
         it "checks authorization rights" do
-          @client.should_not be_authorized("123456789abcdef", :update)
+          @client.should_not be_authorized(Mixlib::Authorization::Config.other_actor_id1, :update)
           @client.should be_authorized(@client.authz_id, :update)
         end
 

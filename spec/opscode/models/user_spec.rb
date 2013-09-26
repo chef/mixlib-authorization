@@ -716,7 +716,7 @@ describe Opscode::Models::User do
       @user.authz_id.should be_nil
       @user.created_at.should be_nil
       @user.updated_at.should be_nil
-      @user.recovery_authentication_enabled.should be_nil
+      @user.recovery_authentication_enabled.should be_true
     end
 
   end
@@ -785,19 +785,19 @@ describe Opscode::Models::User do
     end
 
     it "creates an authorization side object" do
-      @user.create_authz_object_as(0)
+      @user.create_authz_object_as(Mixlib::Authorization::Config.dummy_actor_id)
       @user.authz_id.should_not be_nil
       authz_id = @user.authz_id
-      @user.authz_object_as(0).fetch.should == {"id" => authz_id}
+      @user.authz_object_as(Mixlib::Authorization::Config.dummy_actor_id).fetch.should == {"id" => authz_id}
     end
 
     describe "and the authz side has been created" do
       before do
-        @user.create_authz_object_as(0)
+        @user.create_authz_object_as(Mixlib::Authorization::Config.dummy_actor_id)
       end
 
-      it "checks authorization rights" do
-        @user.should_not be_authorized("123456789abcdef", :update)
+      it "checks authorization rights", :focus => true do
+        @user.should_not be_authorized(Mixlib::Authorization::Config.other_actor_id1, :update)
         @user.should be_authorized(@user.authz_id, :update)
       end
 

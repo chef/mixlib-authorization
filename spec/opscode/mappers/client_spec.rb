@@ -16,10 +16,10 @@ describe Opscode::Mappers::Client do
   end
 
   before do
-    @db[:clients].truncate
+    @db.run("TRUNCATE TABLE clients CASCADE;")
 
     @stats_client = TestingStatsClient.new
-    @amqp_client = mock("Chef AMQP Client")
+    @amqp_client = double("Chef AMQP Client")
     @org_id = "fff00000000000000000000000000000"
 
     @mapper = Opscode::Mappers::Client.new do |m|
@@ -38,14 +38,14 @@ describe Opscode::Mappers::Client do
 
     @authz_server = Mixlib::Authorization::Config.authorization_service_uri
     @container_authz_model = AuthzModels::JoinTypes::Container.new(@authz_server,
-                                                                   "requester_id" => ("0" * 32))
+                                                                   "requester_id" => Mixlib::Authorization::Config.dummy_actor_id)
     @sentinel_actor_id = "86"
 
     @container_authz_model.save
     @container_authz_model.grant_permission_to_actor("grant", @sentinel_actor_id)
 
-    @clients_container = mock("ClientsContainer", :authz_object_as => @container_authz_model)
-    @clients_container.stub!(:[]).with(:requester_id).and_return("0")
+    @clients_container = double("ClientsContainer", :authz_object_as => @container_authz_model)
+    @clients_container.stub(:[]).with(:requester_id).and_return("0")
   end
 
   describe "when there are no clients in the database" do
@@ -90,7 +90,7 @@ describe Opscode::Mappers::Client do
 
   describe "after creating a validator client" do
     before do
-      @queue = mock("AMQP Queue")
+      @queue = double("AMQP Queue")
       @amqp_client.should_receive(:transaction).and_yield
       @amqp_client.should_receive(:queue_for_object).and_yield(@queue)
       @queue.should_receive(:publish)
@@ -118,7 +118,7 @@ describe Opscode::Mappers::Client do
 
     describe "and creating another validator" do
       before do
-        @queue = mock("AMQP Queue")
+        @queue = double("AMQP Queue")
         @amqp_client.should_receive(:transaction).and_yield
         @amqp_client.should_receive(:queue_for_object).and_yield(@queue)
         @queue.should_receive(:publish)
@@ -142,7 +142,7 @@ describe Opscode::Mappers::Client do
                                              :id => '1' * 32,
                                              :authz_id => '2' * 32)
 
-      @queue = mock("AMQP Queue")
+      @queue = double("AMQP Queue")
       @amqp_client.should_receive(:transaction).and_yield
       @amqp_client.should_receive(:queue_for_object).and_yield(@queue)
       @queue.should_receive(:publish)
@@ -257,7 +257,7 @@ describe Opscode::Mappers::Client do
 
   describe "after creating a client without an id or authz_id" do
     before do
-      @queue = mock("AMQP Queue")
+      @queue = double("AMQP Queue")
       @amqp_client.should_receive(:transaction).and_yield
       @amqp_client.should_receive(:queue_for_object).and_yield(@queue)
       @queue.should_receive(:publish)

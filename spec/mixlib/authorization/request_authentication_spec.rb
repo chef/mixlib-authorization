@@ -20,11 +20,11 @@ end
 
 describe RequestAuthentication do
   before(:all) do
-    Opscode::Mappers.connection_string = "mysql2://root@127.0.0.1/opscode_chef_test"
+    Opscode::Mappers.use_dev_config
   end
 
   before do
-    Opscode::Mappers.default_connection[:users].truncate
+    Opscode::Mappers.default_connection.run("TRUNCATE TABLE users CASCADE;")
     @user_class     = Struct::MockAuthModelsUser
     @client_class   = Struct::MockAuthModelsClient
     @actor_class    = Struct::MockAuthModelsActor
@@ -107,7 +107,7 @@ describe RequestAuthentication do
       # Client Data
       @client_data = {:clientname => "a_knife_client", :orgname => "example-org", :certificate => AuthzFixtures::CERT}
       @client = Mixlib::Authorization::Models::Client.new(@client_data)
-      @client.stub!(:authz_id).and_return("123abc")
+      @client.stub(:authz_id).and_return("123abc")
 
       # Generate the request data/signature
       @client_side_data = {:http_method => "GET", :path => "/testing", :body => "", :host => 'mixlib-authz.example.com', :timestamp => Time.now.to_s, :user_id => 'a_knife_client'}
@@ -125,7 +125,7 @@ describe RequestAuthentication do
       @req = @request_class.new(@server_side_headers, {}, "GET", "/testing")
       @params = {:organization_id => "example-org"}
       @request_auth = Mixlib::Authorization::RequestAuthentication.new(@req, @params)
-      @request_auth.stub!(:database_from_orgname).and_return(:couchrest_db_for_example_org)
+      @request_auth.stub(:database_from_orgname).and_return(:couchrest_db_for_example_org)
 
     end
 
@@ -139,8 +139,8 @@ describe RequestAuthentication do
 
     describe "and the client does not exist in the database" do
       before do
-        @org_scoped_client_model = mock("CouchDB Client model for example-org", :by_clientname => [ ])
-        Mixlib::Authorization::Models::Client.stub!(:on).with(:couchrest_db_for_example_org).and_return(@org_scoped_client_model)
+        @org_scoped_client_model = double("CouchDB Client model for example-org", :by_clientname => [ ])
+        Mixlib::Authorization::Models::Client.stub(:on).with(:couchrest_db_for_example_org).and_return(@org_scoped_client_model)
       end
 
       it "fails authentication" do
@@ -152,8 +152,8 @@ describe RequestAuthentication do
     describe "and the client exists in the database" do
       before do
         # Wire up the layers of proxies and such for CouchREST
-        @org_scoped_client_model = mock("CouchDB Client model for example-org", :by_clientname => [ @client ])
-        Mixlib::Authorization::Models::Client.stub!(:on).with(:couchrest_db_for_example_org).and_return(@org_scoped_client_model)
+        @org_scoped_client_model = double("CouchDB Client model for example-org", :by_clientname => [ @client ])
+        Mixlib::Authorization::Models::Client.stub(:on).with(:couchrest_db_for_example_org).and_return(@org_scoped_client_model)
       end
 
       it "fetches the client from the database" do

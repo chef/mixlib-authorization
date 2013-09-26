@@ -32,7 +32,7 @@ module Opscode
     end
 
 
-    # Searches ~/.opscode and then /etc/opscde for a DATABSE_URI file
+    # Searches ~/.opscode and then /etc/opscde for a DATABASE_URI file
     # containing the connection string to use for a dev environment.
     def self.use_dev_config
       config_name = "DATABASE_URI"
@@ -42,7 +42,6 @@ module Opscode
         uri_file = "#{config_dir}/#{config_name}"
         if File.exists?(uri_file)
           @connection_string = IO.read(uri_file).strip
-          puts "Found databse config at #{uri_file}"
           found = true
           break
         else
@@ -53,7 +52,7 @@ module Opscode
         puts "*" * 72
         puts "Could not find #{config_name} file in ~/.opscode or /etc/opscode"
         puts "Create ~/.opscode/#{config_name} with the following contents and retry:"
-        puts "mysql2://dev:opensesame@localhost/opscode_chef"
+        puts "postgres://opscode_chef@localhost/opscode_chef"
         puts "*" * 72
         raise "missing #{config_name} file"
       end
@@ -67,6 +66,7 @@ module Opscode
     # database via callbacks, which they can only do via de facto globals.
     def self.default_connection
       @database ||= Sequel.connect(connection_string, :max_connections => 2)
+#      @database.loggers << Logger.new($stdout)
     end
 
 

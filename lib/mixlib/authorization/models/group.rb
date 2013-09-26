@@ -34,6 +34,8 @@ module Mixlib
       class ScopedGroup
         attr_reader :group_db
         attr_reader :authz_id_mapper
+        attr_reader :mappers
+        attr_reader :couchdb_containers
 
         # Create a ScopedGroup
         # === Arguments
@@ -43,10 +45,12 @@ module Mixlib
         #   it's the same.
         # * user_mapper::: An Opscode::Mappers::User object
         # * client_mapper::: NOT IMPLEMENTED YET
-        def initialize(group_db, org_db, user_mapper, client_mapper=nil)
+        def initialize(group_db, org_db, mappers, couchdb_containers)
           @group_db = group_db
           @org_db = org_db
-          @authz_id_mapper = AuthzIDMapper.new(org_db, user_mapper, client_mapper)
+          @mappers = mappers
+          @couchdb_containers = couchdb_containers
+          @authz_id_mapper = mappers.authz_id
         end
 
         # Lists all of the groups (just names) in +group_db+
@@ -59,6 +63,8 @@ module Mixlib
           group = Group.on(group_db).by_groupname(:key => name).first
           group && group.database = group_db
           group && group.authz_id_mapper = authz_id_mapper
+          group && group.mappers = mappers
+          group && group.couchdb_containers = couchdb_containers
           group
         end
 
@@ -68,6 +74,8 @@ module Mixlib
           group = Group.on(group_db).new(attrs)
           group.database = group_db
           group.authz_id_mapper = authz_id_mapper
+          group.mappers = mappers
+          group.couchdb_containers = couchdb_containers
           group.actor_and_group_names = actor_and_group_names if actor_and_group_names
           group
         end
@@ -106,7 +114,9 @@ module Mixlib
         # This has to be a setter for ScopedGroup to correctly initialize a
         # Group. Not meant to be set anywhere else.
         attr_accessor :authz_id_mapper
-
+        attr_accessor :mappers
+        attr_accessor :couchdb_containers
+        
         def initialize(attributes={})
           # Remove deprecated user-side membership data--we rely exclusively on
           # authz for membership data now.

@@ -128,12 +128,11 @@ module Mixlib
           rest = Chef::REST.new(Chef::Config[:chef_server_host_uri],
                                 Chef::Config[:web_ui_proxy_user],
                                 Chef::Config[:web_ui_private_key], headers)
-# TODO REVERT THIS ONCE THE ERCHEF CODE IS INTEGRATED
-#          rest.post_rest("organizations/#{name}/environments",
-#                        {
-#                           'name' => '_default',
-#                           'description' => 'The default Chef environment'
-#                         })
+          rest.post_rest("organizations/#{name}/environments",
+                         {
+                           'name' => '_default',
+                           'description' => 'The default Chef environment'
+                         })
         end
 
         def create_database!

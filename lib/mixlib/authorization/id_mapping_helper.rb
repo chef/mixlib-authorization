@@ -77,7 +77,9 @@ module Mixlib
         transformed_ids
       end
 
+      # tenatively marking as unused 
       def transform_group_ids(incoming_groups, org_database, direction)
+        raise Exception.new("portme")
         incoming_groups.inject([]) do |outgoing_groups, incoming_group|
           group = case direction
                   when  :to_user
@@ -90,7 +92,9 @@ module Mixlib
         end
       end
 
+      # tenatively marking as unused 
       def auth_group_to_user_group(group_id, org_database)
+        raise Exception.new("portme")
         raise ArgumentError, "must supply group id" unless group_id
         Mixlib::Authorization::Log.debug("auth group to user group: #{group_id}, database: #{org_database && org_database.name}")
         auth_join = AuthJoin.by_auth_object_id(:key=>group_id).first
@@ -105,7 +109,9 @@ module Mixlib
         user_group
       end
 
+      # tenatively marking as unused 
       def user_group_to_auth_group(group_id, org_database)
+        raise Exception.new("portme")
         raise ArgumentError, "must supply group id" unless group_id
         group_obj = Mixlib::Authorization::Models::Group.on(org_database).by_groupname(:key=>group_id).first
         Mixlib::Authorization::Log.debug("user-side group: #{group_obj.inspect}")

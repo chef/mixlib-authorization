@@ -12,14 +12,14 @@ module Opscode
     class InvalidParameters < ArgumentError
     end
 
-    class Container < Base
+    class Group < Base
       include ActiveModel::Validations
 
-      use_authz_model_class(Opscode::AuthzModels::Container)
+      use_authz_model_class(Opscode::AuthzModels::Group)
       
       # not sure if this should be a ro_attribute or a protected_attribute; renames aren't allowed
       ro_attribute :name
-      alias :containername :name
+      alias :groupname :name
 
       protected_attribute :id
       protected_attribute :authz_id
@@ -33,7 +33,6 @@ module Opscode
 
       validates_presence_of :name, :message => "must not be blank"
       validates_format_of   :name, :with => /\A([a-zA-Z0-9\-_\.])*\z/, :message => "has an invalid format"
-
       
 
       # Returns the class object that is used for the authz side representation
@@ -43,7 +42,7 @@ module Opscode
       end
 
       def join_type 
-        Mixlib::Authorization::Models::JoinTypes::Container.new(Mixlib::Authorization::Config.authorization_service_uri,
+        Mixlib::Authorization::Models::JoinTypes::Group.new(Mixlib::Authorization::Config.authorization_service_uri,
                                                                 "requester_id" => last_updated_by,
                                                                 "object_id" => authz_id)
       end
@@ -105,8 +104,7 @@ module Opscode
       # for publishing via API. Protected attributes will not be included.
       def for_json
         hash_for_json = {
-          "containername"=>name,
-          "containerpath"=>"/"
+          "groupname"=>name
         }
       end
 

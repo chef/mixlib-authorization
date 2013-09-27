@@ -114,7 +114,7 @@ module Opscode
       def for_json
         hash_for_json = {
           "containername"=>name,
-          "containerpath"=>"/"
+          "containerpath"=>name
         }
       end
 

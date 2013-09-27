@@ -16,7 +16,7 @@ module Opscode
       include ActiveModel::Validations
 
       use_authz_model_class(Opscode::AuthzModels::Container)
-      
+
       # not sure if this should be a ro_attribute or a protected_attribute; renames aren't allowed
       ro_attribute :name
       alias :containername :name
@@ -34,7 +34,7 @@ module Opscode
       validates_presence_of :name, :message => "must not be blank"
       validates_format_of   :name, :with => /\A([a-zA-Z0-9\-_\.])*\z/, :message => "has an invalid format"
 
-      
+
 
       # Returns the class object that is used for the authz side representation
       # of this model. If not set, it will raise a NotImplementedError.
@@ -42,7 +42,7 @@ module Opscode
         self.class.authz_model_class
       end
 
-      def join_type 
+      def join_type
         Mixlib::Authorization::Models::JoinTypes::Container.new(Mixlib::Authorization::Config.authorization_service_uri,
                                                                 "requester_id" => last_updated_by,
                                                                 "object_id" => authz_id)
@@ -58,14 +58,6 @@ module Opscode
       def update_join_ace(type, data)
         join_type.update_ace(type,data)
       end
-#
-#      def authz_object_as(requesting_actor_id)
-#        join_type.authz_object_as(requesting_actor_id)
-#      end
-#
-#      def grant_permission_to_actor(perm, authz_id)
-#         join_type.grant_permission_to_actor(perm, authz_id)
-#      end
 
       # Assigns instance variables from "safe" params, that is ones that are
       # not defined via +protected_attribute+.
@@ -114,7 +106,7 @@ module Opscode
       def for_json
         hash_for_json = {
           "containername"=>name,
-          "containerpath"=>"/"
+          "containerpath"=>name
         }
       end
 
@@ -122,4 +114,3 @@ module Opscode
     end
   end
 end
-

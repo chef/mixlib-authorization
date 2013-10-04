@@ -1,8 +1,8 @@
-require File.expand_path('../../spec_helper', __FILE__)
+require 'spec_helper'
 
 include Fixtures
 
-describe Opscode::Models::User do
+describe Opscode::Models::User, :pending => 'Users are in Erlang now' do
 
   it_should_behave_like("an active model")
 
@@ -796,7 +796,7 @@ describe Opscode::Models::User do
         @user.create_authz_object_as(Mixlib::Authorization::Config.dummy_actor_id)
       end
 
-      it "checks authorization rights", :focus => true do
+      it "checks authorization rights" do
         @user.should_not be_authorized(Mixlib::Authorization::Config.other_actor_id1, :update)
         @user.should be_authorized(@user.authz_id, :update)
       end

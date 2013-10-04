@@ -1,6 +1,6 @@
-require File.expand_path('../../../spec_helper', __FILE__)
+require 'spec_helper'
 
-describe Acl do
+describe Acl, :pending => 'acls not in ruby' do
   before do
     # TODO: This class should not even talk to the database at all.
     Opscode::Mappers.use_dev_config
@@ -124,7 +124,7 @@ describe Acl do
   end
 end
 
-describe Ace do
+describe Ace, :pending => 'ACE not in ruby' do
   it "should not be equal to another ace that has different groups and actors" do
     an_empty_ace = Ace.new
     a_non_empty_ace = Ace.new({"actors" => ["frankie-muniz"], "groups" => ["heh"]})

@@ -1,5 +1,3 @@
-Opscode::Mappers.use_dev_config
-
 module Fixtures
 
   SAMPLE_CERT =<<-CERT
@@ -61,4 +59,3 @@ COOLSTORYBRO
 
 end
 
-include Opscode::Models

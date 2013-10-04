@@ -2,7 +2,7 @@ require 'spec_helper'
 
 include Fixtures
 
-describe Opscode::Models::User do
+describe Opscode::Models::User, :pending => 'Users are in Erlang now' do
 
   it_should_behave_like("an active model")
 

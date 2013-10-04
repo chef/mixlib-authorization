@@ -1,4 +1,4 @@
-require File.expand_path(File.dirname(__FILE__) + '/../../spec_helper')
+require 'spec_helper'
 
 Struct.new("MockAuthModelsUser", :id, :username, :public_key)
 Struct.new("MockAuthModelsClient", :id, :clientname, :public_key, :validator)

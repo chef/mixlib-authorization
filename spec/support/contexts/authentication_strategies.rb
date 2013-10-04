@@ -1,3 +1,5 @@
+require 'spec_helper'
+
 shared_context 'authentication strategies' do
 
   let(:login){ 'opscode' }

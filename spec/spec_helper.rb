@@ -11,6 +11,15 @@ require 'mixlib/authorization/request_authentication'
 
 require 'opscode/models/user'
 
+RSpec.configure do |c|
+  c.treat_symbols_as_metadata_keys_with_true_values = true
+
+  # If you just want to run one (or a few) tests in development,
+  # add :focus metadata
+  c.filter_run :focus => true
+  c.run_all_when_everything_filtered = true
+end
+
 Mixlib::Authorization::Config.authorization_service_uri ||= 'http://localhost:9463'
 
 def mk_actor() 

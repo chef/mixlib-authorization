@@ -796,7 +796,7 @@ describe Opscode::Models::User do
         @user.create_authz_object_as(Mixlib::Authorization::Config.dummy_actor_id)
       end
 
-      it "checks authorization rights", :focus => true do
+      it "checks authorization rights" do
         @user.should_not be_authorized(Mixlib::Authorization::Config.other_actor_id1, :update)
         @user.should be_authorized(@user.authz_id, :update)
       end

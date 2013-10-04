@@ -294,6 +294,10 @@ module Opscode
         super
       end
 
+      def to_partial_path
+        ""
+      end
+
       private
 
       # Generates a 60 Char salt in URL-safe BASE64 and sets @salt to this value

@@ -2,10 +2,12 @@
 # ^^ is needed for the email address regex to work properly
 require 'openssl'
 require 'digest/sha2'
+require 'bcrypt'
 require 'active_model'
 require 'active_model/validations'
 
 require 'opscode/models/base'
+
 
 module Opscode
   module Models
@@ -14,6 +16,9 @@ module Opscode
 
     class User < Base
 
+      DEFAULT_BCRYPT_COST = 12
+      HASH_TYPE_SHA1BCRYPT = 'sha1-bcrypt'
+      HASH_TYPE_BCRYPT     = 'bcrypt'
 
       include ActiveModel::Validations
 
@@ -174,8 +179,6 @@ module Opscode
           (user.hashed_password.to_s.hex ^ hashed_candidate_password.hex) == 0
         end
 
-        private
-
         # Generates a 60 Char salt in URL-safe BASE64 and sets @salt to this value
         def generate_salt
           base64_salt = [OpenSSL::Random.random_bytes(48)].pack("m*").delete("\n")
@@ -185,9 +188,36 @@ module Opscode
           base64_salt[0..59]
         end
 
+        private
+
         def encrypt_password(password, salt)
           Digest::SHA1.hexdigest("#{salt}--#{password}--")
         end
+      end
+
+      class SHA1BCryptPassword < HashType
+        # Instead, opscode-account should automatically convert to bcrypt on login/password change.
+        def encrypt(unhashed_password)
+          bcrypt_salt = BCrypt::Engine.generate_salt(DEFAULT_BCRYPT_COST)
+          sha1_salt = user.salt || LegacyPassword.new(user).generate_salt
+
+          # Wrap legacy password inside a bcrypt hash
+          sha1_hashed_password = sha1_encrypt_password(unhashed_password, sha1_salt)
+          bcrypt_secret = BCrypt::Engine.hash_secret(sha1_hashed_password, bcrypt_salt)
+
+          [bcrypt_secret, sha1_salt]
+        end
+
+        def correct_password?(candidate_password)
+          BCrypt::Password.new(user.hashed_password.to_s) == sha1_encrypt_password(candidate_password, user.salt)
+        end
+
+        private
+        def sha1_encrypt_password(password, salt)
+          Digest::SHA1.hexdigest("#{salt}--#{password}--")
+        end
+        # This is defined more as a way to test it. In production, this method should never be called.
+
       end
 
       # Assigns instance variables from "safe" params, that is ones that are
@@ -230,7 +260,14 @@ module Opscode
       end
 
       def hash_strategy
-        LegacyPassword.new(self)
+        case hash_type
+        when HASH_TYPE_SHA1BCRYPT
+          SHA1BCryptPassword.new(self)
+        when nil
+          LegacyPassword.new(self)
+        else
+          raise 'Unimplemented hash type'
+        end
       end
 
       # Generates a new salt (overwriting the old one, if any) and sets password

@@ -33,6 +33,9 @@ describe Opscode::Models::User do
     }
   end
 
+  let(:user_data) { @db_data }
+  let(:user)      { Opscode::Models::User.new }
+
   describe "when created without any data" do
     before do
       @user = Opscode::Models::User.new
@@ -192,33 +195,74 @@ describe Opscode::Models::User do
       end
     end
 
-    describe "after setting the password" do
-      before do
-        @user.password = 'p@ssw0rd1'
+    context "after setting the password" do
+      let(:user) do
+        Opscode::Models::User.new.tap do |u|
+          u.send(:instance_variable_set, :@hash_type, hash_type) # cheat
+          u.password = unhashed_password
+        end
       end
 
-      it "generates a random salt" do
-        @user.salt.should match(/[\w\-_]{60}/)
+      let(:unhashed_password) { 'p@ssw0rd1' }
+      let(:wrong_password)    { 'wrong!' }
+      let(:hash_type)         { nil }
+
+      context 'with Legacy SHA1 password scheme' do
+        let(:expected_password) { Digest::SHA1.hexdigest("#{user.salt}--#{unhashed_password}--") }
+
+        it "should use the LegacyPassword scheme" do
+          user.hash_strategy.class.should eql(Opscode::Models::User::LegacyPassword)
+        end
+
+        it "generates a random salt" do
+          user.salt.should match(/[\w\-_]{60}/)
+        end
+
+        it "sets the hashed password" do
+          user.hashed_password.should eql expected_password
+        end
+
+        it "has a valid password" do
+          user.valid?
+          user.errors[:password].should be_empty
+          user.errors[:hashed_password].should be_empty
+          user.errors[:salt].should be_empty
+        end
+
+        it "verifies that the correct password is correct" do
+          user.should be_correct_password(unhashed_password)
+        end
+
+        it "rejects an invalid password" do
+          user.should_not be_correct_password(wrong_password)
+        end
       end
 
-      it "sets the hashed password" do
-        expected_passwd = Digest::SHA1.hexdigest("#{@user.salt}--p@ssw0rd1--")
-        @user.hashed_password.should == expected_passwd
-      end
+      context 'with SHA1BCrypt password scheme' do
+        let(:hash_type) { Opscode::Models::User::HASH_TYPE_SHA1BCRYPT }
 
-      it "has a valid password" do
-        @user.valid?
-        @user.errors[:password].should be_empty
-        @user.errors[:hashed_password].should be_empty
-        @user.errors[:salt].should be_empty
-      end
+        it "should use the SHA1BCryptPassword scheme" do
+          user.hash_strategy.class.should eql(Opscode::Models::User::SHA1BCryptPassword)
+        end
 
-      it "verifies that the correct password is correct" do
-        @user.should be_correct_password("p@ssw0rd1")
-      end
+        it "generates a random salt" do
+          user.salt.should match(/[\w\-_]{60}/)
+        end
 
-      it "rejects an invalid password" do
-        @user.should_not be_correct_password("wrong!")
+        it "has a valid password" do
+          user.valid?
+          user.errors[:password].should be_empty
+          user.errors[:hashed_password].should be_empty
+          user.errors[:salt].should be_empty
+        end
+
+        it "verifies that the correct password is correct" do
+          user.should be_correct_password(unhashed_password)
+        end
+
+        it "rejects an invalid password" do
+          user.should_not be_correct_password(wrong_password)
+        end
       end
     end
 
@@ -323,7 +367,6 @@ describe Opscode::Models::User do
         @user.authz_id.should == "new-authz-id"
       end
     end
-
   end
 
   describe "when marked as peristed" do

@@ -101,6 +101,7 @@ module Opscode
       # in API output. They are also not directly settable.
       protected_attribute :hashed_password
       protected_attribute :salt
+      protected_attribute :hash_type
 
       protected_attribute :id
       protected_attribute :authz_id
@@ -147,6 +148,48 @@ module Opscode
       PASSWORD = 'password'.freeze
       CERTIFICATE = 'certificate'.freeze
 
+      class HashType
+        attr_reader :user
+        def initialize(user)
+          @user = user
+        end
+
+        def correct_password?(password)
+          raise "Implement correct_password?()"
+        end
+
+        def hash_password(password)
+          raise "Implement set_password()"
+        end
+      end
+
+      class LegacyPassword < HashType
+        def encrypt(unhashed_password)
+          salt = generate_salt
+          [encrypt_password(unhashed_password, salt), salt]
+        end
+
+        def correct_password?(candidate_password)
+          hashed_candidate_password = encrypt_password(candidate_password, user.salt)
+          (user.hashed_password.to_s.hex ^ hashed_candidate_password.hex) == 0
+        end
+
+        private
+
+        # Generates a 60 Char salt in URL-safe BASE64 and sets @salt to this value
+        def generate_salt
+          base64_salt = [OpenSSL::Random.random_bytes(48)].pack("m*").delete("\n")
+          # use URL-safe base64, just in case
+          base64_salt.gsub!('/','_')
+          base64_salt.gsub!('+','-')
+          base64_salt[0..59]
+        end
+
+        def encrypt_password(password, salt)
+          Digest::SHA1.hexdigest("#{salt}--#{password}--")
+        end
+      end
+
       # Assigns instance variables from "safe" params, that is ones that are
       # not defined via +protected_attribute+.
       #
@@ -186,19 +229,21 @@ module Opscode
         @certificate = new_certificate.to_s
       end
 
+      def hash_strategy
+        LegacyPassword.new(self)
+      end
+
       # Generates a new salt (overwriting the old one, if any) and sets password
       # to the salted digest of +unhashed_password+
       def password=(unhashed_password)
         @password = unhashed_password
-        generate_salt!
-        @hashed_password = encrypt_password(unhashed_password)
+        @hashed_password, @salt = hash_strategy.encrypt(unhashed_password)
       end
 
       # True if +candidate_password+'s hashed form matches the hashed_password,
       # false otherwise.
       def correct_password?(candidate_password)
-        hashed_candidate_password = encrypt_password(candidate_password)
-        (@hashed_password.to_s.hex ^ hashed_candidate_password.hex) == 0
+        hash_strategy.correct_password?(candidate_password)
       end
 
       # The User's public key. Derived from the certificate if the user has a
@@ -296,21 +341,6 @@ module Opscode
 
       def to_partial_path
         ""
-      end
-
-      private
-
-      # Generates a 60 Char salt in URL-safe BASE64 and sets @salt to this value
-      def generate_salt!
-        base64_salt = [OpenSSL::Random.random_bytes(48)].pack("m*").delete("\n")
-        # use URL-safe base64, just in case
-        base64_salt.gsub!('/','_')
-        base64_salt.gsub!('+','-')
-        @salt = base64_salt[0..59]
-      end
-
-      def encrypt_password(password)
-        Digest::SHA1.hexdigest("#{salt}--#{password}--")
       end
 
     end

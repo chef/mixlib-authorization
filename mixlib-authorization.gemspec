@@ -20,6 +20,7 @@ Gem::Specification.new do |s|
   s.add_dependency "rest-client"
 
   s.add_dependency "sequel", "~> 3.34.1"
+  s.add_dependency "bcrypt-ruby"
 
   # Pinning this to a pre-4.0.0 version.  Updating to 4.0.0+ will
   # require changes to our regular expressions; see

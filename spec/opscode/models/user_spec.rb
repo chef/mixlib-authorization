@@ -207,7 +207,7 @@ describe Opscode::Models::User do
       let(:wrong_password)    { 'wrong!' }
       let(:hash_type)         { nil }
 
-      context 'with Legacy SHA1 password scheme' do
+      context 'with legacy sha1 password scheme' do
         let(:expected_password) { Digest::SHA1.hexdigest("#{user.salt}--#{unhashed_password}--") }
 
         it "should use the LegacyPassword scheme" do
@@ -238,7 +238,7 @@ describe Opscode::Models::User do
         end
       end
 
-      context 'with SHA1BCrypt password scheme' do
+      context 'with sha1-bcrypt password scheme' do
         let(:hash_type) { Opscode::Models::User::HASH_TYPE_SHA1BCRYPT }
 
         it "should use the SHA1BCryptPassword scheme" do
@@ -247,6 +247,33 @@ describe Opscode::Models::User do
 
         it "generates a random salt" do
           user.salt.should match(/[\w\-_]{60}/)
+        end
+
+        it "has a valid password" do
+          user.valid?
+          user.errors[:password].should be_empty
+          user.errors[:hashed_password].should be_empty
+          user.errors[:salt].should be_empty
+        end
+
+        it "verifies that the correct password is correct" do
+          user.should be_correct_password(unhashed_password)
+        end
+
+        it "rejects an invalid password" do
+          user.should_not be_correct_password(wrong_password)
+        end
+      end
+
+      context 'with bcrypt password scheme' do
+        let(:hash_type) { Opscode::Models::User::HASH_TYPE_BCRYPT }
+
+        it "should use the BCryptPassword scheme" do
+          user.hash_strategy.class.should eql(Opscode::Models::User::BCryptPassword)
+        end
+
+        it "should not have a separate salt" do
+          user.salt.should be_nil
         end
 
         it "has a valid password" do

@@ -140,7 +140,7 @@ module Opscode
       validates_presence_of :password, :if => Proc.new { |user| user.requires_password? && !user.persisted? }
 
       validates_presence_of :hashed_password, :if => :requires_password?
-      validates_presence_of :salt, :if => :requires_password?
+      validates_presence_of :salt, :if => lambda { |user| user.requires_password? and !user.using_bcrypt? }
 
       validates_format_of :username, :with => /^[a-z0-9\-_]+$/, :message => "has an invalid format (valid characters are a-z, 0-9, hyphen and underscore)"
       validates_format_of :email, :with => EmailAddress, :message => "has an invalid format", :if => Proc.new { |user| user.email != nil}
@@ -220,6 +220,20 @@ module Opscode
 
       end
 
+      class BCryptPassword < HashType
+        # Instead, opscode-account should automatically convert to bcrypt on login/password change.
+        def encrypt(unhashed_password)
+          bcrypt_salt = BCrypt::Engine.generate_salt(DEFAULT_BCRYPT_COST)
+          bcrypt_secret = BCrypt::Engine.hash_secret(unhashed_password, bcrypt_salt)
+
+          [bcrypt_secret, nil]
+        end
+
+        def correct_password?(candidate_password)
+          BCrypt::Password.new(user.hashed_password.to_s) == candidate_password
+        end
+      end
+
       # Assigns instance variables from "safe" params, that is ones that are
       # not defined via +protected_attribute+.
       #
@@ -261,6 +275,8 @@ module Opscode
 
       def hash_strategy
         case hash_type
+        when HASH_TYPE_BCRYPT
+          BCryptPassword.new(self)
         when HASH_TYPE_SHA1BCRYPT
           SHA1BCryptPassword.new(self)
         when nil
@@ -303,6 +319,10 @@ module Opscode
 
       def requires_password?
         !external_authentication_enabled?
+      end
+
+      def using_bcrypt?
+        hash_type == HASH_TYPE_BCRYPT
       end
 
       # Is the password being updated? This is always true when creating a new

@@ -16,9 +16,8 @@ module Opscode
       include ActiveModel::Validations
 
       use_authz_model_class(Opscode::AuthzModels::Container)
-      
-      # not sure if this should be a ro_attribute or a protected_attribute; renames aren't allowed
-      ro_attribute :name
+
+      rw_attribute :name
       alias :containername :name
 
       protected_attribute :id

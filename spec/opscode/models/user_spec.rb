@@ -121,6 +121,10 @@ describe Opscode::Models::User do
       @user.authz_id.should be_nil
     end
 
+    it "should use hash_type of bcrypt" do
+      @user.hash_type.should eql Opscode::Models::User::HASH_TYPE_BCRYPT
+    end
+
     describe "after validating" do
       before do
         @user.valid?
@@ -746,7 +750,8 @@ describe Opscode::Models::User do
 
     it "generates a hashed password and salt" do
       @user.password.should == "p@ssw0rd1"
-      @user.salt.should_not be_nil
+      @user.hash_type.should eql Opscode::Models::User::HASH_TYPE_BCRYPT
+      @user.salt.should be_nil # bcrypt does not use the salt, and sets this to nil
       @user.hashed_password.should_not be_nil
       @user.should be_correct_password('p@ssw0rd1')
     end

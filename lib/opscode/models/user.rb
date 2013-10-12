@@ -153,6 +153,12 @@ module Opscode
       PASSWORD = 'password'.freeze
       CERTIFICATE = 'certificate'.freeze
 
+      def initialize(*args)
+        # Default set to bcrypt. Mapper will override this to whatever is persisted
+        @hash_type = HASH_TYPE_BCRYPT
+        super(*args)
+      end
+
       class HashType
         attr_reader :user
         def initialize(user)

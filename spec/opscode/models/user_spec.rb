@@ -210,6 +210,34 @@ describe Opscode::Models::User do
       let(:unhashed_password) { 'p@ssw0rd1' }
       let(:wrong_password)    { 'wrong!' }
       let(:hash_type)         { nil }
+      let(:upgraded_user)     { user.tap(&:upgrade_password!) }
+
+      def self.should_upgrade_to_bcrypt
+        describe "#upgrade_password!" do
+          it "should use the BCryptPassword scheme" do
+            upgraded_user.hash_strategy.class.should eql(Opscode::Models::User::BCryptPassword)
+          end
+
+          it "should not have a separate salt" do
+            upgraded_user.salt.should be_nil
+          end
+
+          it "has a valid password" do
+            upgraded_user.valid?
+            upgraded_user.errors[:password].should be_empty
+            upgraded_user.errors[:hashed_password].should be_empty
+            upgraded_user.errors[:salt].should be_empty
+          end
+
+          it "verifies that the correct password is correct" do
+            upgraded_user.should be_correct_password(unhashed_password)
+          end
+
+          it "rejects an invalid password" do
+            upgraded_user.should_not be_correct_password(wrong_password)
+          end
+        end
+      end
 
       context 'with legacy sha1 password scheme' do
         let(:expected_password) { Digest::SHA1.hexdigest("#{user.salt}--#{unhashed_password}--") }
@@ -240,6 +268,8 @@ describe Opscode::Models::User do
         it "rejects an invalid password" do
           user.should_not be_correct_password(wrong_password)
         end
+
+        should_upgrade_to_bcrypt
       end
 
       context 'with sha1-bcrypt password scheme' do
@@ -267,6 +297,8 @@ describe Opscode::Models::User do
         it "rejects an invalid password" do
           user.should_not be_correct_password(wrong_password)
         end
+
+        should_upgrade_to_bcrypt
       end
 
       context 'with bcrypt password scheme' do
@@ -727,9 +759,9 @@ describe Opscode::Models::User do
     end
   end
 
-  describe "when created from form data" do
-    before do
-      @form_data = {
+  context "when created from form data" do
+    let(:form_data) do
+      {
         :first_name => 'moon',
         :last_name => "polysoft",
         :middle_name => "trolol",
@@ -741,21 +773,22 @@ describe Opscode::Models::User do
         :city => "Fremont",
         :country => "USA",
         :twitter_account => "moonpolysoft",
-        :password => 'p@ssw0rd1',
+        :password => password,
         :image_file_name => 'current_status.png',
         :external_authentication_uid => "furious_dd@example.com"
       }
-      @user = Opscode::Models::User.new(@form_data)
     end
+
+    let(:user) { Opscode::Models::User.new(form_data) }
+    let(:password) { 'p@ss0rd1' }
 
     it "generates a hashed password and salt" do
-      @user.password.should == "p@ssw0rd1"
-      @user.hash_type.should eql Opscode::Models::User::HASH_TYPE_BCRYPT
-      @user.salt.should be_nil # bcrypt does not use the salt, and sets this to nil
-      @user.hashed_password.should_not be_nil
-      @user.should be_correct_password('p@ssw0rd1')
+      user.password.should == password
+      user.hash_type.should eql Opscode::Models::User::HASH_TYPE_BCRYPT
+      user.salt.should be_nil # bcrypt does not use the salt, and sets this to nil
+      user.hashed_password.should_not be_nil
+      user.should be_correct_password(password)
     end
-
   end
 
   describe "when created from form data containing a mix of string and symbol keys and extraneous data" do
@@ -901,6 +934,5 @@ describe Opscode::Models::User do
     end
 
   end
-
 
 end

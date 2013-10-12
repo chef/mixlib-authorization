@@ -292,6 +292,17 @@ module Opscode
         end
       end
 
+      # This function changes the hash_type to bcrypt and
+      # re-encrypts the password, if there is an unhashed password
+      def upgrade_password!
+        return if using_bcrypt?
+        return unless updating_password?
+        # Initiate the re-encrypt by changing the hash_type and
+        # calling #password= again
+        @hash_type = HASH_TYPE_BCRYPT
+        self.password = @password
+      end
+
       # Generates a new salt (overwriting the old one, if any) and sets password
       # to the salted digest of +unhashed_password+
       def password=(unhashed_password)

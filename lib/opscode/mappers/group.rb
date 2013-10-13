@@ -149,7 +149,13 @@ module Opscode
       end
 
       def find_by_name(name)
-        row = execute_sql(:read, :group) { table.filter(:name => name).first }
+        # Occasionally we pass a symbol in here, so to_s is used
+        row = execute_sql(:read, :group) { table.filter(:name => name.to_s).first }
+        row && inflate_model(row)
+      end
+
+      def find_by_authz_id(authz_id)
+        row = execute_sql(:read, :group) { table.filter(:authz_id => authz_id).first }
         row && inflate_model(row)
       end
 

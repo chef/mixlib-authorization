@@ -114,7 +114,7 @@ module Mixlib
         # Group. Not meant to be set anywhere else.
         attr_accessor :authz_id_mapper
         attr_accessor :mappers
-        
+
         def initialize(attributes={})
           # Remove deprecated user-side membership data--we rely exclusively on
           # authz for membership data now.

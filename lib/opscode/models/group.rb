@@ -18,7 +18,7 @@ module Opscode
       use_authz_model_class(Opscode::AuthzModels::Group)
 
       # not sure if this should be a ro_attribute or a protected_attribute; renames aren't allowed
-      ro_attribute :name
+      rw_attribute :name
       alias :groupname :name
 
       protected_attribute :id
@@ -29,16 +29,16 @@ module Opscode
       alias :requester_id :last_updated_by
 
       # this exists because the API has the org name returned in for_json
-      rw_attribute :org_name
+      attr_accessor :org_name
       alias :orgname :org_name # old groups model didn't have a '_'
       # allow viewing of group actors and groups.
-      rw_attribute :authz_id_mapper
+      attr_accessor :authz_id_mapper
 
       protected_attribute :created_at #custom reader method
       protected_attribute :updated_at #custom reader method
 
       validates_presence_of :name, :message => "must not be blank"
-      validates_format_of   :name, :with => /\A([a-zA-Z0-9\-_\.])*\z/, :message => "has an invalid format"
+      validates_format_of   :name, :with => /\A([a-z0-9\-_])+\z/, :message => "has an invalid format"
 
 
       # Returns the class object that is used for the authz side representation

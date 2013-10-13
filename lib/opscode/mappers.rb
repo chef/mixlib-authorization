@@ -22,7 +22,7 @@ module Opscode
       # * org_id::: Organization GUID
       # * stats_client::: statsd client
       # * authz_id::: AuthZ id of the actor making the request
-      MapperConfig = Struct.new(:sql, :couchdb, :amqp, :org_id, :stats_client, :authz_id, :groups_in_sql)
+      MapperConfig = Struct.new(:sql, :couchdb, :amqp, :org_id, :stats_client, :authz_id, :containers_in_sql, :groups_in_sql )
 
       # Arguments are supplied by passing a
       # block, which yields a MapperConfig object. Example:
@@ -41,6 +41,7 @@ module Opscode
       attr_reader :group
       attr_reader :opc_customer
       attr_reader :user
+      attr_reader :containers_in_sql
       attr_reader :groups_in_sql
 
       def initialize
@@ -48,6 +49,9 @@ module Opscode
         if block_given?
           yield conf
         end
+
+        @containers_in_sql = conf.containers_in_sql
+        @groups_in_sql = conf.groups_in_sql
 
         @user = Opscode::Mappers::User.new(conf.sql, conf.stats_client, conf.authz_id)
 

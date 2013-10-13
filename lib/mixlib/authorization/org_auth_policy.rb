@@ -267,8 +267,8 @@ module Mixlib
         end
 
         @requesting_actor_id = requesting_actor_id
-        @scoped_groups = Mixlib::Authorization::Models::ScopedGroup.new(@org_db, @org_db, @mappers, @couchdb_containers, @couchdb_groups)
-        @global_groups = Mixlib::Authorization::Models::ScopedGroup.new(@global_db, @org_db, @mappers, @couchdb_containers, @couchdb_groups)
+        @scoped_groups = Mixlib::Authorization::Models::ScopedGroup.new(@org_db, @org_db, @mappers)
+        @global_groups = Mixlib::Authorization::Models::ScopedGroup.new(@global_db, @org_db, @mappers)
         @org_objects = OrgObjects.new(org, @scoped_groups, requesting_actor_id, @mappers, options)
 
       end

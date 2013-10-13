@@ -15,6 +15,7 @@ module Opscode
       end
 
       attr_reader :org_id, :org_name
+      attr_accessor :authz_id_mapper
 
       # Instantiate a Mappers::Group. Arguments are supplied by passing a
       # block, which yields a MapperConfig object. Example:
@@ -164,13 +165,12 @@ module Opscode
         group = Models::Group.load(map_from_row!(row_data))
         group.persisted!
         group.org_name = @org_name
+        group.authz_id_mapper = @authz_id_mapper
         group
       end
 
       # Properties of an Opscode::Model::Group object that have their
-      # own columns in the database.  Leaving out 'admin', since
-      # that's only applicable on Open Source Chef, which doesn't use
-      # mixlib-authorization anyway.
+      # own columns in the database.
       BREAKOUT_COLUMNS = [:id, :org_id, :authz_id, :name, :last_updated_by, :created_at, :updated_at]
 
       # Map the nested hash with serialized attributes that we store in DB rows

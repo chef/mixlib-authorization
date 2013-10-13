@@ -89,6 +89,10 @@ module Opscode
                                                              group,
                                                              conf.groups_in_sql)
 
+        if !conf.org_id.nil?
+          @group.authz_id_mapper = @authz_id
+        end
+
       end
     end
   end

@@ -31,6 +31,8 @@ module Opscode
       # this exists because the API has the org name returned in for_json
       rw_attribute :org_name
       alias :orgname :org_name # old groups model didn't have a '_'
+      # allow viewing of group actors and groups.
+      rw_attribute :authz_id_mapper
 
       protected_attribute :created_at #custom reader method
       protected_attribute :updated_at #custom reader method
@@ -47,10 +49,68 @@ module Opscode
 
       def join_type
         Mixlib::Authorization::Models::JoinTypes::Group.new(Mixlib::Authorization::Config.authorization_service_uri,
-                                                                "requester_id" => last_updated_by,
-                                                                "object_id" => authz_id)
+                                                            "requester_id" => last_updated_by,
+                                                            "object_id" => authz_id)
       end
 
+      def fetch_join
+        join_type.fetch
+      end
+
+      def authz_document
+        @authz_document ||= fetch_join
+      end
+
+      ACTORS = "actors".freeze
+
+      def actor_authz_ids
+        if @actor_authz_ids.nil?
+            @actor_authz_ids = authz_document[ACTORS]
+        end
+        @actor_authz_ids
+      end
+
+      GROUPS = "groups".freeze
+
+      def group_authz_ids
+        if @group_authz_ids.nil?
+          @group_authz_ids = authz_document[GROUPS]
+        end
+        @group_authz_ids
+      end
+
+      def client_names
+        if @client_names.nil?
+          translate_actors_to_user_side!
+        end
+        @client_names
+      end
+
+      def user_names
+        if @user_names.nil?
+          translate_actors_to_user_side!
+        end
+        @user_names
+      end
+
+      def actor_names
+        client_names + user_names
+      end
+
+      def group_names
+        @group_names ||= @authz_id_mapper.group_authz_ids_to_names(group_authz_ids)
+      end
+
+      def translate_actors_to_user_side!
+        actor_names = @authz_id_mapper.actor_authz_ids_to_names(actor_authz_ids)
+        @user_names   = actor_names[:users]
+        @client_names = actor_names[:clients]
+        true
+      end
+
+      #
+      #
+      #
 
       def fetch_join_acl
         # may be mixing concerns here, since the other authz stuff
@@ -61,6 +121,107 @@ module Opscode
       def update_join_ace(type, data)
         join_type.update_ace(type,data)
       end
+
+      def authz_client
+        @authz_client ||= Mixlib::Authorization::AuthzClient.new(:groups, requester_id)
+      end
+
+      #
+      # Brought over from authorization/models/group.rb
+      # If we were planning to keep this code I'd refactor it, but...
+
+      def reconcile_memberships
+        insert_actors(@desired_actors - actor_authz_ids) if @desired_actors
+        insert_groups(@desired_groups - group_authz_ids) if @desired_groups
+
+        delete_actors(actor_authz_ids - @desired_actors) if @desired_actors
+        delete_groups(group_authz_ids - @desired_groups) if @desired_groups
+      end
+
+      def insert_actors(actor_ids_to_add)
+        actor_ids_to_add.each do |actor_id|
+          resource = authz_client.resource(authz_id, :actors, actor_id)
+          resource.put("")
+        end
+      end
+
+      def insert_groups(group_ids_to_add)
+        group_ids_to_add.each do |group_id|
+          authz_client.resource(authz_id, :groups, group_id).put("")
+        end
+      end
+
+      def delete_actors(actor_ids_to_remove)
+        actor_ids_to_remove.each do |actor_id|
+          authz_client.resource(authz_id, :actors, actor_id).delete
+        end
+      end
+
+      def delete_groups(group_ids_to_remove)
+        group_ids_to_remove.each do |group_id|
+          authz_client.resource(authz_id, :groups, group_id).delete
+        end
+      end
+
+      def translate_ids_to_authz(actor_and_group_names)
+        usernames  = actor_and_group_names["users"]    || []
+        clientnames = actor_and_group_names["clients"]  || []
+        groupnames  = actor_and_group_names["groups"]   || []
+
+        user_ids = @authz_id_mapper.user_names_to_authz_ids(usernames)
+        client_ids = @authz_id_mapper.client_names_to_authz_ids(clientnames)
+        actor_ids = user_ids + client_ids
+
+        group_ids = @authz_id_mapper.group_names_to_authz_ids(groupnames)
+
+        [actor_ids, group_ids]
+      end
+
+      def actor_and_group_names=(new_actor_and_group_names)
+#        reset!
+        @desired_actors, @desired_groups = translate_ids_to_authz(new_actor_and_group_names)
+        new_actor_and_group_names
+      end
+
+      def actor_and_group_names
+        @actor_and_group_names
+      end
+
+
+      # Uses the direct add actor API in authz instead of going
+      # through a full GET-PUT cycle. Convenient because the other interface
+      # to setting membership requires users and clients to be listed
+      # separately, but Group provides no way to read the membership in that
+      # format.
+      def add_actor(actor)
+        Mixlib::Authorization::Log.debug { "Adding actor: #{actor.inspect} to group #{self}"}
+        if actor_id = actor.authz_id
+          Mixlib::Authorization::Log.debug { "Found actor id #{actor_id} for #{actor}"}
+        else
+          raise "No actor id found for #{actor.inspect}"
+        end
+
+        authz_client.resource(authz_id, :actors, actor_id).put("")
+      end
+
+      # A backdoor to adding a group to this group without a full GET-PUT
+      # cycle. See comments for #add_actor.
+      def add_group(group)
+        unless group_authz_id = group.authz_id
+          raise ArgumentError, "No actor id for group #{group.inspect}"
+          end
+        authz_client.resource(authz_id, :groups, group_authz_id).put("")
+      end
+
+      # A backdoor to deleting a group from this group without a GET-PUT
+      # cycle. See comments for #add_actor
+      def delete_group(group)
+        unless group_authz_id = group.authz_id
+          raise ArgumentError, "No actor id for group #{group.inspect}"
+        end
+        authz_client.resource(authz_id, :groups, group_authz_id).delete
+      end
+
 
       # Assigns instance variables from "safe" params, that is ones that are
       # not defined via +protected_attribute+.
@@ -108,6 +269,10 @@ module Opscode
       # for publishing via API. Protected attributes will not be included.
       def for_json
         hash_for_json = {
+          "actors" => actor_names,
+          "users" => user_names,
+          "clients" => client_names,
+          "groups" => group_names,
           "orgname"=>org_name,
           "name"=>name,
           "groupname"=>name

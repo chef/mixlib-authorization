@@ -233,7 +233,7 @@ module Mixlib
         # what do we do about global groups here?
         # group_name =~ /\w+_global_admins$/ means that it is stored in opscode_account
         # However, in principle it could be stored in the single groups_table now...
-        if @groups_in_sql
+        if @groups_in_sql && group_name !~ /\w+_global_admins$/
           group_mapper.find_by_name(group_name)
         else
           Models::Group.on(couch_db).by_groupname(:key=>group_name).first
@@ -251,19 +251,30 @@ module Mixlib
         end
       end
 
+
+      def group_authz_id_to_name_lookup_couchdb(authz_id)
+        auth_join = AuthJoin.by_auth_object_id(:key=>authz_id).first
+        Mixlib::Authorization::Models::Group.on(couch_db).get(auth_join.user_object_id).groupname
+      end
+
+      def group_authz_id_to_name_lookup_sql(authz_id)
+        # some groups are still global; fall back to looking there; we have no way of telling from the authz id
+        name = group_mapper.find_by_authz_id(authz_id).name || group_authz_id_to_name_lookup_couchdb(authz_id)
+      end
+
       def group_authz_id_to_name_lookup(authz_id)
-        if @groups_in_sql
-          group_mapper.container.find_by_authz_id(authz_id)
-        else
-          AuthJoin.by_auth_object_id(:key=>authz_id).first
-        end
+        group = if @groups_in_sql
+                  group_authz_id_to_name_lookup_sql(authz_id)
+                else
+                  group_authz_id_to_name_lookup_couchdb(authz_id)
+                end
+        group
       end
 
       def group_authz_id_to_name(authz_id)
         if name = @group_names_by_authz_id[authz_id]
           name
-        elsif auth_join = group_authz_id_to_name_lookup(authz_id)
-          name = Mixlib::Authorization::Models::Group.on(couch_db).get(auth_join.user_object_id).groupname
+        elsif name = group_authz_id_to_name_lookup(authz_id)
           cache_group_mapping(name, authz_id)
           name
         else

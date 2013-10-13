@@ -74,7 +74,7 @@ module Mixlib
         def group(group_name)
           @groups_by_name[group_name] ||= 
             begin
-              if (@couchdb_groups)                                                 
+              if (@couchdb_groups)
                 @scoped_groups.find_by_name(group_name)
               else
                 @mappers.group.find_by_name(group_name)
@@ -288,8 +288,8 @@ module Mixlib
       def has_containers(*containers)
         containers.each do |container_name|
           debug("* Creating #{container_name} container")
-          
-          if (@couchdb_containers) 
+
+          if (@couchdb_containers)
             Models::Container.on(org_db).new( :containername => container_name.to_s,
                                               :containerpath => container_name.to_s,
                                               :requester_id  => requesting_actor_id).save!
@@ -301,7 +301,9 @@ module Mixlib
           end
         end
       end
-        
+
+      GROUPS_CONTAINER_NAME = "groups".freeze
+
       # Create the given +groups+
       def has_groups(*groups)
         groups.each do |group_name|
@@ -315,7 +317,17 @@ module Mixlib
             group = Opscode::Models::Group.new( :name => group_name.to_s,
                                                 :org_id => @org.id,
                                                 :requester_id => @requesting_actor_id)
-            @mappers.group.create(group)            
+
+            # DRY this code up, replicated elsewhere...
+            container = if @couchdb_containers
+                          cname = GROUPS_CONTAINER_NAME
+                          # groups container is always in org_db
+                          Mixlib::Authorization::Models::Container.on(org_db).by_containername(:key=>cname).first
+                        else
+                          @mappers.container.find_by_name(cname)
+                        end
+
+            @mappers.group.create(group,nil)
           end
         end
       end

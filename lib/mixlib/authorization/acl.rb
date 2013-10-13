@@ -26,7 +26,7 @@ module Mixlib
       #   Authz IDs and names, and vice versa.
       # @todo Do we ever pass a non-Hash into this?  If so, what is
       #   the type?  It looks like it'd always be a Hash...
-      def initialize(aces, authz_id_mapper)
+      def initialize(aces, authz_id_mapper=nil)
         @authz_id_mapper = authz_id_mapper
         @aces = if aces.respond_to?(:keys)
                   aces.inject({}) do |memo, ace_tuple|

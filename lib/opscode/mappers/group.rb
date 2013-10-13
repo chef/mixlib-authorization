@@ -41,7 +41,7 @@ module Opscode
 
       # Does all the work of creating a group: generates ids for it,
       # updates the timestamps, creates the object in authz, and
-      def create(group)
+      def create(group, container)
         # If the caller has already set an id, trust it.
         group.assign_id!(new_uuid) unless group.id
         group.assign_org_id!(@org_id)
@@ -52,6 +52,10 @@ module Opscode
 
         unless group.authz_id
           group.create_authz_object_as(requester_authz_id)
+          if container
+            container_authz_doc = container.authz_object_as(container.requester_id)
+            group.authz_object_as(requester_authz_id).apply_parent_acl(container_authz_doc)
+          end
         end
 
         user_side_create(group)

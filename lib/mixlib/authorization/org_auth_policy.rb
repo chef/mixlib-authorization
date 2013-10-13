@@ -260,6 +260,7 @@ module Mixlib
           m.sql = Opscode::Mappers.default_connection
           m.couchdb = @org_db
           m.org_id = org.guid
+          m.org_name = org.name
           m.stats_client = nil  ## TODO FIGURE OUT stats client
           m.authz_id = requesting_actor_id
           m.containers_in_sql = !@couchdb_containers

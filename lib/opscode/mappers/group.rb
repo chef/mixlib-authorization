@@ -11,10 +11,10 @@ module Opscode
       # * org_id::: Organization GUID
       # * stats_client::: statsd client
       # * authz_id::: AuthZ id of the actor making the request
-      class MapperConfig < Struct.new(:db, :org_id, :stats_client, :authz_id)
+      class MapperConfig < Struct.new(:db, :org_id, :org_name, :stats_client, :authz_id)
       end
 
-      attr_reader :org_id
+      attr_reader :org_id, :org_name
 
       # Instantiate a Mappers::Group. Arguments are supplied by passing a
       # block, which yields a MapperConfig object. Example:
@@ -33,6 +33,7 @@ module Opscode
 
         super(conf.db, conf.stats_client, conf.authz_id)
 
+        @org_name = conf.org_name
         @org_id = conf.org_id
         @table = @connection[:groups].filter(:org_id => @org_id)
       end
@@ -162,6 +163,7 @@ module Opscode
       def inflate_model(row_data)
         group = Models::Group.load(map_from_row!(row_data))
         group.persisted!
+        group.org_name = @org_name
         group
       end
 

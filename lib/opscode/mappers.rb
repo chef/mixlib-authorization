@@ -22,7 +22,7 @@ module Opscode
       # * org_id::: Organization GUID
       # * stats_client::: statsd client
       # * authz_id::: AuthZ id of the actor making the request
-      MapperConfig = Struct.new(:sql, :couchdb, :amqp, :org_id, :stats_client, :authz_id, :containers_in_sql, :groups_in_sql )
+      MapperConfig = Struct.new(:sql, :couchdb, :amqp, :org_id, :org_name, :stats_client, :authz_id, :containers_in_sql, :groups_in_sql )
 
       # Arguments are supplied by passing a
       # block, which yields a MapperConfig object. Example:
@@ -73,6 +73,7 @@ module Opscode
           @group = Opscode::Mappers::Group.new do |m|
             m.db = conf.sql
             m.org_id = conf.org_id
+            m.org_name = conf.org_name
             m.stats_client = conf.stats_client
             m.authz_id = conf.authz_id
           end

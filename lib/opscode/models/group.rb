@@ -28,6 +28,10 @@ module Opscode
       rw_attribute :last_updated_by
       alias :requester_id :last_updated_by
 
+      # this exists because the API has the org name returned in for_json
+      rw_attribute :org_name
+      alias :orgname :org_name # old groups model didn't have a '_'
+
       protected_attribute :created_at #custom reader method
       protected_attribute :updated_at #custom reader method
 
@@ -104,6 +108,8 @@ module Opscode
       # for publishing via API. Protected attributes will not be included.
       def for_json
         hash_for_json = {
+          "orgname"=>org_name,
+          "name"=>name,
           "groupname"=>name
         }
       end

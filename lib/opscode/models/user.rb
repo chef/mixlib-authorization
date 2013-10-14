@@ -17,7 +17,7 @@ module Opscode
     class User < Base
 
       DEFAULT_BCRYPT_COST = 12
-      HASH_TYPE_SHA1BCRYPT = 'sha1-bcrypt'
+      HASH_TYPE_SHA1BCRYPT = 'SHA1-bcrypt'
       HASH_TYPE_BCRYPT     = 'bcrypt'
 
       include ActiveModel::Validations
@@ -232,7 +232,9 @@ module Opscode
           bcrypt_salt = BCrypt::Engine.generate_salt(DEFAULT_BCRYPT_COST)
           bcrypt_secret = BCrypt::Engine.hash_secret(unhashed_password, bcrypt_salt)
 
-          [bcrypt_secret, nil]
+          # The database contains triggers that require hashed_password, salt, and hash_type
+          # to all be non-null if any of the three are non-null.
+          [bcrypt_secret, '']
         end
 
         def correct_password?(candidate_password)

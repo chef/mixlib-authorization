@@ -218,8 +218,12 @@ describe Opscode::Models::User do
             upgraded_user.hash_strategy.class.should eql(Opscode::Models::User::BCryptPassword)
           end
 
+          # The database currently contains a trigger checking that,
+          # if any of hashed_password, salt, or hash_type are non-null,
+          # all three must be non-null.
           it "should not have a separate salt" do
-            upgraded_user.salt.should be_nil
+            upgraded_user.salt.should_not be_nil
+            upgraded_user.salt.should be_empty
           end
 
           it "has a valid password" do
@@ -308,8 +312,12 @@ describe Opscode::Models::User do
           user.hash_strategy.class.should eql(Opscode::Models::User::BCryptPassword)
         end
 
+        # The database currently contains a trigger checking that,
+        # if any of hashed_password, salt, or hash_type are non-null,
+        # all three must be non-null.
         it "should not have a separate salt" do
-          user.salt.should be_nil
+          user.salt.should_not be_nil
+          user.salt.should be_empty
         end
 
         it "has a valid password" do
@@ -785,7 +793,11 @@ describe Opscode::Models::User do
     it "generates a hashed password and salt" do
       user.password.should == password
       user.hash_type.should eql Opscode::Models::User::HASH_TYPE_BCRYPT
-      user.salt.should be_nil # bcrypt does not use the salt, and sets this to nil
+
+      # bcrypt does not use the salt column, and sets this to empty string
+      user.salt.should_not be_nil
+      user.salt.should be_empty
+
       user.hashed_password.should_not be_nil
       user.should be_correct_password(password)
     end

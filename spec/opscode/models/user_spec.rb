@@ -24,6 +24,7 @@ describe Opscode::Models::User do
       :twitter_account => "moonpolysoft",
       :hashed_password => "some hex bits",
       :salt => "some random bits",
+      :hash_type => nil,
       :image_file_name => 'current_status.png',
       :external_authentication_uid => "furious_dd@example.com",
       :recovery_authentication_enabled => false,
@@ -513,6 +514,47 @@ describe Opscode::Models::User do
 
     it "has a password salt" do
       user.salt.should == "some random bits"
+    end
+
+    it "has a hash_type of nil" do
+      user.hash_type.should be_nil
+    end
+
+    # Tests to see hash_type gets overriden properly when loading
+    context 'when hash_type is' do
+      let(:db_data) { @db_data.dup.merge(modifications) }
+      let(:modifications) do
+        {
+          :hash_type => hash_type,
+          :salt => salt
+        }
+      end
+
+      context Opscode::Models::User::HASH_TYPE_SHA1BCRYPT do
+        let(:hash_type) { Opscode::Models::User::HASH_TYPE_SHA1BCRYPT }
+        let(:salt) { "something" }
+
+        it 'should have a salt' do
+          user.salt.should eql salt
+        end
+
+        it 'should have the correct hash_type' do
+          user.hash_type.should eql hash_type
+        end
+      end
+
+      context Opscode::Models::User::HASH_TYPE_BCRYPT do
+        let(:hash_type) { Opscode::Models::User::HASH_TYPE_BCRYPT }
+        let(:salt) { "" }
+
+        it 'should have an empty salt' do
+          user.salt.should be_empty
+        end
+
+        it 'should have the correct hash_type' do
+          user.hash_type.should eql hash_type
+        end
+      end
     end
 
     it "has an image file" do

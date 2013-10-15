@@ -159,6 +159,13 @@ module Opscode
         super(*args)
       end
 
+      # Override self.load to make a special case for hash_type
+      def self.load(params)
+        super(params).tap do |user|
+          user.send(:instance_variable_set, :@hash_type, params[:hash_type])
+        end
+      end
+
       class HashType
         attr_reader :user
         def initialize(user)

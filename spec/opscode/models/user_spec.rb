@@ -33,7 +33,7 @@ describe Opscode::Models::User do
     }
   end
 
-  let(:user_data) { @db_data }
+  let(:db_data)   { @db_data }
   let(:user)      { Opscode::Models::User.new }
 
   describe "when created without any data" do
@@ -452,100 +452,98 @@ describe Opscode::Models::User do
   end
 
   describe "when created from database params" do
-    before do
-      @user = Opscode::Models::User.load(@db_data)
-    end
+    let(:user) { Opscode::Models::User.load(db_data) }
 
     it "has a database id" do
-      @user.id.should == "123abc"
+      user.id.should == "123abc"
     end
 
     it "has an actor id" do
-      @user.authz_id.should == "abc123"
+      user.authz_id.should == "abc123"
     end
 
     it "has a first name" do
-      @user.first_name.should == "moon"
+      user.first_name.should == "moon"
     end
 
     it "has a last name" do
-      @user.last_name.should == "polysoft"
+      user.last_name.should == "polysoft"
     end
 
     it "has a middle name" do
-      @user.middle_name.should == "trolol"
+      user.middle_name.should == "trolol"
     end
 
     it "has a display name" do
-      @user.display_name.should == "problem?"
+      user.display_name.should == "problem?"
     end
 
     it "has an email address" do
-      @user.email.should == "trolol@example.com"
+      user.email.should == "trolol@example.com"
     end
 
     it "has a public key extracted from its certificate" do
-      @user.public_key.to_s.should == SAMPLE_CERT_KEY
+      user.public_key.to_s.should == SAMPLE_CERT_KEY
     end
 
     it "has a certificate" do
-      @user.certificate.should == SAMPLE_CERT
+      user.certificate.should == SAMPLE_CERT
     end
 
     it "has a city" do
       # http://en.wikipedia.org/wiki/File:FremontTroll.jpg
-      @user.city.should == "Fremont"
+      user.city.should == "Fremont"
     end
 
     it "has a country" do
-      @user.country.should == "USA"
+      user.country.should == "USA"
     end
 
     it "has a twitter account" do
-      @user.twitter_account.should == "moonpolysoft"
+      user.twitter_account.should == "moonpolysoft"
     end
 
     it "has an empty password field" do
-      @user.password.should be_nil
+      user.password.should be_nil
     end
 
     it "has a hashed password" do
-      @user.hashed_password.should == "some hex bits"
+      user.hashed_password.should == "some hex bits"
     end
 
     it "has a password salt" do
-      @user.salt.should == "some random bits"
+      user.salt.should == "some random bits"
     end
 
     it "has an image file" do
-      @user.image_file_name.should == "current_status.png"
+      user.image_file_name.should == "current_status.png"
     end
 
     it "has an external authentication uid" do
-      @user.external_authentication_uid.should == "furious_dd@example.com"
+      user.external_authentication_uid.should == "furious_dd@example.com"
     end
 
     it "local recovery authenticaiton should be disabled" do
-      @user.recovery_authentication_enabled.should be_false
+      user.recovery_authentication_enabled.should be_false
     end
 
     it "gives the created_at timestamp as a time object" do
-      @user.created_at.should be_a_kind_of(Time)
-      @user.created_at.to_i.should be_within(1).of(@now.to_i)
+      user.created_at.should be_a_kind_of(Time)
+      user.created_at.to_i.should be_within(1).of(@now.to_i)
     end
 
     it "gives the updated_at timestamp as a time object" do
-      @user.updated_at.should be_a_kind_of(Time)
-      @user.updated_at.to_i.should be_within(1).of(@now.to_i)
+      user.updated_at.should be_a_kind_of(Time)
+      user.updated_at.to_i.should be_within(1).of(@now.to_i)
     end
 
     it "is == to another user object with the same data" do
       copy = Opscode::Models::User.load(@db_data)
-      @user.should == copy
+      user.should == copy
     end
 
     it "is == to another user object with the same data but timestamps truncated to 1s resolution" do
-      very_close_data = @db_data.dup
+      very_close_data = db_data.dup
       very_close_data[:created_at] = Time.at(@now.to_i).utc.to_s
       very_close_data[:updated_at] = Time.at(@now.to_i).utc.to_s
       very_close_user = Opscode::Models::User.load(very_close_data)
@@ -554,20 +552,20 @@ describe Opscode::Models::User do
       very_close_user.created_at
       very_close_user.updated_at
 
-      @user.should == very_close_user
+      user.should == very_close_user
     end
 
     it "is not == to another user object if any of the data is different" do
       [:id, :authz_id, :first_name, :middle_name, :last_name, :username, :display_name, :hashed_password, :salt, :twitter_account].each do |attr_name|
-        not_quite_data = @db_data.dup
+        not_quite_data = db_data.dup
         not_quite_data[attr_name] += "nope"
         not_quite = Opscode::Models::User.load(not_quite_data)
-        @user.should_not == not_quite
+        user.should_not == not_quite
       end
     end
 
     it "converts to a hash for JSONification" do
-      user_as_a_hash = @user.for_json
+      user_as_a_hash = user.for_json
       user_as_a_hash.should be_a_kind_of(Hash)
       user_as_a_hash[:city].should == "Fremont"
       user_as_a_hash[:image_file_name].should == "current_status.png"
@@ -599,14 +597,14 @@ describe Opscode::Models::User do
 
     it "can update the password from params" do
       new_data = {:password => "opensesame"}
-      @user.update_from_params(new_data)
-      @user.should be_correct_password("opensesame")
+      user.update_from_params(new_data)
+      user.should be_correct_password("opensesame")
     end
 
     it "can update the certificate from params" do
       new_data = {:certificate => ALTERNATE_CERT}
-      @user.update_from_params(new_data)
-      @user.certificate.should == ALTERNATE_CERT
+      user.update_from_params(new_data)
+      user.certificate.should == ALTERNATE_CERT
     end
 
   end

@@ -2,7 +2,7 @@ require 'spec_helper'
 
 include Fixtures
 
-describe Opscode::Models::User, :pending => 'Users are in Erlang now' do
+describe Opscode::Models::User do
 
   it_should_behave_like("an active model")
 
@@ -24,6 +24,7 @@ describe Opscode::Models::User, :pending => 'Users are in Erlang now' do
       :twitter_account => "moonpolysoft",
       :hashed_password => "some hex bits",
       :salt => "some random bits",
+      :hash_type => nil,
       :image_file_name => 'current_status.png',
       :external_authentication_uid => "furious_dd@example.com",
       :recovery_authentication_enabled => false,
@@ -32,6 +33,9 @@ describe Opscode::Models::User, :pending => 'Users are in Erlang now' do
 
     }
   end
+
+  let(:db_data)   { @db_data }
+  let(:user)      { Opscode::Models::User.new }
 
   describe "when created without any data" do
     before do
@@ -118,6 +122,10 @@ describe Opscode::Models::User, :pending => 'Users are in Erlang now' do
       @user.authz_id.should be_nil
     end
 
+    it "should use hash_type of bcrypt" do
+      @user.hash_type.should eql Opscode::Models::User::HASH_TYPE_BCRYPT
+    end
+
     describe "after validating" do
       before do
         @user.valid?
@@ -192,33 +200,141 @@ describe Opscode::Models::User, :pending => 'Users are in Erlang now' do
       end
     end
 
-    describe "after setting the password" do
-      before do
-        @user.password = 'p@ssw0rd1'
+    context "after setting the password" do
+      let(:user) do
+        Opscode::Models::User.new.tap do |u|
+          u.send(:instance_variable_set, :@hash_type, hash_type) # cheat
+          u.password = unhashed_password
+        end
       end
 
-      it "generates a random salt" do
-        @user.salt.should match(/[\w\-_]{60}/)
+      let(:unhashed_password) { 'p@ssw0rd1' }
+      let(:wrong_password)    { 'wrong!' }
+      let(:hash_type)         { nil }
+      let(:upgraded_user)     { user.tap(&:upgrade_password!) }
+
+      def self.should_upgrade_to_bcrypt
+        describe "#upgrade_password!" do
+          it "should use the BCryptPassword scheme" do
+            upgraded_user.hash_strategy.class.should eql(Opscode::Models::User::BCryptPassword)
+          end
+
+          # The database currently contains a trigger checking that,
+          # if any of hashed_password, salt, or hash_type are non-null,
+          # all three must be non-null.
+          it "should not have a separate salt" do
+            upgraded_user.salt.should_not be_nil
+            upgraded_user.salt.should be_empty
+          end
+
+          it "has a valid password" do
+            upgraded_user.valid?
+            upgraded_user.errors[:password].should be_empty
+            upgraded_user.errors[:hashed_password].should be_empty
+            upgraded_user.errors[:salt].should be_empty
+          end
+
+          it "verifies that the correct password is correct" do
+            upgraded_user.should be_correct_password(unhashed_password)
+          end
+
+          it "rejects an invalid password" do
+            upgraded_user.should_not be_correct_password(wrong_password)
+          end
+        end
       end
 
-      it "sets the hashed password" do
-        expected_passwd = Digest::SHA1.hexdigest("#{@user.salt}--p@ssw0rd1--")
-        @user.hashed_password.should == expected_passwd
+      context 'with legacy sha1 password scheme' do
+        let(:expected_password) { Digest::SHA1.hexdigest("#{user.salt}--#{unhashed_password}--") }
+
+        it "should use the LegacyPassword scheme" do
+          user.hash_strategy.class.should eql(Opscode::Models::User::LegacyPassword)
+        end
+
+        it "generates a random salt" do
+          user.salt.should match(/[\w\-_]{60}/)
+        end
+
+        it "sets the hashed password" do
+          user.hashed_password.should eql expected_password
+        end
+
+        it "has a valid password" do
+          user.valid?
+          user.errors[:password].should be_empty
+          user.errors[:hashed_password].should be_empty
+          user.errors[:salt].should be_empty
+        end
+
+        it "verifies that the correct password is correct" do
+          user.should be_correct_password(unhashed_password)
+        end
+
+        it "rejects an invalid password" do
+          user.should_not be_correct_password(wrong_password)
+        end
+
+        should_upgrade_to_bcrypt
       end
 
-      it "has a valid password" do
-        @user.valid?
-        @user.errors[:password].should be_empty
-        @user.errors[:hashed_password].should be_empty
-        @user.errors[:salt].should be_empty
+      context 'with sha1-bcrypt password scheme' do
+        let(:hash_type) { Opscode::Models::User::HASH_TYPE_SHA1BCRYPT }
+
+        it "should use the SHA1BCryptPassword scheme" do
+          user.hash_strategy.class.should eql(Opscode::Models::User::SHA1BCryptPassword)
+        end
+
+        it "generates a random salt" do
+          user.salt.should match(/[\w\-_]{60}/)
+        end
+
+        it "has a valid password" do
+          user.valid?
+          user.errors[:password].should be_empty
+          user.errors[:hashed_password].should be_empty
+          user.errors[:salt].should be_empty
+        end
+
+        it "verifies that the correct password is correct" do
+          user.should be_correct_password(unhashed_password)
+        end
+
+        it "rejects an invalid password" do
+          user.should_not be_correct_password(wrong_password)
+        end
+
+        should_upgrade_to_bcrypt
       end
 
-      it "verifies that the correct password is correct" do
-        @user.should be_correct_password("p@ssw0rd1")
-      end
+      context 'with bcrypt password scheme' do
+        let(:hash_type) { Opscode::Models::User::HASH_TYPE_BCRYPT }
 
-      it "rejects an invalid password" do
-        @user.should_not be_correct_password("wrong!")
+        it "should use the BCryptPassword scheme" do
+          user.hash_strategy.class.should eql(Opscode::Models::User::BCryptPassword)
+        end
+
+        # The database currently contains a trigger checking that,
+        # if any of hashed_password, salt, or hash_type are non-null,
+        # all three must be non-null.
+        it "should not have a separate salt" do
+          user.salt.should_not be_nil
+          user.salt.should be_empty
+        end
+
+        it "has a valid password" do
+          user.valid?
+          user.errors[:password].should be_empty
+          user.errors[:hashed_password].should be_empty
+          user.errors[:salt].should be_empty
+        end
+
+        it "verifies that the correct password is correct" do
+          user.should be_correct_password(unhashed_password)
+        end
+
+        it "rejects an invalid password" do
+          user.should_not be_correct_password(wrong_password)
+        end
       end
     end
 
@@ -323,7 +439,6 @@ describe Opscode::Models::User, :pending => 'Users are in Erlang now' do
         @user.authz_id.should == "new-authz-id"
       end
     end
-
   end
 
   describe "when marked as peristed" do
@@ -338,100 +453,139 @@ describe Opscode::Models::User, :pending => 'Users are in Erlang now' do
   end
 
   describe "when created from database params" do
-    before do
-      @user = Opscode::Models::User.load(@db_data)
-    end
+    let(:user) { Opscode::Models::User.load(db_data) }
 
     it "has a database id" do
-      @user.id.should == "123abc"
+      user.id.should == "123abc"
     end
 
     it "has an actor id" do
-      @user.authz_id.should == "abc123"
+      user.authz_id.should == "abc123"
     end
 
     it "has a first name" do
-      @user.first_name.should == "moon"
+      user.first_name.should == "moon"
     end
 
     it "has a last name" do
-      @user.last_name.should == "polysoft"
+      user.last_name.should == "polysoft"
     end
 
     it "has a middle name" do
-      @user.middle_name.should == "trolol"
+      user.middle_name.should == "trolol"
     end
 
     it "has a display name" do
-      @user.display_name.should == "problem?"
+      user.display_name.should == "problem?"
     end
 
     it "has an email address" do
-      @user.email.should == "trolol@example.com"
+      user.email.should == "trolol@example.com"
     end
 
     it "has a public key extracted from its certificate" do
-      @user.public_key.to_s.should == SAMPLE_CERT_KEY
+      user.public_key.to_s.should == SAMPLE_CERT_KEY
     end
 
     it "has a certificate" do
-      @user.certificate.should == SAMPLE_CERT
+      user.certificate.should == SAMPLE_CERT
     end
 
     it "has a city" do
       # http://en.wikipedia.org/wiki/File:FremontTroll.jpg
-      @user.city.should == "Fremont"
+      user.city.should == "Fremont"
     end
 
     it "has a country" do
-      @user.country.should == "USA"
+      user.country.should == "USA"
     end
 
     it "has a twitter account" do
-      @user.twitter_account.should == "moonpolysoft"
+      user.twitter_account.should == "moonpolysoft"
     end
 
     it "has an empty password field" do
-      @user.password.should be_nil
+      user.password.should be_nil
     end
 
     it "has a hashed password" do
-      @user.hashed_password.should == "some hex bits"
+      user.hashed_password.should == "some hex bits"
     end
 
     it "has a password salt" do
-      @user.salt.should == "some random bits"
+      user.salt.should == "some random bits"
+    end
+
+    it "has a hash_type of nil" do
+      user.hash_type.should be_nil
+    end
+
+    # Tests to see hash_type gets overriden properly when loading
+    context 'when hash_type is' do
+      let(:db_data) { @db_data.dup.merge(modifications) }
+      let(:modifications) do
+        {
+          :hash_type => hash_type,
+          :salt => salt
+        }
+      end
+
+      context Opscode::Models::User::HASH_TYPE_SHA1BCRYPT do
+        let(:hash_type) { Opscode::Models::User::HASH_TYPE_SHA1BCRYPT }
+        let(:salt) { "something" }
+
+        it 'should have a salt' do
+          user.salt.should eql salt
+        end
+
+        it 'should have the correct hash_type' do
+          user.hash_type.should eql hash_type
+        end
+      end
+
+      context Opscode::Models::User::HASH_TYPE_BCRYPT do
+        let(:hash_type) { Opscode::Models::User::HASH_TYPE_BCRYPT }
+        let(:salt) { "" }
+
+        it 'should have an empty salt' do
+          user.salt.should be_empty
+        end
+
+        it 'should have the correct hash_type' do
+          user.hash_type.should eql hash_type
+        end
+      end
     end
 
     it "has an image file" do
-      @user.image_file_name.should == "current_status.png"
+      user.image_file_name.should == "current_status.png"
     end
 
     it "has an external authentication uid" do
-      @user.external_authentication_uid.should == "furious_dd@example.com"
+      user.external_authentication_uid.should == "furious_dd@example.com"
     end
 
     it "local recovery authenticaiton should be disabled" do
-      @user.recovery_authentication_enabled.should be_false
+      user.recovery_authentication_enabled.should be_false
     end
 
     it "gives the created_at timestamp as a time object" do
-      @user.created_at.should be_a_kind_of(Time)
-      @user.created_at.to_i.should be_within(1).of(@now.to_i)
+      user.created_at.should be_a_kind_of(Time)
+      user.created_at.to_i.should be_within(1).of(@now.to_i)
     end
 
     it "gives the updated_at timestamp as a time object" do
-      @user.updated_at.should be_a_kind_of(Time)
-      @user.updated_at.to_i.should be_within(1).of(@now.to_i)
+      user.updated_at.should be_a_kind_of(Time)
+      user.updated_at.to_i.should be_within(1).of(@now.to_i)
     end
 
     it "is == to another user object with the same data" do
       copy = Opscode::Models::User.load(@db_data)
-      @user.should == copy
+      user.should == copy
     end
 
     it "is == to another user object with the same data but timestamps truncated to 1s resolution" do
-      very_close_data = @db_data.dup
+      very_close_data = db_data.dup
       very_close_data[:created_at] = Time.at(@now.to_i).utc.to_s
       very_close_data[:updated_at] = Time.at(@now.to_i).utc.to_s
       very_close_user = Opscode::Models::User.load(very_close_data)
@@ -440,20 +594,20 @@ describe Opscode::Models::User, :pending => 'Users are in Erlang now' do
       very_close_user.created_at
       very_close_user.updated_at
 
-      @user.should == very_close_user
+      user.should == very_close_user
     end
 
     it "is not == to another user object if any of the data is different" do
       [:id, :authz_id, :first_name, :middle_name, :last_name, :username, :display_name, :hashed_password, :salt, :twitter_account].each do |attr_name|
-        not_quite_data = @db_data.dup
+        not_quite_data = db_data.dup
         not_quite_data[attr_name] += "nope"
         not_quite = Opscode::Models::User.load(not_quite_data)
-        @user.should_not == not_quite
+        user.should_not == not_quite
       end
     end
 
     it "converts to a hash for JSONification" do
-      user_as_a_hash = @user.for_json
+      user_as_a_hash = user.for_json
       user_as_a_hash.should be_a_kind_of(Hash)
       user_as_a_hash[:city].should == "Fremont"
       user_as_a_hash[:image_file_name].should == "current_status.png"
@@ -485,14 +639,14 @@ describe Opscode::Models::User, :pending => 'Users are in Erlang now' do
 
     it "can update the password from params" do
       new_data = {:password => "opensesame"}
-      @user.update_from_params(new_data)
-      @user.should be_correct_password("opensesame")
+      user.update_from_params(new_data)
+      user.should be_correct_password("opensesame")
     end
 
     it "can update the certificate from params" do
       new_data = {:certificate => ALTERNATE_CERT}
-      @user.update_from_params(new_data)
-      @user.certificate.should == ALTERNATE_CERT
+      user.update_from_params(new_data)
+      user.certificate.should == ALTERNATE_CERT
     end
 
   end
@@ -653,9 +807,9 @@ describe Opscode::Models::User, :pending => 'Users are in Erlang now' do
     end
   end
 
-  describe "when created from form data" do
-    before do
-      @form_data = {
+  context "when created from form data" do
+    let(:form_data) do
+      {
         :first_name => 'moon',
         :last_name => "polysoft",
         :middle_name => "trolol",
@@ -667,20 +821,26 @@ describe Opscode::Models::User, :pending => 'Users are in Erlang now' do
         :city => "Fremont",
         :country => "USA",
         :twitter_account => "moonpolysoft",
-        :password => 'p@ssw0rd1',
+        :password => password,
         :image_file_name => 'current_status.png',
         :external_authentication_uid => "furious_dd@example.com"
       }
-      @user = Opscode::Models::User.new(@form_data)
     end
+
+    let(:user) { Opscode::Models::User.new(form_data) }
+    let(:password) { 'p@ss0rd1' }
 
     it "generates a hashed password and salt" do
-      @user.password.should == "p@ssw0rd1"
-      @user.salt.should_not be_nil
-      @user.hashed_password.should_not be_nil
-      @user.should be_correct_password('p@ssw0rd1')
-    end
+      user.password.should == password
+      user.hash_type.should eql Opscode::Models::User::HASH_TYPE_BCRYPT
 
+      # bcrypt does not use the salt column, and sets this to empty string
+      user.salt.should_not be_nil
+      user.salt.should be_empty
+
+      user.hashed_password.should_not be_nil
+      user.should be_correct_password(password)
+    end
   end
 
   describe "when created from form data containing a mix of string and symbol keys and extraneous data" do
@@ -826,6 +986,5 @@ describe Opscode::Models::User, :pending => 'Users are in Erlang now' do
     end
 
   end
-
 
 end

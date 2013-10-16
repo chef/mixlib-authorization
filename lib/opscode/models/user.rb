@@ -2,10 +2,12 @@
 # ^^ is needed for the email address regex to work properly
 require 'openssl'
 require 'digest/sha2'
+require 'bcrypt'
 require 'active_model'
 require 'active_model/validations'
 
 require 'opscode/models/base'
+
 
 module Opscode
   module Models
@@ -14,6 +16,9 @@ module Opscode
 
     class User < Base
 
+      DEFAULT_BCRYPT_COST = 12
+      HASH_TYPE_SHA1BCRYPT = 'SHA1-bcrypt'
+      HASH_TYPE_BCRYPT     = 'bcrypt'
 
       include ActiveModel::Validations
 
@@ -101,6 +106,7 @@ module Opscode
       # in API output. They are also not directly settable.
       protected_attribute :hashed_password
       protected_attribute :salt
+      protected_attribute :hash_type
 
       protected_attribute :id
       protected_attribute :authz_id
@@ -134,7 +140,7 @@ module Opscode
       validates_presence_of :password, :if => Proc.new { |user| user.requires_password? && !user.persisted? }
 
       validates_presence_of :hashed_password, :if => :requires_password?
-      validates_presence_of :salt, :if => :requires_password?
+      validates_presence_of :salt, :if => lambda { |user| user.requires_password? and !user.using_bcrypt? }
 
       validates_format_of :username, :with => /^[a-z0-9\-_]+$/, :message => "has an invalid format (valid characters are a-z, 0-9, hyphen and underscore)"
       validates_format_of :email, :with => EmailAddress, :message => "has an invalid format", :if => Proc.new { |user| user.email != nil}
@@ -146,6 +152,102 @@ module Opscode
 
       PASSWORD = 'password'.freeze
       CERTIFICATE = 'certificate'.freeze
+
+      def initialize(*args)
+        # Default set to bcrypt. Mapper will override this to whatever is persisted
+        @hash_type = HASH_TYPE_BCRYPT
+        super(*args)
+      end
+
+      # Override self.load to make a special case for hash_type
+      def self.load(params)
+        super(params).tap do |user|
+          user.send(:instance_variable_set, :@hash_type, params[:hash_type])
+        end
+      end
+
+      class HashType
+        attr_reader :user
+        def initialize(user)
+          @user = user
+        end
+
+        def correct_password?(password)
+          raise "Implement correct_password?()"
+        end
+
+        def hash_password(password)
+          raise "Implement set_password()"
+        end
+      end
+
+      class LegacyPassword < HashType
+        def encrypt(unhashed_password)
+          salt = generate_salt
+          [encrypt_password(unhashed_password, salt), salt]
+        end
+
+        def correct_password?(candidate_password)
+          hashed_candidate_password = encrypt_password(candidate_password, user.salt)
+          (user.hashed_password.to_s.hex ^ hashed_candidate_password.hex) == 0
+        end
+
+        # Generates a 60 Char salt in URL-safe BASE64 and sets @salt to this value
+        def generate_salt
+          base64_salt = [OpenSSL::Random.random_bytes(48)].pack("m*").delete("\n")
+          # use URL-safe base64, just in case
+          base64_salt.gsub!('/','_')
+          base64_salt.gsub!('+','-')
+          base64_salt[0..59]
+        end
+
+        private
+
+        def encrypt_password(password, salt)
+          Digest::SHA1.hexdigest("#{salt}--#{password}--")
+        end
+      end
+
+      class SHA1BCryptPassword < HashType
+        # Instead, opscode-account should automatically convert to bcrypt on login/password change.
+        def encrypt(unhashed_password)
+          bcrypt_salt = BCrypt::Engine.generate_salt(DEFAULT_BCRYPT_COST)
+          sha1_salt = user.salt || LegacyPassword.new(user).generate_salt
+
+          # Wrap legacy password inside a bcrypt hash
+          sha1_hashed_password = sha1_encrypt_password(unhashed_password, sha1_salt)
+          bcrypt_secret = BCrypt::Engine.hash_secret(sha1_hashed_password, bcrypt_salt)
+
+          [bcrypt_secret, sha1_salt]
+        end
+
+        def correct_password?(candidate_password)
+          BCrypt::Password.new(user.hashed_password.to_s) == sha1_encrypt_password(candidate_password, user.salt)
+        end
+
+        private
+        def sha1_encrypt_password(password, salt)
+          Digest::SHA1.hexdigest("#{salt}--#{password}--")
+        end
+        # This is defined more as a way to test it. In production, this method should never be called.
+
+      end
+
+      class BCryptPassword < HashType
+        # Instead, opscode-account should automatically convert to bcrypt on login/password change.
+        def encrypt(unhashed_password)
+          bcrypt_salt = BCrypt::Engine.generate_salt(DEFAULT_BCRYPT_COST)
+          bcrypt_secret = BCrypt::Engine.hash_secret(unhashed_password, bcrypt_salt)
+
+          # The database contains triggers that require hashed_password, salt, and hash_type
+          # to all be non-null if any of the three are non-null.
+          [bcrypt_secret, '']
+        end
+
+        def correct_password?(candidate_password)
+          BCrypt::Password.new(user.hashed_password.to_s) == candidate_password
+        end
+      end
 
       # Assigns instance variables from "safe" params, that is ones that are
       # not defined via +protected_attribute+.
@@ -186,19 +288,41 @@ module Opscode
         @certificate = new_certificate.to_s
       end
 
+      def hash_strategy
+        case hash_type
+        when HASH_TYPE_BCRYPT
+          BCryptPassword.new(self)
+        when HASH_TYPE_SHA1BCRYPT
+          SHA1BCryptPassword.new(self)
+        when nil
+          LegacyPassword.new(self)
+        else
+          raise 'Unimplemented hash type'
+        end
+      end
+
+      # This function changes the hash_type to bcrypt and
+      # re-encrypts the password, if there is an unhashed password
+      def upgrade_password!
+        return if using_bcrypt?
+        return unless updating_password?
+        # Initiate the re-encrypt by changing the hash_type and
+        # calling #password= again
+        @hash_type = HASH_TYPE_BCRYPT
+        self.password = @password
+      end
+
       # Generates a new salt (overwriting the old one, if any) and sets password
       # to the salted digest of +unhashed_password+
       def password=(unhashed_password)
         @password = unhashed_password
-        generate_salt!
-        @hashed_password = encrypt_password(unhashed_password)
+        @hashed_password, @salt = hash_strategy.encrypt(unhashed_password)
       end
 
       # True if +candidate_password+'s hashed form matches the hashed_password,
       # false otherwise.
       def correct_password?(candidate_password)
-        hashed_candidate_password = encrypt_password(candidate_password)
-        (@hashed_password.to_s.hex ^ hashed_candidate_password.hex) == 0
+        hash_strategy.correct_password?(candidate_password)
       end
 
       # The User's public key. Derived from the certificate if the user has a
@@ -221,6 +345,10 @@ module Opscode
 
       def requires_password?
         !external_authentication_enabled?
+      end
+
+      def using_bcrypt?
+        hash_type == HASH_TYPE_BCRYPT
       end
 
       # Is the password being updated? This is always true when creating a new
@@ -294,19 +422,8 @@ module Opscode
         super
       end
 
-      private
-
-      # Generates a 60 Char salt in URL-safe BASE64 and sets @salt to this value
-      def generate_salt!
-        base64_salt = [OpenSSL::Random.random_bytes(48)].pack("m*").delete("\n")
-        # use URL-safe base64, just in case
-        base64_salt.gsub!('/','_')
-        base64_salt.gsub!('+','-')
-        @salt = base64_salt[0..59]
-      end
-
-      def encrypt_password(password)
-        Digest::SHA1.hexdigest("#{salt}--#{password}--")
+      def to_partial_path
+        ""
       end
 
     end

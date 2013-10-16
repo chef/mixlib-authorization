@@ -18,6 +18,8 @@ module Opscode
 
           # Upgrade to bcrypt whenever a user logs in
           unless user.using_bcrypt?
+            # upgrade_password! needs the plaintext password
+            user.password = password
             user.upgrade_password!
             @user_mapper.update(user)
           end

@@ -15,6 +15,15 @@ module Opscode
           unless user && user.correct_password?(password)
             raise AccessDeniedException, "Username and password incorrect"
           end
+
+          # Upgrade to bcrypt whenever a user logs in
+          unless user.using_bcrypt?
+            # upgrade_password! needs the plaintext password
+            user.password = password
+            user.upgrade_password!
+            @user_mapper.update(user)
+          end
+
           user.for_json
         end
 

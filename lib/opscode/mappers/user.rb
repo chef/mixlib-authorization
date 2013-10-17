@@ -6,12 +6,14 @@ module Opscode
     class User < Base
 
       # These properties of a Model::User have their own columns in the
-      # database. There are also columns for cert/private key but these are
-      # mapped in a special way.
+      # database. There are also columns for cert/private key and passwords
+      # but these are # mapped in a special way.
       BREAKOUT_COLUMNS = [:id, :authz_id, :username, :email,
                           :external_authentication_uid,
                           :recovery_authentication_enabled, :created_at, :updated_at,
                           :last_updated_by]
+
+      PASSWORD_COLUMNS = [:hashed_password, :salt, :hash_type]
 
       # Create a record in the database representing +user+ which is expected
       # to be a Models::User object.
@@ -285,7 +287,7 @@ module Opscode
           row_data[:public_key] = user_data.delete(:certificate)
         end
 
-        BREAKOUT_COLUMNS.each do |property_name|
+        breakout_columns(user_data).each do |property_name|
           row_data[property_name] = user_data.delete(property_name) if user_data.key?(property_name)
         end
 
@@ -312,11 +314,22 @@ module Opscode
           model_data.merge!(from_json(serialized_data))
         end
 
-        BREAKOUT_COLUMNS.each do |property_name|
+        breakout_columns(row_data).each do |property_name|
           model_data[property_name] = row_data.delete(property_name) if row_data.key?(property_name)
         end
 
         model_data
+      end
+
+      # If we have someting in hash_type, then this SQL record has password
+      # data deserialized. We want to use what is in the columns and ignore
+      # password data in serialized_data, if any.
+      def breakout_columns(authoritative_data)
+        if authoritative_data[:hash_type]
+          BREAKOUT_COLUMNS + PASSWORD_COLUMNS
+        else
+          BREAKOUT_COLUMNS
+        end
       end
 
 

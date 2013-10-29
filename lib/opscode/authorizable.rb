@@ -7,6 +7,7 @@ module Opscode
   module AuthzModels
     Actor = Mixlib::Authorization::Models::JoinTypes::Actor
     Container = Mixlib::Authorization::Models::JoinTypes::Container
+    Group = Mixlib::Authorization::Models::JoinTypes::Group
   end
 
   # This mixin provides an adapter layer for Models to have a representation in
@@ -96,4 +97,3 @@ module Opscode
 
   end
 end
-

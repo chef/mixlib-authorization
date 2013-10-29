@@ -34,8 +34,10 @@ module Mixlib
       class ScopedGroup
         attr_reader :group_db
         attr_reader :authz_id_mapper
+        # This is very horrible stuff.
+        # This exists to pass information on through to container_helper save_inherited_acl
+        # TODO: Think of a better way than perpetrating this mess.
         attr_reader :mappers
-        attr_reader :couchdb_containers
 
         # Create a ScopedGroup
         # === Arguments
@@ -45,11 +47,10 @@ module Mixlib
         #   it's the same.
         # * user_mapper::: An Opscode::Mappers::User object
         # * client_mapper::: NOT IMPLEMENTED YET
-        def initialize(group_db, org_db, mappers, couchdb_containers)
+        def initialize(group_db, org_db, mappers)
           @group_db = group_db
           @org_db = org_db
           @mappers = mappers
-          @couchdb_containers = couchdb_containers
           @authz_id_mapper = mappers.authz_id
         end
 
@@ -64,7 +65,6 @@ module Mixlib
           group && group.database = group_db
           group && group.authz_id_mapper = authz_id_mapper
           group && group.mappers = mappers
-          group && group.couchdb_containers = couchdb_containers
           group
         end
 
@@ -75,7 +75,6 @@ module Mixlib
           group.database = group_db
           group.authz_id_mapper = authz_id_mapper
           group.mappers = mappers
-          group.couchdb_containers = couchdb_containers
           group.actor_and_group_names = actor_and_group_names if actor_and_group_names
           group
         end
@@ -115,8 +114,7 @@ module Mixlib
         # Group. Not meant to be set anywhere else.
         attr_accessor :authz_id_mapper
         attr_accessor :mappers
-        attr_accessor :couchdb_containers
-        
+
         def initialize(attributes={})
           # Remove deprecated user-side membership data--we rely exclusively on
           # authz for membership data now.

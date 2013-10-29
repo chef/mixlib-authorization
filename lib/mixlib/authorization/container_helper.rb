@@ -13,7 +13,7 @@ module Mixlib
 
       def save_inherited_acl
         org_database = database_from_orgname(self.orgname)
-        self.class.instance_variable_get("@container_helper_acl_merger").call(self,org_database, self.mappers, self.couchdb_containers)
+        self.class.instance_variable_get("@container_helper_acl_merger").call(self,org_database, self.mappers)
       end
 
       def self.included(klass)
@@ -22,10 +22,10 @@ module Mixlib
 
       module ClassMethods
         ## TODO Refactor (this replicates stuff in application.rb)
-        def get_container(name, org_database, mappers, couchdb_containers) 
+        def get_container(name, org_database, mappers)
           ## organizations and users remain in couchdb
           Mixlib::Authorization::Log.debug { "Getting container #{name} (#{@couchdb_containers})" }
-          if (couchdb_containers || name == "organizations" || name == "users")
+          if (!mappers.containers_in_sql || name == "organizations" || name == "users")
             Mixlib::Authorization::Models::Container.on(org_database).by_containerpath(:key=>name).first
           else
             mappers.container.find_by_name(name)
@@ -36,15 +36,15 @@ module Mixlib
           parent_name ||= "#{self.to_s.downcase.split("::").last}s"
           Mixlib::Authorization::Log.debug "calling inherit_acl: parent_name: #{parent_name}"
 
-          @container_helper_acl_merger = Proc.new { |sender, org_database, mappers, couchdb_containers|
+          @container_helper_acl_merger = Proc.new { |sender, org_database, mappers|
             begin
               authz_id_mapper = mappers.authz_id
-              container = get_container(parent_name, org_database, mappers, couchdb_containers)
-              Mixlib::Authorization::Log.debug { "CALLING ACL MERGER: sender: #{sender.inspect}, parent_name: #{parent_name}, org_database: #{org_database}, container: #{container.inspect}" }
+              container = get_container(parent_name, org_database, mappers)
+              Mixlib::Authorization::Log.debug { "CALLING ACL MERGER: sender: #{sender.inspect}, parent_name: #{parent_name}, org_database: #{org_database}, container: #{container.inspect} (#{parent_name})" }
               # Retries are silly; this should go away
               if container.nil?
                 Mixlib::Authorization::Log.error "CALLING ACL MERGER: sender: #{sender.inspect}, parent_name: #{parent_name}, org_database: #{org_database}, container: #{container.inspect}"
-                try_again = get_container(parent_name, org_database, mappers, couchdb_containers)
+                try_again = get_container(parent_name, org_database, mappers)
                 Mixlib::Authorization::Log.error "Did a retry work? #{try_again.inspect}"
                 raise Mixlib::Authorization::AuthorizationError, "failed to find parent #{parent_name} for ACL inheritance"
               end

@@ -1,7 +1,5 @@
 # encoding: binary
-# ^^ is needed for the email address regex to work properly
-require 'openssl'
-require 'digest/sha2'
+
 require 'active_model'
 require 'active_model/validations'
 
@@ -178,7 +176,6 @@ module Opscode
       end
 
       def actor_and_group_names=(new_actor_and_group_names)
-#        reset!
         @desired_actors, @desired_groups = translate_ids_to_authz(new_actor_and_group_names)
         new_actor_and_group_names
       end

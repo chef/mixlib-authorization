@@ -114,7 +114,7 @@ module Opscode
           end
         end
       rescue Sequel::DatabaseError => e
-        log_exception("User update failed", e)
+        log_exception("Group update failed", e)
         self.class.query_failed!(e.message)
       end
 
@@ -192,7 +192,6 @@ module Opscode
       end
 
       def map_to_row!(model_data)
-#        model_data[:last_updated_by] = requester_aid
         model_data
       end
 

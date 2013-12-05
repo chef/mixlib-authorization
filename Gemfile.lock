@@ -30,6 +30,16 @@ GIT
       rest-client (>= 0.5)
 
 GIT
+  remote: git://github.com/opscode/rest-client.git
+  revision: cd6a6aa3d1062e12120e7b61ece36e26f408d91c
+  branch: ma/ipv6
+  specs:
+    rest-client (1.7.0.alpha)
+      mime-types (>= 1.16)
+      netrc (~> 0.7.7)
+      rdoc (>= 2.4.2)
+
+GIT
   remote: git@github.com:opscode/opscode-shared
   revision: f533ae22d34ce1a003fcd2c189497f0154334fda
   branch: master
@@ -87,6 +97,7 @@ GEM
     net-ssh-multi (1.1)
       net-ssh (>= 2.1.4)
       net-ssh-gateway (>= 0.99.0)
+    netrc (0.7.7)
     ohai (6.18.0)
       ipaddress
       mixlib-cli
@@ -98,8 +109,8 @@ GEM
     pg (0.16.0)
     polyglot (0.3.3)
     rake (10.1.0)
-    rest-client (1.6.7)
-      mime-types (>= 1.16)
+    rdoc (4.0.1)
+      json (~> 1.4)
     rspec (2.14.1)
       rspec-core (~> 2.14.0)
       rspec-expectations (~> 2.14.0)
@@ -130,5 +141,6 @@ DEPENDENCIES
   opscode-dark-launch!
   pg (~> 0.16.0)
   rake
+  rest-client!
   rspec
   uuid

@@ -64,18 +64,9 @@ module Mixlib
       end
 
       def gen_cert(guid, rid=nil)
-        Mixlib::Authorization::Log.debug "auth_helper.rb: certificate_service_uri is #{Mixlib::Authorization::Config.certificate_service_uri}"
-
-        #common name is in the format of: "URI:http://opscode.com/GUIDS/...."
-        common_name = "URI:http://opscode.com/GUIDS/#{guid}"
-
-        response = JSON.parse(RestClient.post Mixlib::Authorization::Config.certificate_service_uri, :common_name => common_name)
-
-        #certificate
-        cert = OpenSSL::X509::Certificate.new(response["cert"])
-        #private key
-        key = OpenSSL::PKey::RSA.new(response["keypair"])
-        [cert, key]
+        Mixlib::Authorization::Log.debug "inline RSA keygen"
+        keypair = OpenSSL::PKey::RSA.generate(2048)
+        [keypair.public_key, keypair]
       rescue => e
         se_backtrace = e.backtrace.join("\n")
         Mixlib::Authorization::Log.error "Exception in gen_cert: #{e}\n#{se_backtrace}"

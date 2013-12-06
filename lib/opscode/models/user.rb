@@ -152,6 +152,7 @@ module Opscode
 
       PASSWORD = 'password'.freeze
       CERTIFICATE = 'certificate'.freeze
+      PUBLIC_KEY = 'public_key'.freeze
 
       def initialize(*args)
         # Default set to bcrypt. Mapper will override this to whatever is persisted
@@ -273,6 +274,10 @@ module Opscode
           self.certificate = params.delete(:certificate) || params.delete(CERTIFICATE)
         end
 
+        if params.key?(:public_key) || params.key?(PUBLIC_KEY)
+          self.public_key = params.delete(:public_key) || params.delete(PUBLIC_KEY)
+        end
+
         params.each do |attr, value|
           if ivar = self.class.model_attributes[attr.to_s]
             instance_variable_set(ivar, params[attr])
@@ -286,6 +291,12 @@ module Opscode
         # if the user *had* a public key, nuke it.
         @public_key = nil
         @certificate = new_certificate.to_s
+      end
+
+      def public_key=(key)
+        # if user had a certificate, nuke it.
+        @certificate = nil
+        @public_key = key.to_s
       end
 
       def hash_strategy

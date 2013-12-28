@@ -114,13 +114,12 @@ module Opscode
       protected_attribute :updated_at #custom reader method
       protected_attribute :last_updated_by
 
-      # Public key is shown in API output, this is handled in the controller.
-      # We want to make sure to ignore this when passed in from API input.
-      # BUGBUG: we _could_ decide it's a good idea to let users set their own
-      # keys. But in that case we should require that they provide a
-      # certificate.
-      protected_attribute :public_key
-      protected_attribute :certificate
+      # As of 2013-12 we are switching back to generating simple RSA
+      # key pairs for users and clients in EC rather than
+      # certificates. We want to maintain back compat with users and
+      # clients that have an existing certificate.
+      rw_attribute :public_key
+      rw_attribute :certificate
 
       attr_reader :password # with a custom setter below
 
@@ -165,6 +164,13 @@ module Opscode
         super(params).tap do |user|
           user.send(:instance_variable_set, :@hash_type, params[:hash_type])
         end
+      end
+
+      def for_json
+        hash_for_json = super
+        hash_for_json[:public_key] ||= public_key
+        hash_for_json.delete(:certificate)
+        hash_for_json
       end
 
       class HashType
@@ -270,17 +276,31 @@ module Opscode
           self.password = params.delete(:password) || params.delete(PASSWORD)
         end
 
-        if params.key?(:certificate) || params.key?(CERTIFICATE)
-          self.certificate = params.delete(:certificate) || params.delete(CERTIFICATE)
-        end
-
-        if params.key?(:public_key) || params.key?(PUBLIC_KEY)
-          self.public_key = params.delete(:public_key) || params.delete(PUBLIC_KEY)
-        end
+        self.set_cert_or_key(params)
 
         params.each do |attr, value|
           if ivar = self.class.model_attributes[attr.to_s]
             instance_variable_set(ivar, params[attr])
+          end
+        end
+      end
+
+      # Set certificate or public key data. The database has a single
+      # column "public_key" mapping to certificate here which may
+      # container either a certificate or a public key.
+      def set_cert_or_key(params)
+        key_data = if params.key?(:certificate) || params.key?(CERTIFICATE)
+                     params.delete(:certificate) || params.delete(CERTIFICATE)
+                   elsif params.key?(:public_key) || params.key?(PUBLIC_KEY)
+                     params.delete(:public_key) || params.delete(PUBLIC_KEY)
+                   else
+                     nil
+                   end
+        if key_data
+          if key_data.index("BEGIN PUBLIC KEY")
+            self.public_key = key_data
+          elsif key_data.index("BEGIN CERTIFICATE")
+            self.certificate = key_data
           end
         end
       end

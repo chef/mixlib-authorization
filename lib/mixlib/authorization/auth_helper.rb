@@ -64,8 +64,10 @@ module Mixlib
       end
 
       def gen_cert(guid, rid=nil)
-        Mixlib::Authorization::Log.debug "inline RSA keygen"
-        keypair = OpenSSL::PKey::RSA.generate(2048)
+        key_cache_url = Mixlib::Authorization::Config.certificate_service_uri + "/key_pair"
+        Mixlib::Authorization::Log.debug "key pair via key cache at: #{key_cache_url}"
+        response = JSON.parse(RestClient.post(key_cache_url, {}))
+        keypair = OpenSSL::PKey::RSA.new(response['private_key'])
         [keypair.public_key, keypair]
       rescue => e
         se_backtrace = e.backtrace.join("\n")

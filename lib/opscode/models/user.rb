@@ -168,7 +168,12 @@ module Opscode
 
       def for_json
         hash_for_json = super
-        hash_for_json[:public_key] ||= public_key
+        # normalize to emit public key, but don't add a public_key
+        # field mapping to nil (used by degenerate
+        # /organizations/$org/users/ API via
+        # Mappers::Users#find_all_by_id).
+        pub_key = public_key
+        (hash_for_json[:public_key] ||= public_key) if pub_key
         hash_for_json.delete(:certificate)
         hash_for_json
       end

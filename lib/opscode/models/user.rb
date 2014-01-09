@@ -307,6 +307,9 @@ module Opscode
             self.public_key = key_data
           elsif key_data.index("BEGIN CERTIFICATE")
             self.certificate = key_data
+          else
+            # the key_data is bogus and will be caught by user model validation.
+            self.public_key = key_data
           end
         end
       end
@@ -329,6 +332,7 @@ module Opscode
         case hash_type
         when HASH_TYPE_BCRYPT
           BCryptPassword.new(self)
+
         when HASH_TYPE_SHA1BCRYPT
           SHA1BCryptPassword.new(self)
         when nil
@@ -423,12 +427,18 @@ module Opscode
       # or else if *both* a certificate *and* a public_key are present (which
       # is ambiguous)
       def certificate_or_pubkey_present
-        # must use the @public_key instance var b/c the getter method will
-        # return the cert's public key for compat reasons
-        if certificate.nil? && @public_key.nil?
+        user_key = public_key rescue nil
+        if user_key.nil?
           errors.add(:credentials, "must have a certificate or public key")
-        elsif certificate && @public_key # should never have BOTH
-          errors.add(:credentials, "cannot have both a certificate and public key")
+          return
+        end
+        begin
+          pub_key = OpenSSL::PKey::RSA.new(user_key.to_s)
+          if pub_key.n.num_bytes * 8 < 2048
+            errors.add(:credentials, "public key must be 2048 bits or greater")
+          end
+        rescue Exception => e
+          errors.add(:credentials, "invalid public key")
         end
       end
 

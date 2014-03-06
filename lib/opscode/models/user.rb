@@ -155,7 +155,8 @@ module Opscode
 
       def initialize(*args)
         # Default set to bcrypt. Mapper will override this to whatever is persisted
-        @hash_type = HASH_TYPE_BCRYPT
+        @hash_type = external_authentication_enabled? ? nil : HASH_TYPE_BCRYPT
+
         super(*args)
       end
 

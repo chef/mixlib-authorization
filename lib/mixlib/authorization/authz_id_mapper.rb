@@ -259,7 +259,8 @@ module Mixlib
 
       def group_authz_id_to_name_lookup_sql(authz_id)
         # some groups are still global; fall back to looking there; we have no way of telling from the authz id
-        name = group_mapper.find_by_authz_id(authz_id).name || group_authz_id_to_name_lookup_couchdb(authz_id)
+        local_group = group_mapper.find_by_authz_id(authz_id)
+        name = (local_group && local_group.name) || group_authz_id_to_name_lookup_couchdb(authz_id)
       end
 
       def group_authz_id_to_name_lookup(authz_id)

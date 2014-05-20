@@ -232,7 +232,7 @@ module Opscode
           model_data[property_name] = row_data.delete(property_name) if row_data.key?(property_name)
         end
 
-        Merb.logger.info("Client Model Data is: #{model_data}")
+        #Merb.logger.info("Client Model Data is: #{model_data}")
 
         model_data
       end

@@ -251,10 +251,10 @@ module Mixlib
         end
       end
 
-
+      # returns nil if the group referenced by authz_id is not found
       def group_authz_id_to_name_lookup_couchdb(authz_id)
         auth_join = AuthJoin.by_auth_object_id(:key=>authz_id).first
-        Mixlib::Authorization::Models::Group.on(couch_db).get(auth_join.user_object_id).groupname
+        auth_join && Mixlib::Authorization::Models::Group.on(couch_db).get(auth_join.user_object_id).groupname
       end
 
       def group_authz_id_to_name_lookup_sql(authz_id)

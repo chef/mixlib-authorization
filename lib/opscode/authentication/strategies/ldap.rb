@@ -16,6 +16,7 @@ module Opscode
         # The LDAP attribute holding the user's login name. Typically in Active
         # Directory it will be ``sAMAccountName``, while in OpenLDAP it is ``uid``.
         attr_reader :login_attribute
+        attr_reader :group_expression
 
         # Supported encryption methods include:
         #
@@ -33,6 +34,7 @@ module Opscode
           @bind_password = options[:bind_password]
           @base_dn = options[:base_dn]
           @login_attribute = (options[:login_attribute] || 'samaccountname').downcase
+          @group_expression = options[:group_expression]
 
           if options[:encryption]
             if SUPPORTED_ENCRYPTION_METHODS.include?(options[:encryption])
@@ -46,13 +48,25 @@ valid values include [#{SUPPORTED_ENCRYPTION_METHODS.join(', ')}]."
           super()
         end
 
+        #Build searches against both groups and directly in a list of users
+        def build_filter(login)
+
+          if @group_expression
+             user_expression = @login_attribute + "=" + login
+             Net::LDAP::Filter.construct("(&(#{@group_expression})(#{user_expression}))")
+          else
+             Net::LDAP::Filter.eq(@login_attribute, login)
+          end
+
+        end
+
         # perform authentication via a bind against the configured LDAP instance
         # returns the underlying LDAP entry
         def authenticate(login, password)
 
           begin
-            client.search(:base => base_dn,
-              :filter => Net::LDAP::Filter.eq(login_attribute, login), :size => 1) do |entry|
+
+                client.search(:base => base_dn, :filter => build_filter(login), :size => 1) do |entry|
 
               # attempt to authenticate as user
               unless client.bind_as(:base => base_dn, :filter => "(#{@login_attribute}=#{login})", :password => password)

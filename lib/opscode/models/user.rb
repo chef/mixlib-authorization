@@ -114,13 +114,12 @@ module Opscode
       protected_attribute :updated_at #custom reader method
       protected_attribute :last_updated_by
 
-      # Public key is shown in API output, this is handled in the controller.
-      # We want to make sure to ignore this when passed in from API input.
-      # BUGBUG: we _could_ decide it's a good idea to let users set their own
-      # keys. But in that case we should require that they provide a
-      # certificate.
-      protected_attribute :public_key
-      protected_attribute :certificate
+      # As of 2013-12 we are switching back to generating simple RSA
+      # key pairs for users and clients in EC rather than
+      # certificates. We want to maintain back compat with users and
+      # clients that have an existing certificate.
+      rw_attribute :public_key
+      rw_attribute :certificate
 
       attr_reader :password # with a custom setter below
 
@@ -152,6 +151,7 @@ module Opscode
 
       PASSWORD = 'password'.freeze
       CERTIFICATE = 'certificate'.freeze
+      PUBLIC_KEY = 'public_key'.freeze
 
       def initialize(*args)
         # Default set to bcrypt. Mapper will override this to whatever is persisted
@@ -165,6 +165,18 @@ module Opscode
         super(params).tap do |user|
           user.send(:instance_variable_set, :@hash_type, params[:hash_type])
         end
+      end
+
+      def for_json
+        hash_for_json = super
+        # normalize to emit public key, but don't add a public_key
+        # field mapping to nil (used by degenerate
+        # /organizations/$org/users/ API via
+        # Mappers::Users#find_all_by_id).
+        pub_key = public_key
+        (hash_for_json[:public_key] ||= public_key) if pub_key
+        hash_for_json.delete(:certificate)
+        hash_for_json
       end
 
       class HashType
@@ -270,13 +282,34 @@ module Opscode
           self.password = params.delete(:password) || params.delete(PASSWORD)
         end
 
-        if params.key?(:certificate) || params.key?(CERTIFICATE)
-          self.certificate = params.delete(:certificate) || params.delete(CERTIFICATE)
-        end
+        self.set_cert_or_key(params)
 
         params.each do |attr, value|
           if ivar = self.class.model_attributes[attr.to_s]
             instance_variable_set(ivar, params[attr])
+          end
+        end
+      end
+
+      # Set certificate or public key data. The database has a single
+      # column "public_key" mapping to certificate here which may
+      # container either a certificate or a public key.
+      def set_cert_or_key(params)
+        key_data = if params.key?(:certificate) || params.key?(CERTIFICATE)
+                     params.delete(:certificate) || params.delete(CERTIFICATE)
+                   elsif params.key?(:public_key) || params.key?(PUBLIC_KEY)
+                     params.delete(:public_key) || params.delete(PUBLIC_KEY)
+                   else
+                     nil
+                   end
+        if key_data
+          if key_data.index("BEGIN PUBLIC KEY")
+            self.public_key = key_data
+          elsif key_data.index("BEGIN CERTIFICATE")
+            self.certificate = key_data
+          else
+            # the key_data is bogus and will be caught by user model validation.
+            self.public_key = key_data
           end
         end
       end
@@ -289,10 +322,17 @@ module Opscode
         @certificate = new_certificate.to_s
       end
 
+      def public_key=(key)
+        # if user had a certificate, nuke it.
+        @certificate = nil
+        @public_key = key.to_s
+      end
+
       def hash_strategy
         case hash_type
         when HASH_TYPE_BCRYPT
           BCryptPassword.new(self)
+
         when HASH_TYPE_SHA1BCRYPT
           SHA1BCryptPassword.new(self)
         when nil
@@ -387,12 +427,18 @@ module Opscode
       # or else if *both* a certificate *and* a public_key are present (which
       # is ambiguous)
       def certificate_or_pubkey_present
-        # must use the @public_key instance var b/c the getter method will
-        # return the cert's public key for compat reasons
-        if certificate.nil? && @public_key.nil?
+        user_key = public_key rescue nil
+        if user_key.nil?
           errors.add(:credentials, "must have a certificate or public key")
-        elsif certificate && @public_key # should never have BOTH
-          errors.add(:credentials, "cannot have both a certificate and public key")
+          return
+        end
+        begin
+          pub_key = OpenSSL::PKey::RSA.new(user_key.to_s)
+          if pub_key.n.num_bytes * 8 < 2048
+            errors.add(:credentials, "public key must be 2048 bits or greater")
+          end
+        rescue Exception => e
+          errors.add(:credentials, "invalid public key")
         end
       end
 

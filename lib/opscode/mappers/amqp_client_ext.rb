@@ -1,5 +1,5 @@
 require 'singleton'
-require 'chef/index_queue/amqp_client'
+require 'amqp_client'
 
 # Patch Chef AMQP Client to add easier transactions.
 class Chef::IndexQueue::AmqpClient

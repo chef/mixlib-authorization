@@ -24,8 +24,10 @@ gem "rspec"
 
 gem "rest-client", :git => "git://github.com/opscode/rest-client.git", :branch => 'master'
 gem "couchrest", :git => "git://github.com/opscode/couchrest.git"
-gem "chef", :git => "git://github.com/opscode/chef.git", :branch => "pl-master", :require => false # load individual parts as needed
+gem "chef", '~> 17.7', :require => false # load individual parts as needed
 gem "opscode-dark-launch", :git => "git@github.com:opscode/opscode-shared", :branch => "master"
+gem "yajl-ruby"
+gem "bunny"
 
 # authentication strategies
 gem "net-ldap", "~> 0.2.2"

@@ -19,7 +19,7 @@ Gem::Specification.new do |s|
   s.add_dependency "mixlib-config"
   s.add_dependency "rest-client"
 
-  s.add_dependency "sequel", "~> 3.34.1"
+  s.add_dependency "sequel", "~> 5.52.0"
   s.add_dependency "bcrypt-ruby"
 
   # Pinning this to a pre-4.0.0 version.  Updating to 4.0.0+ will
@@ -27,7 +27,7 @@ Gem::Specification.new do |s|
   # https://github.com/rails/rails/blob/4-0-stable/activemodel/CHANGELOG.md
   # (last entry) and
   # http://edgeguides.rubyonrails.org/security.html#regular-expressions.
-  s.add_dependency "activemodel", "~> 3.2.2"
+  s.add_dependency "activemodel", "~> 6.1.4.4"
 
   s.require_path = 'lib'
   s.files = %w(LICENSE README.rdoc Rakefile NOTICE) + Dir.glob("{lib,spec,features}/**/*")

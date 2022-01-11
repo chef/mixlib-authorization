@@ -69,7 +69,7 @@ module Opscode
         obs_domain = "#{atom}([.]#{atom})*"
         domain = "(?:#{dot_atom}|#{domain_literal}|#{obs_domain})"
         addr_spec = "#{local_part}\@#{domain}"
-        pattern = /^#{addr_spec}$/
+        pattern = /\\A#{addr_spec}\\z/
       end
 
       use_authz_model_class(Opscode::AuthzModels::Actor)
@@ -142,7 +142,7 @@ module Opscode
       validates_presence_of :hashed_password, :if => :requires_password?
       validates_presence_of :salt, :if => lambda { |user| user.requires_password? and !user.using_bcrypt? }
 
-      validates_format_of :username, :with => /^[a-z0-9\-_]+$/, :message => "has an invalid format (valid characters are a-z, 0-9, hyphen and underscore)"
+      validates_format_of :username, :with => /\\A[a-z0-9\-_]+\\z/, :message => "has an invalid format (valid characters are a-z, 0-9, hyphen and underscore)"
       validates_format_of :email, :with => EmailAddress, :message => "has an invalid format", :if => Proc.new { |user| user.email != nil}
 
       validates_length_of :password, :within => 6..50, :message => 'must be between 6 and 50 characters', :if => :updating_password?
